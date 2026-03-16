@@ -116,3 +116,17 @@ event-quote/
 5. **에러 확인**
    - API 실패 시 서버 로그에 `[라우트명]` 컨텍스트로 로그 출력되는지 확인 (logError 사용)
    - 로그인 실패 시 `/auth?error=...` 에서 개발 모드일 때 error/errorDescription 노출 여부 확인
+
+### Vercel 운영 배포 전 체크리스트
+
+- **환경 변수 (Vercel Settings → Environment Variables)**  
+  `NEXTAUTH_URL`, `NEXTAUTH_SECRET`, `GOOGLE_CLIENT_ID`, `GOOGLE_CLIENT_SECRET` 필수. AI 사용 시 `ANTHROPIC_API_KEY` 또는 `OPENAI_API_KEY` 추가. 상세는 [docs/AUTH_ENV.md](docs/AUTH_ENV.md) 참고.
+- **Google 리디렉션 URI**  
+  Google Cloud Console → 사용자 인증 정보 → 승인된 리디렉션 URI에  
+  `https://<배포도메인>/api/auth/callback/google` 등록 (로컬: `http://localhost:3000/api/auth/callback/google`).
+- **빌드**  
+  `npx tsc --noEmit` → `npm run build` 성공 확인 후 배포.
+- **로그인 테스트 순서**  
+  배포 URL → `/auth` → "Google로 로그인" → 인증 후 콜백(홈 또는 callbackUrl) 이동 확인.
+- **배포 후 첫 점검**  
+  `/auth` 로그인 성공 → `/settings` 또는 `/generate` 접근 가능 여부 확인. API 키 없으면 `/generate`는 에러 메시지로 안내됨.

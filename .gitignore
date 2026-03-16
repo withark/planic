@@ -3,3 +3,10 @@
 node_modules
 .next
 tsconfig.tsbuildinfo
+
+# 산출물/테스트 (커밋 제외)
+test-results
+trace.zip
+repomix-output.md
+*.log
+.DS_Store

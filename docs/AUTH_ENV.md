@@ -39,3 +39,12 @@ Google Cloud Console에서 "승인된 리디렉션 URI"에 다음을 등록:
 
 3. **Production / Preview / Development** 에서 필요한 환경에 체크 후 Save.
 4. 재배포 후 로그인 동작 확인.
+
+## 환경 변수 누락 시 증상 (참고)
+
+| 변수 | 누락 시 대표 증상 |
+|------|-------------------|
+| `NEXTAUTH_URL` | 콜백 후 리다이렉트 오류, 세션 쿠키 도메인 불일치 |
+| `NEXTAUTH_SECRET` | 세션 암호화 실패, NextAuth 경고/에러 |
+| `GOOGLE_CLIENT_ID` | Google 로그인 버튼 클릭 시 "client_id is required" 등 OAuth 에러 |
+| `GOOGLE_CLIENT_SECRET` | Google 인증 후 콜백 단계에서 토큰 교환 실패 |

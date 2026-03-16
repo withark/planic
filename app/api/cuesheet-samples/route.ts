@@ -7,6 +7,7 @@ import {
 } from '@/lib/storage'
 import { uid } from '@/lib/calc'
 import type { CuesheetSample } from '@/lib/types'
+import { CuesheetSamplesSchema } from '@/lib/schemas/cuesheet-samples'
 import { logError } from '@/lib/utils/logger'
 
 const ALLOWED_EXT = ['pdf', 'xlsx', 'xls', 'png', 'jpg', 'jpeg', 'gif', 'webp', 'txt', 'csv', 'md', 'ppt', 'pptx', 'doc', 'docx']
@@ -40,8 +41,9 @@ export async function POST(req: NextRequest) {
       uploadedAt: new Date().toISOString(),
       ext,
     }
-    list.push(sample)
-    writeCuesheetSamples(list)
+    const nextList = [...list, sample]
+    const parsed = CuesheetSamplesSchema.parse(nextList) as CuesheetSample[]
+    writeCuesheetSamples(parsed)
 
     return NextResponse.json({ ok: true, id, filename })
   } catch (e) {
@@ -60,7 +62,9 @@ export async function DELETE(req: NextRequest) {
     if (!item) return NextResponse.json({ error: '샘플을 찾을 수 없습니다.' }, { status: 404 })
 
     deleteCuesheetSampleFile(item.id, item.ext)
-    writeCuesheetSamples(list.filter((s) => s.id !== id))
+    const nextList = list.filter((s) => s.id !== id)
+    const parsed = CuesheetSamplesSchema.parse(nextList) as CuesheetSample[]
+    writeCuesheetSamples(parsed)
     return NextResponse.json({ ok: true })
   } catch (e) {
     logError('cuesheet-samples:DELETE', e)
