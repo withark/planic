@@ -1,13 +1,5 @@
-node_modules/
-.next/
-.env.local
-data/
-*.log
 .env
 .env.local
 node_modules
 .next
-.env
-.env.local
-node_modules
-.next
+tsconfig.tsbuildinfo
