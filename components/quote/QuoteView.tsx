@@ -17,7 +17,7 @@ export default function QuoteView({ doc, onChange, companyName }: Props) {
 
   function updateItem(ci: number, ii: number, key: string, val: string | number) {
     const updated = structuredClone(doc)
-    ;(updated.quoteItems[ci].items[ii] as Record<string,unknown>)[key] = val
+    ;(updated.quoteItems[ci].items[ii] as any)[key] = val
     onChange(updated)
   }
   function deleteItem(ci: number, ii: number) {
@@ -30,7 +30,8 @@ export default function QuoteView({ doc, onChange, companyName }: Props) {
     KIND_ORDER.forEach(k => map.set(k, []))
     doc.quoteItems.forEach((cat, ci) => {
       cat.items.forEach((item, ii) => {
-        const k = (item.kind === '선택' ? '선택1' : item.kind) || '필수'
+        const rawKind = item.kind as string | undefined
+        const k = (rawKind === '선택' ? '선택1' : rawKind) || '필수'
         const kind = KIND_ORDER.includes(k as QuoteItemKind) ? (k as QuoteItemKind) : '필수'
         map.get(kind)!.push({ ci, ii, item })
       })

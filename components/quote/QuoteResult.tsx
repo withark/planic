@@ -47,7 +47,7 @@ export function QuoteResult({ doc, companySettings, prices = [], onChange, onReg
 
   function updLine(ci: number, ii: number, k: string, v: string | number) {
     const d2 = structuredClone(doc)
-    ;(d2.quoteItems[ci].items[ii] as Record<string, unknown>)[k] = v
+    ;(d2.quoteItems[ci].items[ii] as any)[k] = v
     onChange(d2)
   }
 
@@ -57,7 +57,8 @@ export function QuoteResult({ doc, companySettings, prices = [], onChange, onReg
     KIND_ORDER.forEach(k => map.set(k, []))
     doc.quoteItems.forEach((cat, ci) => {
       cat.items.forEach((item, ii) => {
-        const k = (item.kind === '선택' ? '선택1' : item.kind) || '필수'
+        const rawKind = item.kind as string | undefined
+        const k = rawKind || '필수'
         const kind = KIND_ORDER.includes(k as QuoteItemKind) ? (k as QuoteItemKind) : '필수'
         map.get(kind)!.push({ ci, ii, item })
       })
@@ -312,7 +313,7 @@ export function QuoteResult({ doc, companySettings, prices = [], onChange, onReg
                               <span className="flex items-center gap-0.5">
                                 <select
                                   title="다른 구분으로 이동"
-                                  value={(it.kind === '선택' ? '선택1' : it.kind) || '필수'}
+                                  value={it.kind || '필수'}
                                   onChange={e => updLine(ci, ii, 'kind', e.target.value as QuoteItemKind)}
                                   className="opacity-0 group-hover:opacity-100 text-[10px] bg-white border border-gray-200 rounded px-1 py-0.5 outline-none focus:border-primary-300 min-w-0"
                                 >

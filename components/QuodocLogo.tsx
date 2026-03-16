@@ -1,14 +1,17 @@
 'use client'
 
 /** 쿼닥 로고: 문서+견적 아이콘 + 텍스트(선택) */
+interface QuodocLogoProps {
+  showText?: boolean
+  size?: 'sm' | 'md' | 'lg'
+  className?: string
+}
+
 export function QuodocLogo({
   showText = true,
   size = 'md',
   className = '',
-}: {
-  showText?: boolean
-  size?: 'sm' | 'md' | 'lg'
-}) {
+}: QuodocLogoProps) {
   const iconSize = size === 'sm' ? 24 : size === 'lg' ? 48 : 32
   const textSize = size === 'sm' ? 'text-sm' : size === 'lg' ? 'text-2xl' : 'text-base'
 

@@ -1,8 +1,8 @@
 'use client'
 import { useState, useCallback } from 'react'
 import { CalendarPicker } from '@/components/ui/CalendarPicker'
-import { DurationInput }   from '@/components/ui/DurationInput'
-import { Input, Field, SectionTitle, Button, Spinner } from '@/components/ui'
+import { DurationInput, type DurationValue }   from '@/components/ui/DurationInput'
+import { Input, Field, SectionLabel, Button, Spinner } from '@/components/ui'
 
 const EVENT_TYPES = [
   { group: '기념·의식',  opts: ['기념식 / 개교기념', '시상식 / 수료식', '창립기념'] },
@@ -47,7 +47,15 @@ export function QuoteForm({ onSubmit, loading }: Props) {
   const set = (k: keyof FormValues) => (v: FormValues[typeof k]) =>
     setForm(f => ({ ...f, [k]: v }))
 
-  const handleDuration = useCallback((s: string) => set('eventDuration')(s), [])
+  const handleDuration = useCallback((v: DurationValue) => {
+    const parts: string[] = []
+    if (v.nights) parts.push(`${v.nights}박`)
+    if (v.days) parts.push(`${v.days}일`)
+    if (v.hours) parts.push(`${v.hours}시간`)
+    if (v.minutes) parts.push(`${v.minutes}분`)
+    const label = parts.length ? parts.join(' ') : '미정'
+    set('eventDuration')(label)
+  }, [])
 
   function headcount() {
     const mn = form.headMin.trim(), mx = form.headMax.trim()
@@ -79,7 +87,7 @@ export function QuoteForm({ onSubmit, loading }: Props) {
 
   return (
     <div className="flex flex-col gap-3 px-3 py-4 overflow-y-auto h-full">
-      <SectionTitle>행사 정보</SectionTitle>
+      <SectionLabel>행사 정보</SectionLabel>
 
       <Field label="업체명 (주최사)">{inp('clientName', '이화여자고등학교')}</Field>
       <div className="grid grid-cols-2 gap-2">
@@ -92,7 +100,7 @@ export function QuoteForm({ onSubmit, loading }: Props) {
         <CalendarPicker
           value={form.quoteDate}
           onChange={set('quoteDate')}
-          showToday
+          showTodayBadge
           placeholder="견적일 선택"
         />
       </Field>
@@ -106,7 +114,10 @@ export function QuoteForm({ onSubmit, loading }: Props) {
       </Field>
 
       <Field label="행사 시간">
-        <DurationInput onChange={handleDuration} />
+        <DurationInput
+          value={{ nights: 0, days: 0, hours: 0, minutes: 0 }}
+          onChange={handleDuration}
+        />
       </Field>
 
       <Field label="참석 인원">
@@ -182,7 +193,7 @@ export function QuoteForm({ onSubmit, loading }: Props) {
         {loading && (
           <div className="mt-2 space-y-1">
             {['행사 정보 분석 중...', '단가표 반영 중...', '견적 항목 구성 중...'].map((m, i) => (
-              <Spinner key={i} text={m} />
+              <Spinner key={i} label={m} />
             ))}
           </div>
         )}

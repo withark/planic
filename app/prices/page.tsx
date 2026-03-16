@@ -52,7 +52,7 @@ export default function PricesPage() {
   function updItem(ci: number, ii: number, k: keyof PriceItem, v: PriceItem[typeof k]) {
     setPrices(p => {
       const n = structuredClone(p)
-      ;(n[ci].items[ii] as Record<string, unknown>)[k] = v
+      ;(n[ci].items[ii] as any)[k] = v
       return n
     })
     setDirty(true)

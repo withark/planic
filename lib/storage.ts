@@ -2,8 +2,10 @@ import fs from 'fs'
 import path from 'path'
 import type { PriceCategory, HistoryRecord, CompanySettings, ReferenceDoc, CuesheetSample, ScenarioRefDoc, TaskOrderDoc } from './types'
 import { DEFAULT_SETTINGS as DEFAULT_SETTINGS_IMPORT } from './defaults'
+import { getEnv } from './env'
 
-const DATA_DIR = process.env.DATA_DIR || path.join(process.cwd(), 'data')
+const env = getEnv()
+const DATA_DIR = env.DATA_DIR || path.join(process.cwd(), 'data')
 
 function ensureDir() {
   if (!fs.existsSync(DATA_DIR)) fs.mkdirSync(DATA_DIR, { recursive: true })

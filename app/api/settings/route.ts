@@ -1,12 +1,47 @@
-import { NextRequest, NextResponse } from 'next/server'
-import { readSettings, writeSettings } from '@/lib/storage'
+import { NextRequest } from 'next/server'
+import { z } from 'zod'
+import { okResponse, errorResponse } from '@/lib/api/response'
+import { settingsRepository } from '@/lib/repositories/settings-repository'
+import type { CompanySettings } from '@/lib/types'
+import { logError } from '@/lib/utils/logger'
+
+const SettingsSchema = z.object({
+  name: z.string(),
+  biz: z.string(),
+  ceo: z.string(),
+  contact: z.string(),
+  tel: z.string(),
+  addr: z.string(),
+  expenseRate: z.number(),
+  profitRate: z.number(),
+  validDays: z.number(),
+  paymentTerms: z.string(),
+})
 
 export async function GET() {
-  return NextResponse.json(readSettings())
+  try {
+    const settings = await settingsRepository.get()
+    return okResponse(settings)
+  } catch (e) {
+    logError('settings:GET', e)
+    return errorResponse(500, 'INTERNAL_ERROR', '설정 조회에 실패했습니다.')
+  }
 }
 
 export async function POST(req: NextRequest) {
-  const data = await req.json()
-  writeSettings(data)
-  return NextResponse.json({ ok: true })
+  try {
+    const json = await req.json()
+    const parsed = SettingsSchema.safeParse(json)
+    if (!parsed.success) {
+      return errorResponse(400, 'INVALID_REQUEST', '설정 형식이 올바르지 않습니다.', parsed.error.flatten())
+    }
+
+    const data: CompanySettings = parsed.data
+    await settingsRepository.save(data)
+    return okResponse(null)
+  } catch (e) {
+    logError('settings:POST', e)
+    return errorResponse(500, 'INTERNAL_ERROR', '설정 저장에 실패했습니다.')
+  }
 }
+

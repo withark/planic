@@ -224,7 +224,7 @@ export default function GeneratePage() {
                   >
                     <div className="min-w-0 flex-1">
                       <p className="text-sm font-medium text-gray-900 truncate">{h.eventName || '행사명 없음'}</p>
-                      <p className="text-xs text-gray-500 mt-0.5">{h.clientName} · {h.quoteDate} · {h.eventType}</p>
+                      <p className="text-xs text-gray-500 mt-0.5">{h.clientName} · {h.quoteDate} · {h.type}</p>
                     </div>
                     <span className="text-sm font-semibold tabular-nums text-gray-700 flex-shrink-0">{fmtKRW(h.total)}원</span>
                   </button>

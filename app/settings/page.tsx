@@ -11,7 +11,12 @@ const DAUM_POSTCODE_SCRIPT = 'https://t1.daumcdn.net/mapjsapi/bundle/postcode/pr
 /** 다음(카카오) 우편번호 API 로드 후 주소 검색 팝업 열기 */
 function openDaumPostcode(onComplete: (address: string) => void) {
   const run = () => {
-    const kakao = (window as unknown as { kakao?: { Postcode: new (opts: { oncomplete: (data: DaumPostcodeData) => void }) => { open: () => void } } }).kakao
+    const w = window as unknown as {
+      kakao?: {
+        Postcode: new (opts: { oncomplete: (data: DaumPostcodeData) => void }) => { open: () => void }
+      }
+    }
+    const kakao = w.kakao
     if (!kakao?.Postcode) return
     new kakao.Postcode({
       oncomplete(data: DaumPostcodeData) {
@@ -27,7 +32,8 @@ function openDaumPostcode(onComplete: (address: string) => void) {
       },
     }).open()
   }
-  if ((window as unknown as { kakao?: unknown }).kakao?.Postcode) {
+  const hasPostcode = (window as any)?.kakao?.Postcode
+  if (hasPostcode) {
     run()
     return
   }

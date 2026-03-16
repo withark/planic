@@ -1,21 +1,51 @@
-import { NextRequest, NextResponse } from 'next/server'
+import { NextRequest } from 'next/server'
+import { z } from 'zod'
 import { generateQuote } from '@/lib/ai'
 import { readPrices, readSettings, readReferences, readTaskOrderRefs, appendHistory } from '@/lib/storage'
 import { calcTotals, uid } from '@/lib/calc'
 import type { GenerateInput } from '@/lib/ai'
+import { okResponse, errorResponse } from '@/lib/api/response'
+import { getEnv } from '@/lib/env'
+
+const GenerateRequestSchema = z.object({
+  eventName: z.string().min(1, '행사명을 입력해주세요.'),
+  clientName: z.string().optional().default(''),
+  clientManager: z.string().optional().default(''),
+  clientTel: z.string().optional().default(''),
+  quoteDate: z.string().min(1, '견적일을 입력해주세요.'),
+  eventDate: z.string().optional().default(''),
+  eventDuration: z.string().optional().default(''),
+  headcount: z.string().optional().default(''),
+  venue: z.string().optional().default(''),
+  eventType: z.string().min(1, '행사 종류를 선택해주세요.'),
+  budget: z.string().optional().default(''),
+  requirements: z.string().optional().default(''),
+})
 
 export async function POST(req: NextRequest) {
   try {
-    const body = await req.json() as Omit<GenerateInput, 'prices' | 'settings' | 'references'>
+    const json = await req.json()
+    const parsed = GenerateRequestSchema.safeParse(json)
+    if (!parsed.success) {
+      const first = parsed.error.issues[0]
+      return errorResponse(
+        400,
+        'INVALID_REQUEST',
+        first?.message || '요청 형식이 올바르지 않습니다.',
+        parsed.error.flatten(),
+      )
+    }
+    const body: Omit<GenerateInput, 'prices' | 'settings' | 'references'> = parsed.data
 
-    if (!body.eventName?.trim())   return NextResponse.json({ error: '행사명을 입력해주세요.' }, { status: 400 })
-    if (!body.eventType?.trim())   return NextResponse.json({ error: '행사 종류를 선택해주세요.' }, { status: 400 })
-    const hasAnthropic = !!process.env.ANTHROPIC_API_KEY
-    const hasOpenAI = !!process.env.OPENAI_API_KEY
+    const env = getEnv()
+    const hasAnthropic = !!env.ANTHROPIC_API_KEY
+    const hasOpenAI = !!env.OPENAI_API_KEY
     if (!hasAnthropic && !hasOpenAI) {
-      return NextResponse.json({
-        error: 'AI API 키가 없습니다. .env.local에 ANTHROPIC_API_KEY 또는 OPENAI_API_KEY 중 하나를 넣으세요. OpenAI 사용 시 OPENAI_API_KEY만 넣거나 AI_PROVIDER=openai 로 지정하세요.',
-      }, { status: 500 })
+      return errorResponse(
+        500,
+        'NO_AI_KEY',
+        'AI API 키가 없습니다. .env.local에 ANTHROPIC_API_KEY 또는 OPENAI_API_KEY 중 하나를 넣으세요. OpenAI 사용 시 OPENAI_API_KEY만 넣거나 AI_PROVIDER=openai 로 지정하세요.',
+      )
     }
 
     const prices        = readPrices()
@@ -60,10 +90,10 @@ export async function POST(req: NextRequest) {
       doc,
     })
 
-    return NextResponse.json({ doc, totals })
+    return okResponse({ doc, totals })
   } catch (e) {
     console.error('[generate]', e)
     const msg = e instanceof Error ? e.message : '견적서 생성에 실패했습니다.'
-    return NextResponse.json({ error: msg }, { status: 500 })
+    return errorResponse(500, 'INTERNAL_ERROR', msg)
   }
 }

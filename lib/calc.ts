@@ -1,4 +1,5 @@
 import type { QuoteDoc, QuoteCategory } from './types'
+import { randomUUID } from 'crypto'
 
 export interface QuoteTotals {
   sub: number
@@ -30,7 +31,7 @@ export function fmtKRW(n: number): string {
 }
 
 export function uid(): string {
-  return Math.random().toString(36).slice(2, 9)
+  return randomUUID()
 }
 
 /** 견적일 문자열(한국어) → 파일명용 YYYYMMDD (8자) */
