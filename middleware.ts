@@ -17,7 +17,12 @@ export function middleware(request: NextRequest) {
   if (pathname.startsWith('/admin')) {
     if (pathname === '/admin') return NextResponse.next()
     const token = request.cookies.get(ADMIN_COOKIE_NAME)?.value
-    if (!token?.trim()) return NextResponse.redirect(new URL('/admin', request.url))
+    if (!token?.trim()) {
+      const url = request.nextUrl.clone()
+      url.pathname = '/admin'
+      url.searchParams.set('returnTo', request.nextUrl.pathname + request.nextUrl.search)
+      return NextResponse.redirect(url)
+    }
     return NextResponse.next()
   }
 

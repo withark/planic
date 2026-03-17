@@ -3,9 +3,19 @@ import { useState } from 'react'
 import Link from 'next/link'
 import { EvQuoteLogo } from '@/components/EvQuoteLogo'
 
-export function AdminLoginForm() {
+function sanitizeReturnTo(returnTo: string | null | undefined): string {
+  if (!returnTo || typeof returnTo !== 'string') return '/admin'
+  const trimmed = returnTo.trim()
+  if (!trimmed) return '/admin'
+  if (!trimmed.startsWith('/admin')) return '/admin'
+  if (trimmed.startsWith('//')) return '/admin'
+  return trimmed
+}
+
+export function AdminLoginForm({ returnTo }: { returnTo?: string }) {
   const [username, setUsername] = useState('')
   const [password, setPassword] = useState('')
+  const [showPassword, setShowPassword] = useState(false)
   const [error, setError] = useState('')
   const [loading, setLoading] = useState(false)
 
@@ -14,17 +24,18 @@ export function AdminLoginForm() {
     setError('')
     setLoading(true)
     try {
+      const safeReturnTo = sanitizeReturnTo(returnTo)
       const res = await fetch('/api/auth/admin-login', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ username, password }),
+        body: JSON.stringify({ username, password, returnTo: safeReturnTo }),
       })
       const data = await res.json().catch(() => ({}))
       if (!res.ok) {
         setError(data?.error || '로그인에 실패했습니다.')
         return
       }
-      window.location.href = data?.redirect || '/admin'
+      window.location.href = sanitizeReturnTo(data?.redirect) || '/admin'
     } catch {
       setError('로그인 요청 중 오류가 발생했습니다.')
     } finally {
@@ -69,14 +80,25 @@ export function AdminLoginForm() {
               <label htmlFor="admin-password" className="block text-sm font-medium text-gray-700 mb-1">
                 비밀번호
               </label>
-              <input
-                id="admin-password"
-                type="password"
-                autoComplete="current-password"
-                value={password}
-                onChange={(e) => setPassword(e.target.value)}
-                className="w-full border border-gray-300 rounded-lg px-3 py-2 focus:ring-2 focus:ring-primary-500 focus:border-primary-500"
-              />
+              <div className="relative">
+                <input
+                  id="admin-password"
+                  type={showPassword ? 'text' : 'password'}
+                  autoComplete="current-password"
+                  value={password}
+                  onChange={(e) => setPassword(e.target.value)}
+                  className="w-full border border-gray-300 rounded-lg px-3 py-2 pr-14 focus:ring-2 focus:ring-primary-500 focus:border-primary-500"
+                />
+                <button
+                  type="button"
+                  onClick={() => setShowPassword((v) => !v)}
+                  className="absolute right-2 top-1/2 -translate-y-1/2 px-2 py-1 text-xs font-medium text-gray-600 hover:text-gray-900"
+                  aria-pressed={showPassword}
+                  aria-label={showPassword ? '비밀번호 숨기기' : '비밀번호 보기'}
+                >
+                  {showPassword ? '숨김' : '보기'}
+                </button>
+              </div>
             </div>
             <button
               type="submit"

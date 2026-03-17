@@ -1,6 +1,15 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { verifyAdmin, createAdminSessionCookie } from '@/lib/admin-auth'
 
+function sanitizeReturnTo(returnTo: unknown): string {
+  if (typeof returnTo !== 'string') return '/admin'
+  const trimmed = returnTo.trim()
+  if (!trimmed) return '/admin'
+  if (!trimmed.startsWith('/admin')) return '/admin'
+  if (trimmed.startsWith('//')) return '/admin'
+  return trimmed
+}
+
 export async function POST(request: NextRequest) {
   try {
     const body = await request.json()
@@ -14,7 +23,8 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ ok: false, error: '아이디 또는 비밀번호가 올바르지 않습니다.' }, { status: 401 })
     }
     const cookie = createAdminSessionCookie()
-    const res = NextResponse.json({ ok: true, redirect: '/admin' })
+    const redirect = sanitizeReturnTo(body?.returnTo)
+    const res = NextResponse.json({ ok: true, redirect })
     res.headers.set('Set-Cookie', cookie)
     return res
   } catch (e) {

@@ -3,6 +3,7 @@ import { EvQuoteLogo } from '@/components/EvQuoteLogo'
 import { GoogleSignInButton } from '@/components/auth/GoogleSignInButton'
 import { AuthErrorAlert } from '@/components/auth/AuthErrorAlert'
 import { isDevAuthEnabled } from '@/lib/auth-dev'
+import { sanitizeCallbackUrl } from '@/lib/auth-callback'
 
 type SearchParams = { error?: string; errorDescription?: string; callbackUrl?: string; reason?: string }
 
@@ -11,7 +12,8 @@ export default function AuthPage({
 }: {
   searchParams: SearchParams
 }) {
-  const callbackUrl = typeof searchParams?.callbackUrl === 'string' ? searchParams.callbackUrl : '/'
+  const callbackUrlRaw = typeof searchParams?.callbackUrl === 'string' ? searchParams.callbackUrl : '/'
+  const callbackUrl = sanitizeCallbackUrl(callbackUrlRaw)
   const reason = typeof searchParams?.reason === 'string' ? searchParams.reason : ''
   const devEnabled = isDevAuthEnabled()
 

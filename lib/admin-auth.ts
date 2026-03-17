@@ -60,6 +60,20 @@ export async function verifyAdmin(username: string, password: string): Promise<b
   return password === getEnvPassword()
 }
 
+function passwordRuleError(password: string): string | null {
+  const pw = password ?? ''
+  if (pw.length < 8) return '새 비밀번호는 8자 이상이어야 합니다.'
+  const lower = /[a-z]/.test(pw)
+  const upper = /[A-Z]/.test(pw)
+  const digit = /[0-9]/.test(pw)
+  const special = /[^A-Za-z0-9]/.test(pw)
+  const kinds = [lower, upper, digit, special].filter(Boolean).length
+  if (kinds < 3) return '새 비밀번호는 대문자/소문자/숫자/특수문자 중 3종류 이상을 포함해야 합니다.'
+  const weak = ['admin', 'password', 'qwer', '1234', '0000']
+  if (weak.some((w) => pw.toLowerCase().includes(w))) return '추측하기 쉬운 문자열은 사용할 수 없습니다.'
+  return null
+}
+
 /** 비밀번호 변경: 현재 비밀번호 검증 후 새 해시 저장. DB 없으면 false */
 export async function changeAdminPassword(
   currentPassword: string,
@@ -67,7 +81,8 @@ export async function changeAdminPassword(
 ): Promise<{ ok: boolean; error?: string }> {
   const valid = await verifyAdmin(ADMIN_USER, currentPassword)
   if (!valid) return { ok: false, error: '현재 비밀번호가 올바르지 않습니다.' }
-  if (!newPassword || newPassword.length < 4) return { ok: false, error: '새 비밀번호는 4자 이상이어야 합니다.' }
+  const ruleError = passwordRuleError(newPassword || '')
+  if (ruleError) return { ok: false, error: ruleError }
   if (!hasDatabase()) return { ok: false, error: 'DB가 설정되지 않아 저장할 수 없습니다.' }
   const hash = hashPassword(newPassword)
   await setStoredAdminHash(hash)

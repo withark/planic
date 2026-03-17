@@ -27,6 +27,8 @@ export function AdminDashboard() {
   const [stats, setStats] = useState<Stats | null>(null)
   const [currentPassword, setCurrentPassword] = useState('')
   const [newPassword, setNewPassword] = useState('')
+  const [showCurrentPassword, setShowCurrentPassword] = useState(false)
+  const [showNewPassword, setShowNewPassword] = useState(false)
   const [pwMessage, setPwMessage] = useState<{ type: 'ok' | 'err'; text: string } | null>(null)
   const [pwLoading, setPwLoading] = useState(false)
 
@@ -130,6 +132,14 @@ export function AdminDashboard() {
 
         <section>
           <h2 className="text-sm font-medium text-gray-700 mb-3">비밀번호 변경</h2>
+          <div className="mb-3 rounded-lg border border-slate-200 bg-white p-3 text-xs text-gray-600 max-w-sm">
+            <p className="font-medium text-gray-800">비밀번호 생성 규칙</p>
+            <ul className="mt-1 space-y-0.5 list-disc list-inside">
+              <li>최소 8자 이상</li>
+              <li>영문 대문자/소문자/숫자/특수문자 중 3종류 이상 포함</li>
+              <li>추측하기 쉬운 문자열(예: admin, 1234) 사용 금지</li>
+            </ul>
+          </div>
           <form onSubmit={onChangePassword} className="space-y-3 max-w-sm">
             {pwMessage && (
               <p
@@ -141,25 +151,47 @@ export function AdminDashboard() {
             )}
             <div>
               <label htmlFor="current-pw" className="block text-sm text-gray-600 mb-1">현재 비밀번호</label>
-              <input
-                id="current-pw"
-                type="password"
-                autoComplete="current-password"
-                value={currentPassword}
-                onChange={(e) => setCurrentPassword(e.target.value)}
-                className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm"
-              />
+              <div className="relative">
+                <input
+                  id="current-pw"
+                  type={showCurrentPassword ? 'text' : 'password'}
+                  autoComplete="current-password"
+                  value={currentPassword}
+                  onChange={(e) => setCurrentPassword(e.target.value)}
+                  className="w-full border border-gray-300 rounded-lg px-3 py-2 pr-14 text-sm"
+                />
+                <button
+                  type="button"
+                  onClick={() => setShowCurrentPassword((v) => !v)}
+                  className="absolute right-2 top-1/2 -translate-y-1/2 px-2 py-1 text-xs font-medium text-gray-600 hover:text-gray-900"
+                  aria-pressed={showCurrentPassword}
+                  aria-label={showCurrentPassword ? '현재 비밀번호 숨기기' : '현재 비밀번호 보기'}
+                >
+                  {showCurrentPassword ? '숨김' : '보기'}
+                </button>
+              </div>
             </div>
             <div>
-              <label htmlFor="new-pw" className="block text-sm text-gray-600 mb-1">새 비밀번호 (4자 이상)</label>
-              <input
-                id="new-pw"
-                type="password"
-                autoComplete="new-password"
-                value={newPassword}
-                onChange={(e) => setNewPassword(e.target.value)}
-                className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm"
-              />
+              <label htmlFor="new-pw" className="block text-sm text-gray-600 mb-1">새 비밀번호</label>
+              <div className="relative">
+                <input
+                  id="new-pw"
+                  type={showNewPassword ? 'text' : 'password'}
+                  autoComplete="new-password"
+                  value={newPassword}
+                  onChange={(e) => setNewPassword(e.target.value)}
+                  className="w-full border border-gray-300 rounded-lg px-3 py-2 pr-14 text-sm"
+                />
+                <button
+                  type="button"
+                  onClick={() => setShowNewPassword((v) => !v)}
+                  className="absolute right-2 top-1/2 -translate-y-1/2 px-2 py-1 text-xs font-medium text-gray-600 hover:text-gray-900"
+                  aria-pressed={showNewPassword}
+                  aria-label={showNewPassword ? '새 비밀번호 숨기기' : '새 비밀번호 보기'}
+                >
+                  {showNewPassword ? '숨김' : '보기'}
+                </button>
+              </div>
             </div>
             <button type="submit" disabled={pwLoading} className="btn-primary text-sm py-2 px-4 disabled:opacity-50">
               {pwLoading ? '변경 중…' : '비밀번호 변경'}

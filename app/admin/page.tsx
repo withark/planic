@@ -5,10 +5,17 @@ import { AdminDashboard } from './AdminDashboard'
 
 export const dynamic = 'force-dynamic'
 
-export default async function AdminPage() {
+type SearchParams = { returnTo?: string }
+
+export default async function AdminPage({
+  searchParams,
+}: {
+  searchParams?: SearchParams
+}) {
   const c = await cookies()
   const token = c.get(COOKIE_NAME)?.value
   const session = parseAdminSessionFromValue(token)
   if (session) return <AdminDashboard />
-  return <AdminLoginForm />
+  const returnTo = typeof searchParams?.returnTo === 'string' ? searchParams.returnTo : undefined
+  return <AdminLoginForm returnTo={returnTo} />
 }
