@@ -1,0 +1,1193 @@
+[
+  {
+    "id": "8rycnhm",
+    "eventName": "이화고등학교 50주년 개교 기념식",
+    "clientName": "이화고등학교",
+    "quoteDate": "2026년 3월 16일(월)",
+    "eventDate": "2026년 4월 30일(목)",
+    "duration": "3시간 30분",
+    "type": "기념식 / 개교기념",
+    "headcount": "200명~300명",
+    "total": 12511400,
+    "savedAt": "2026-03-16T03:15:54.156Z",
+    "doc": {
+      "eventName": "이화고등학교 50주년 개교 기념식",
+      "clientName": "이화고등학교",
+      "clientManager": "이다윗",
+      "clientTel": "010-4537-2382",
+      "quoteDate": "2026년 3월 16일(월)",
+      "eventDate": "2026년 4월 30일(목)",
+      "eventDuration": "3시간 30분",
+      "venue": "대강당",
+      "headcount": "200명~300명",
+      "eventType": "기념식 / 개교기념",
+      "quoteItems": [
+        {
+          "category": "무대/시설",
+          "items": [
+            {
+              "name": "무대(기본형)",
+              "spec": "3×6m",
+              "qty": 1,
+              "unit": "식",
+              "unitPrice": 800000,
+              "total": 800000,
+              "note": ""
+            },
+            {
+              "name": "포토월/포토존",
+              "spec": "3×2m",
+              "qty": 1,
+              "unit": "식",
+              "unitPrice": 350000,
+              "total": 350000,
+              "note": "VIP 포토존"
+            }
+          ]
+        },
+        {
+          "category": "음향/영상",
+          "items": [
+            {
+              "name": "음향(중형)",
+              "spec": "300명 이하",
+              "qty": 1,
+              "unit": "식",
+              "unitPrice": 1000000,
+              "total": 1000000,
+              "note": ""
+            },
+            {
+              "name": "빔프로젝터+스크린",
+              "spec": "3000안시",
+              "qty": 1,
+              "unit": "식",
+              "unitPrice": 300000,
+              "total": 300000,
+              "note": ""
+            }
+          ]
+        },
+        {
+          "category": "조명",
+          "items": [
+            {
+              "name": "기본 조명 패키지",
+              "spec": "PAR 10등",
+              "qty": 1,
+              "unit": "식",
+              "unitPrice": 400000,
+              "total": 400000,
+              "note": ""
+            }
+          ]
+        },
+        {
+          "category": "진행인력",
+          "items": [
+            {
+              "name": "전문 MC",
+              "spec": "3시간 30분",
+              "qty": 1,
+              "unit": "명",
+              "unitPrice": 550000,
+              "total": 550000,
+              "note": "30분 추가"
+            },
+            {
+              "name": "진행요원",
+              "spec": "4시간",
+              "qty": 3,
+              "unit": "명",
+              "unitPrice": 150000,
+              "total": 450000,
+              "note": "VIP 의전 포함"
+            }
+          ]
+        },
+        {
+          "category": "인쇄/제작물",
+          "items": [
+            {
+              "name": "현수막",
+              "spec": "5×1m",
+              "qty": 2,
+              "unit": "개",
+              "unitPrice": 80000,
+              "total": 160000,
+              "note": "입구+무대배경"
+            },
+            {
+              "name": "배너스탠드",
+              "spec": "60×160cm",
+              "qty": 4,
+              "unit": "개",
+              "unitPrice": 60000,
+              "total": 240000,
+              "note": "VIP 안내용"
+            },
+            {
+              "name": "명찰/리본",
+              "spec": "50매",
+              "qty": 6,
+              "unit": "세트",
+              "unitPrice": 50000,
+              "total": 300000,
+              "note": "VIP용 포함"
+            }
+          ]
+        },
+        {
+          "category": "기타",
+          "items": [
+            {
+              "name": "행사기획·운영비",
+              "spec": "총괄",
+              "qty": 1,
+              "unit": "식",
+              "unitPrice": 1000000,
+              "total": 1000000,
+              "note": ""
+            },
+            {
+              "name": "케이터링(다과)",
+              "spec": "1인",
+              "qty": 250,
+              "unit": "명",
+              "unitPrice": 15000,
+              "total": 3750000,
+              "note": "예상인원 기준"
+            },
+            {
+              "name": "보험료",
+              "spec": "행사보험",
+              "qty": 1,
+              "unit": "식",
+              "unitPrice": 100000,
+              "total": 100000,
+              "note": ""
+            }
+          ]
+        }
+      ],
+      "expenseRate": 10,
+      "profitRate": 10,
+      "cutAmount": 0,
+      "notes": "50주년 기념식에 맞는 품격있는 진행과 VIP 의전 서비스 제공\n행사 당일 리허설 및 현장 점검 포함\n기상악화 시 실내 진행으로 변경 가능\n추가 요청사항은 사전 협의를 통해 조정 가능",
+      "paymentTerms": "계약금 50% 선입금\n잔금 행사 당일 현장 정산\n세금계산서 발행 가능",
+      "validDays": 30,
+      "program": {
+        "concept": "전통과 미래가 만나는 품격 있는 50주년 개교 기념식",
+        "timeline": [
+          {
+            "time": "13:30",
+            "content": "리허설 및 최종 점검",
+            "detail": "음향/영상/조명 테스트, VIP 동선 확인",
+            "manager": "진행요원"
+          },
+          {
+            "time": "14:00",
+            "content": "참석자 입장 및 접수",
+            "detail": "VIP 별도 접수, 포토존 운영 시작",
+            "manager": "진행요원"
+          },
+          {
+            "time": "14:20",
+            "content": "VIP 입장 및 포토타임",
+            "detail": "내빈 소개 및 기념촬영",
+            "manager": "전문MC"
+          },
+          {
+            "time": "14:30",
+            "content": "개식사 및 국민의례",
+            "detail": "개교 50주년 기념식 시작",
+            "manager": "전문MC"
+          },
+          {
+            "time": "14:40",
+            "content": "학교장 인사말",
+            "detail": "50년 역사 회고 및 비전 제시",
+            "manager": "전문MC"
+          },
+          {
+            "time": "15:00",
+            "content": "내빈 축사",
+            "detail": "교육청 관계자 및 동문회장 축사",
+            "manager": "전문MC"
+          },
+          {
+            "time": "15:20",
+            "content": "50년 역사 영상 상영",
+            "detail": "학교 발전사 다큐멘터리",
+            "manager": "진행요원"
+          },
+          {
+            "time": "15:40",
+            "content": "공로자 표창 및 시상",
+            "detail": "장기근속 교직원, 모범 동문 표창",
+            "manager": "전문MC"
+          },
+          {
+            "time": "16:00",
+            "content": "학생 축하공연",
+            "detail": "합창단 공연 및 동아리 발표",
+            "manager": "전문MC"
+          },
+          {
+            "time": "16:20",
+            "content": "50주년 선언문 낭독",
+            "detail": "미래 50년을 향한 다짐",
+            "manager": "전문MC"
+          },
+          {
+            "time": "16:30",
+            "content": "기념촬영 및 다과회",
+            "detail": "전체 기념사진 촬영 후 다과 접대",
+            "manager": "진행요원"
+          },
+          {
+            "time": "17:30",
+            "content": "행사 종료 및 정리",
+            "detail": "참석자 배웅 및 현장 정리",
+            "manager": "진행요원"
+          }
+        ],
+        "staffing": [
+          {
+            "role": "전문 MC",
+            "count": 1,
+            "note": "3시간 30분 기준, 품격있는 진행"
+          },
+          {
+            "role": "진행요원",
+            "count": 3,
+            "note": "VIP 의전, 접수, 안내 담당"
+          }
+        ],
+        "tips": [
+          "VIP 좌석 배치도를 사전에 확정하여 원활한 의전 진행",
+          "50년 역사 영상은 감동적인 스토리텔링으로 구성하여 참석자 몰입도 향상",
+          "포토존에서의 기념촬영 시간을 충분히 확보하여 추억 만들기에 집중",
+          "다과회 시간을 활용한 자연스러운 네트워킹 분위기 조성"
+        ]
+      }
+    }
+  },
+  {
+    "id": "ijs3vsb",
+    "eventName": "전사 체육대회",
+    "clientName": "대주전자재료(주)",
+    "quoteDate": "2026년 3월 16일(월)",
+    "eventDate": "2026년 6월 26일(금)",
+    "duration": "3시간 30분",
+    "type": "체육대회 / 운동회",
+    "headcount": "250명~300명",
+    "total": 10155530,
+    "savedAt": "2026-03-16T04:06:35.597Z",
+    "doc": {
+      "eventName": "전사 체육대회",
+      "clientName": "대주전자재료(주)",
+      "clientManager": "이다윗",
+      "clientTel": "010-4537-2382",
+      "quoteDate": "2026년 3월 16일(월)",
+      "eventDate": "2026년 6월 26일(금)",
+      "eventDuration": "3시간 30분",
+      "venue": "연수원",
+      "headcount": "250명~300명",
+      "eventType": "체육대회 / 운동회",
+      "quoteItems": [
+        {
+          "category": "무대/시설",
+          "items": [
+            {
+              "name": "천막",
+              "spec": "6×6m",
+              "qty": 4,
+              "unit": "동",
+              "unitPrice": 180000,
+              "total": 720000,
+              "note": "선수 대기용 및 본부석"
+            },
+            {
+              "name": "트러스트 현수막",
+              "spec": "6m×2.8m",
+              "qty": 1,
+              "unit": "개",
+              "unitPrice": 100000,
+              "total": 100000,
+              "note": "메인 현수막"
+            },
+            {
+              "name": "자이언트 배너",
+              "spec": "현수막 별도",
+              "qty": 4,
+              "unit": "개",
+              "unitPrice": 70000,
+              "total": 280000,
+              "note": "팀별 응원 배너"
+            }
+          ]
+        },
+        {
+          "category": "음향/영상",
+          "items": [
+            {
+              "name": "음향(중형)",
+              "spec": "300명↓",
+              "qty": 1,
+              "unit": "식",
+              "unitPrice": 900000,
+              "total": 900000,
+              "note": "무선마이크 4개 포함"
+            }
+          ]
+        },
+        {
+          "category": "진행인력",
+          "items": [
+            {
+              "name": "전문 MC",
+              "spec": "3시간 30분",
+              "qty": 1,
+              "unit": "명",
+              "unitPrice": 450000,
+              "total": 450000,
+              "note": "30분 연장 무료"
+            },
+            {
+              "name": "진행요원",
+              "spec": "4시간",
+              "qty": 4,
+              "unit": "명",
+              "unitPrice": 120000,
+              "total": 480000,
+              "note": "심판 및 진행보조"
+            },
+            {
+              "name": "디자이너",
+              "spec": "디자인 전담",
+              "qty": 1,
+              "unit": "명",
+              "unitPrice": 300000,
+              "total": 300000,
+              "note": "현수막/명찰 디자인"
+            }
+          ]
+        },
+        {
+          "category": "레크/팀빌딩",
+          "items": [
+            {
+              "name": "레크 프로그램 기획",
+              "spec": "맞춤형",
+              "qty": 1,
+              "unit": "식",
+              "unitPrice": 450000,
+              "total": 450000,
+              "note": "체육대회 종목 기획"
+            },
+            {
+              "name": "게임도구/소품 세트",
+              "spec": "300명 기준",
+              "qty": 6,
+              "unit": "세트",
+              "unitPrice": 180000,
+              "total": 1080000,
+              "note": "각종 경기용품"
+            },
+            {
+              "name": "경품",
+              "spec": "상품권 등",
+              "qty": 1,
+              "unit": "식",
+              "unitPrice": 450000,
+              "total": 450000,
+              "note": "1~3등 및 참가상"
+            },
+            {
+              "name": "트로피/메달",
+              "spec": "30개",
+              "qty": 3,
+              "unit": "세트",
+              "unitPrice": 130000,
+              "total": 390000,
+              "note": "우승팀 트로피 및 메달"
+            }
+          ]
+        },
+        {
+          "category": "인쇄/제작물",
+          "items": [
+            {
+              "name": "명찰/리본",
+              "spec": "300매",
+              "qty": 6,
+              "unit": "세트",
+              "unitPrice": 45000,
+              "total": 270000,
+              "note": "팀별 구분용"
+            },
+            {
+              "name": "팀조끼",
+              "spec": "4색 구분",
+              "qty": 300,
+              "unit": "개",
+              "unitPrice": 1000,
+              "total": 300000,
+              "note": "빨강/파랑/초록/노랑"
+            }
+          ]
+        },
+        {
+          "category": "음료/용품",
+          "items": [
+            {
+              "name": "아이스박스",
+              "spec": "얼음포함",
+              "qty": 6,
+              "unit": "SET",
+              "unitPrice": 50000,
+              "total": 300000,
+              "note": "팀별 음료 보관용"
+            },
+            {
+              "name": "생수",
+              "spec": "500ml",
+              "qty": 600,
+              "unit": "개",
+              "unitPrice": 300,
+              "total": 180000,
+              "note": "1인당 2개 기준"
+            }
+          ]
+        },
+        {
+          "category": "기타",
+          "items": [
+            {
+              "name": "행사기획·운영비",
+              "spec": "총괄",
+              "qty": 1,
+              "unit": "식",
+              "unitPrice": 900000,
+              "total": 900000,
+              "note": "전체 행사 기획 및 운영"
+            },
+            {
+              "name": "보험료",
+              "spec": "행사보험",
+              "qty": 1,
+              "unit": "식",
+              "unitPrice": 80000,
+              "total": 80000,
+              "note": "참가자 안전보험"
+            }
+          ]
+        }
+      ],
+      "expenseRate": 10,
+      "profitRate": 10,
+      "cutAmount": 0,
+      "notes": "• 우천시 실내 프로그램 대체 가능\n• 추가 장비 필요시 별도 협의\n• 행사 당일 현장 스태프 상주\n• 안전 관리 및 응급처치 준비",
+      "paymentTerms": "계약금 50% 선입금\n잔금 행사 당일 현장 정산\n세금계산서 발행 가능",
+      "validDays": 30,
+      "program": {
+        "concept": "팀워크와 건강한 경쟁을 통한 전사 화합 도모",
+        "timeline": [
+          {
+            "time": "09:00",
+            "content": "개회식 및 선수 입장",
+            "detail": "팀별 구호 외치며 입장, 회사 임원 개회사",
+            "manager": "MC, 진행요원"
+          },
+          {
+            "time": "09:30",
+            "content": "단체 준비운동",
+            "detail": "전체 참가자 스트레칭 및 워밍업",
+            "manager": "레크 강사"
+          },
+          {
+            "time": "10:00",
+            "content": "1차 경기",
+            "detail": "줄다리기, 계주 등 단체 경기",
+            "manager": "심판, 진행요원"
+          },
+          {
+            "time": "11:00",
+            "content": "2차 경기",
+            "detail": "피구, 족구 등 팀 대항전",
+            "manager": "심판, 진행요원"
+          },
+          {
+            "time": "12:00",
+            "content": "점심시간",
+            "detail": "도시락 배급 및 휴식",
+            "manager": "진행요원"
+          },
+          {
+            "time": "12:30",
+            "content": "레크레이션",
+            "detail": "게임 및 장기자랑 시간",
+            "manager": "MC, 레크 강사"
+          }
+        ],
+        "staffing": [
+          {
+            "role": "전문 MC",
+            "count": 1,
+            "note": "3시간 30분 기준"
+          },
+          {
+            "role": "진행요원",
+            "count": 4,
+            "note": "심판 및 진행보조"
+          },
+          {
+            "role": "디자이너",
+            "count": 1,
+            "note": "사전 디자인 작업"
+          }
+        ],
+        "tips": [
+          "팀 편성은 부서별로 균등하게 배치하여 공정성 확보",
+          "경기 중 부상 방지를 위해 안전 수칙 사전 공지",
+          "우천 대비 실내 프로그램 준비 필요",
+          "참가자 전원에게 참가상 지급으로 참여 의욕 고취"
+        ]
+      }
+    }
+  },
+  {
+    "id": "liuiy0t",
+    "eventName": "체육대회",
+    "clientName": "위드아크",
+    "quoteDate": "2026년 3월 16일(월)",
+    "eventDate": "2026년 3월 19일(목)",
+    "duration": "3시간 30분",
+    "type": "체육대회 / 운동회",
+    "headcount": "미정",
+    "total": 7160780,
+    "savedAt": "2026-03-16T04:19:47.231Z",
+    "doc": {
+      "eventName": "체육대회",
+      "clientName": "위드아크",
+      "clientManager": "이다윗",
+      "clientTel": "010-4537-2382",
+      "quoteDate": "2026년 3월 16일(월)",
+      "eventDate": "2026년 3월 19일(목)",
+      "eventDuration": "3시간 30분",
+      "venue": "운동장",
+      "headcount": "미정",
+      "eventType": "체육대회 / 운동회",
+      "quoteItems": [
+        {
+          "category": "무대/시설",
+          "items": [
+            {
+              "name": "천막",
+              "spec": "6×6m",
+              "qty": 4,
+              "unit": "동",
+              "unitPrice": 180000,
+              "total": 720000,
+              "note": "심판석/대기석용",
+              "kind": "필수"
+            },
+            {
+              "name": "포토월/포토존",
+              "spec": "3×2m",
+              "qty": 1,
+              "unit": "식",
+              "unitPrice": 300000,
+              "total": 300000,
+              "note": "시상식용",
+              "kind": "선택"
+            }
+          ]
+        },
+        {
+          "category": "음향/영상",
+          "items": [
+            {
+              "name": "음향(중형)",
+              "spec": "300명↓",
+              "qty": 1,
+              "unit": "식",
+              "unitPrice": 900000,
+              "total": 900000,
+              "note": "체육대회용",
+              "kind": "필수"
+            }
+          ]
+        },
+        {
+          "category": "진행인력",
+          "items": [
+            {
+              "name": "전문 MC",
+              "spec": "3시간 30분",
+              "qty": 1,
+              "unit": "명",
+              "unitPrice": 500000,
+              "total": 500000,
+              "note": "3시간 기준+추가 30분",
+              "kind": "인건비"
+            },
+            {
+              "name": "진행요원",
+              "spec": "4시간",
+              "qty": 3,
+              "unit": "명",
+              "unitPrice": 120000,
+              "total": 360000,
+              "note": "경기 진행 보조",
+              "kind": "인건비"
+            }
+          ]
+        },
+        {
+          "category": "인쇄/제작물",
+          "items": [
+            {
+              "name": "현수막",
+              "spec": "5×1m",
+              "qty": 3,
+              "unit": "개",
+              "unitPrice": 70000,
+              "total": 210000,
+              "note": "행사명/환영/시상",
+              "kind": "필수"
+            },
+            {
+              "name": "배너스탠드",
+              "spec": "60×160cm",
+              "qty": 4,
+              "unit": "개",
+              "unitPrice": 50000,
+              "total": 200000,
+              "note": "팀별 구분용",
+              "kind": "선택"
+            },
+            {
+              "name": "명찰/리본",
+              "spec": "50매",
+              "qty": 2,
+              "unit": "세트",
+              "unitPrice": 45000,
+              "total": 90000,
+              "note": "심판/임원용",
+              "kind": "필수"
+            }
+          ]
+        },
+        {
+          "category": "체육대회 용품",
+          "items": [
+            {
+              "name": "게임도구/소품 세트",
+              "spec": "50명 기준",
+              "qty": 1,
+              "unit": "세트",
+              "unitPrice": 180000,
+              "total": 180000,
+              "note": "경기용 소품",
+              "kind": "필수"
+            },
+            {
+              "name": "경품",
+              "spec": "상품권 등",
+              "qty": 1,
+              "unit": "식",
+              "unitPrice": 450000,
+              "total": 450000,
+              "note": "시상용",
+              "kind": "필수"
+            },
+            {
+              "name": "트로피/메달",
+              "spec": "10개",
+              "qty": 1,
+              "unit": "세트",
+              "unitPrice": 130000,
+              "total": 130000,
+              "note": "우승/준우승",
+              "kind": "필수"
+            },
+            {
+              "name": "팀조끼",
+              "spec": "빨,파,초,노",
+              "qty": 100,
+              "unit": "개",
+              "unitPrice": 1000,
+              "total": 100000,
+              "note": "팀 구분용",
+              "kind": "필수"
+            }
+          ]
+        },
+        {
+          "category": "부대비용",
+          "items": [
+            {
+              "name": "행사기획·운영비",
+              "spec": "총괄",
+              "qty": 1,
+              "unit": "식",
+              "unitPrice": 900000,
+              "total": 900000,
+              "note": "전체 기획 운영",
+              "kind": "필수"
+            },
+            {
+              "name": "아이스박스",
+              "spec": "얼음포함",
+              "qty": 4,
+              "unit": "SET",
+              "unitPrice": 50000,
+              "total": 200000,
+              "note": "음료 보관용",
+              "kind": "선택"
+            },
+            {
+              "name": "생수",
+              "spec": "500ml",
+              "qty": 200,
+              "unit": "개",
+              "unitPrice": 300,
+              "total": 60000,
+              "note": "참가자용",
+              "kind": "선택"
+            },
+            {
+              "name": "보험료",
+              "spec": "행사보험",
+              "qty": 1,
+              "unit": "식",
+              "unitPrice": 80000,
+              "total": 80000,
+              "note": "안전사고 대비",
+              "kind": "필수"
+            }
+          ]
+        }
+      ],
+      "expenseRate": 10,
+      "profitRate": 10,
+      "cutAmount": 0,
+      "notes": "체육대회 전용 기획·운영 서비스 제공\n날씨 변동시 실내 대체 프로그램 준비\n안전요원 배치 및 응급처치 키트 구비\n행사 당일 현장 총괄 운영 책임",
+      "paymentTerms": "계약금 50% 선입금\n잔금 행사 당일 현장 정산\n세금계산서 발행 가능",
+      "validDays": 30,
+      "program": {
+        "concept": "팀워크 증진과 건강한 경쟁을 통한 소통의 장",
+        "timeline": [
+          {
+            "time": "09:00",
+            "content": "개회식 및 준비운동",
+            "detail": "팀별 입장, 선서, 라디오체조",
+            "manager": "전문 MC"
+          },
+          {
+            "time": "09:30",
+            "content": "1차 경기",
+            "detail": "이어달리기, 줄다리기",
+            "manager": "진행요원"
+          },
+          {
+            "time": "10:30",
+            "content": "2차 경기",
+            "detail": "단체줄넘기, 피구",
+            "manager": "진행요원"
+          },
+          {
+            "time": "11:30",
+            "content": "3차 경기",
+            "detail": "계주, 박터뜨리기",
+            "manager": "진행요원"
+          },
+          {
+            "time": "12:00",
+            "content": "시상식",
+            "detail": "순위별 시상, 단체사진",
+            "manager": "전문 MC"
+          },
+          {
+            "time": "12:30",
+            "content": "폐회식",
+            "detail": "마무리 인사, 정리",
+            "manager": "전문 MC"
+          }
+        ],
+        "staffing": [
+          {
+            "role": "전문 MC",
+            "count": 1,
+            "note": "3시간 30분 진행"
+          },
+          {
+            "role": "진행요원",
+            "count": 3,
+            "note": "경기 운영 및 안전 관리"
+          },
+          {
+            "role": "음향 기사",
+            "count": 1,
+            "note": "음향 장비 운영"
+          }
+        ],
+        "tips": [
+          "경기 시작 30분 전 장비 점검 및 리허설 진행",
+          "팀별 대기석 구분 및 응원용품 사전 배치",
+          "부상 방지를 위한 충분한 준비운동 실시",
+          "날씨 변화에 대비한 비상계획 수립"
+        ]
+      }
+    }
+  },
+  {
+    "id": "2nte4vo",
+    "eventName": "체육대회",
+    "clientName": "위드아크",
+    "quoteDate": "2026년 3월 16일(월)",
+    "eventDate": "2026년 6월 26일(금)",
+    "duration": "11시간 30분",
+    "type": "체육대회 / 운동회",
+    "headcount": "200명~300명",
+    "total": 13962190,
+    "savedAt": "2026-03-16T04:46:03.152Z",
+    "doc": {
+      "eventName": "체육대회",
+      "clientName": "위드아크",
+      "clientManager": "이다윗",
+      "clientTel": "010-4537-2382",
+      "quoteDate": "2026년 3월 16일(월)",
+      "eventDate": "2026년 6월 26일(금)",
+      "eventDuration": "11시간 30분",
+      "venue": "운동장",
+      "headcount": "200명~300명",
+      "eventType": "체육대회 / 운동회",
+      "quoteItems": [
+        {
+          "category": "무대/시설",
+          "items": [
+            {
+              "name": "무대(3×6m)(기본형)",
+              "spec": "개막식/시상식용",
+              "qty": 1,
+              "unit": "식",
+              "unitPrice": 750000,
+              "total": 750000,
+              "note": "개막식 및 시상식 진행용",
+              "kind": "필수"
+            },
+            {
+              "name": "천막(6×6m)",
+              "spec": "본부석/휴게소",
+              "qty": 3,
+              "unit": "동",
+              "unitPrice": 180000,
+              "total": 540000,
+              "note": "본부석 1동, 휴게소 2동",
+              "kind": "필수"
+            },
+            {
+              "name": "포토월/포토존(3×2m)",
+              "spec": "기념촬영용",
+              "qty": 1,
+              "unit": "식",
+              "unitPrice": 300000,
+              "total": 300000,
+              "note": "우승팀 기념촬영",
+              "kind": "선택1"
+            }
+          ]
+        },
+        {
+          "category": "음향/영상",
+          "items": [
+            {
+              "name": "음향(중형)(300명↓)",
+              "spec": "무선마이크 4개 포함",
+              "qty": 1,
+              "unit": "식",
+              "unitPrice": 900000,
+              "total": 900000,
+              "note": "운동장 전체 음향",
+              "kind": "필수"
+            }
+          ]
+        },
+        {
+          "category": "진행인력",
+          "items": [
+            {
+              "name": "전문 MC",
+              "spec": "체육대회 전문",
+              "qty": 2,
+              "unit": "명",
+              "unitPrice": 800000,
+              "total": 1600000,
+              "note": "11.5시간 진행 (협의단가)",
+              "kind": "인건비"
+            },
+            {
+              "name": "진행요원",
+              "spec": "경기진행 보조",
+              "qty": 6,
+              "unit": "명",
+              "unitPrice": 300000,
+              "total": 1800000,
+              "note": "11.5시간 기준 (협의단가)",
+              "kind": "인건비"
+            }
+          ]
+        },
+        {
+          "category": "경기용품/소품",
+          "items": [
+            {
+              "name": "게임도구/소품 세트",
+              "spec": "300명 기준",
+              "qty": 6,
+              "unit": "세트",
+              "unitPrice": 180000,
+              "total": 1080000,
+              "note": "종목별 경기도구",
+              "kind": "필수"
+            },
+            {
+              "name": "팀조끼",
+              "spec": "팀 구분용 (빨,파,초,노)",
+              "qty": 300,
+              "unit": "개",
+              "unitPrice": 1000,
+              "total": 300000,
+              "note": "4팀 구분용",
+              "kind": "필수"
+            },
+            {
+              "name": "트로피/메달",
+              "spec": "1~3위 시상용",
+              "qty": 5,
+              "unit": "세트",
+              "unitPrice": 130000,
+              "total": 650000,
+              "note": "종목별 시상",
+              "kind": "필수"
+            }
+          ]
+        },
+        {
+          "category": "현수막/인쇄물",
+          "items": [
+            {
+              "name": "트러스트 현수막",
+              "spec": "6m x 2.8m",
+              "qty": 1,
+              "unit": "개",
+              "unitPrice": 100000,
+              "total": 100000,
+              "note": "메인 현수막",
+              "kind": "필수"
+            },
+            {
+              "name": "자이언트 배너 현수막",
+              "spec": "종목별",
+              "qty": 4,
+              "unit": "개",
+              "unitPrice": 70000,
+              "total": 280000,
+              "note": "종목 안내용",
+              "kind": "선택1"
+            },
+            {
+              "name": "명찰/리번",
+              "spec": "임원진용",
+              "qty": 2,
+              "unit": "세트",
+              "unitPrice": 45000,
+              "total": 90000,
+              "note": "50매×2세트",
+              "kind": "선택2"
+            }
+          ]
+        },
+        {
+          "category": "케이터링/부대용품",
+          "items": [
+            {
+              "name": "아이스박스",
+              "spec": "얼음포함",
+              "qty": 5,
+              "unit": "SET",
+              "unitPrice": 50000,
+              "total": 250000,
+              "note": "생수 보관용",
+              "kind": "필수"
+            },
+            {
+              "name": "생수(500ml)",
+              "spec": "참가자용",
+              "qty": 400,
+              "unit": "개",
+              "unitPrice": 300,
+              "total": 120000,
+              "note": "충분한 수분 공급",
+              "kind": "필수"
+            },
+            {
+              "name": "경품(상품권 등)",
+              "spec": "참가상/우승상",
+              "qty": 1,
+              "unit": "식",
+              "unitPrice": 450000,
+              "total": 450000,
+              "note": "전 참가자 기념품",
+              "kind": "선택1"
+            }
+          ]
+        },
+        {
+          "category": "기획/운영",
+          "items": [
+            {
+              "name": "행사기획·운영비(총괄)",
+              "spec": "전체 기획/진행",
+              "qty": 1,
+              "unit": "식",
+              "unitPrice": 900000,
+              "total": 900000,
+              "note": "사전기획부터 현장총괄",
+              "kind": "필수"
+            },
+            {
+              "name": "디자이너",
+              "spec": "현수막/명찰 디자인",
+              "qty": 1,
+              "unit": "명",
+              "unitPrice": 300000,
+              "total": 300000,
+              "note": "모든 인쇄물 디자인",
+              "kind": "인건비"
+            },
+            {
+              "name": "보험료(행사보험)",
+              "spec": "참가자 안전보험",
+              "qty": 1,
+              "unit": "식",
+              "unitPrice": 80000,
+              "total": 80000,
+              "note": "300명 기준",
+              "kind": "필수"
+            }
+          ]
+        }
+      ],
+      "expenseRate": 10,
+      "profitRate": 10,
+      "cutAmount": 0,
+      "notes": "• 우천 시 실내 대체 프로그램 준비\n• 응급상황 대비 의료진 배치 협의\n• 경기 종목은 사전 협의 후 최종 확정\n• 모든 장비는 행사 전날 설치 완료",
+      "paymentTerms": "계약금 50% 선입금\n잔금 행사 당일 현장 정산\n세금계산서 발행 가능",
+      "validDays": 30,
+      "program": {
+        "concept": "화합과 소통을 위한 즐거운 체육대회",
+        "timeline": [
+          {
+            "time": "08:00",
+            "content": "현장 셋업 완료",
+            "detail": "무대, 음향, 천막 설치 점검",
+            "manager": "진행요원"
+          },
+          {
+            "time": "09:00",
+            "content": "참가자 접수",
+            "detail": "팀별 접수 및 팀조끼 배부",
+            "manager": "진행요원"
+          },
+          {
+            "time": "09:30",
+            "content": "개막식",
+            "detail": "국민의례, 개회사, 선수선서",
+            "manager": "MC"
+          },
+          {
+            "time": "10:00",
+            "content": "준비운동",
+            "detail": "전체 스트레칭 및 워밍업",
+            "manager": "진행요원"
+          },
+          {
+            "time": "10:30",
+            "content": "1차 경기",
+            "detail": "줄다리기, 단체줄넘기",
+            "manager": "MC+진행요원"
+          },
+          {
+            "time": "12:00",
+            "content": "점심시간",
+            "detail": "휴식 및 중간집계 발표",
+            "manager": "MC"
+          },
+          {
+            "time": "13:00",
+            "content": "2차 경기",
+            "detail": "이어달리기, 피구게임",
+            "manager": "MC+진행요원"
+          },
+          {
+            "time": "15:00",
+            "content": "간식시간",
+            "detail": "생수 및 간단 다과",
+            "manager": "진행요원"
+          },
+          {
+            "time": "15:30",
+            "content": "3차 경기",
+            "detail": "단체게임, 릴레이 경기",
+            "manager": "MC+진행요원"
+          },
+          {
+            "time": "17:30",
+            "content": "시상식",
+            "detail": "우승팀 시상 및 기념촬영",
+            "manager": "MC"
+          },
+          {
+            "time": "18:00",
+            "content": "폐막식",
+            "detail": "폐회사, 단체사진 촬영",
+            "manager": "MC"
+          },
+          {
+            "time": "19:30",
+            "content": "철수 완료",
+            "detail": "장비 철수 및 현장 정리",
+            "manager": "진행요원"
+          }
+        ],
+        "staffing": [
+          {
+            "role": "전문 MC",
+            "count": 2,
+            "note": "메인 1명, 서브 1명"
+          },
+          {
+            "role": "진행요원",
+            "count": 6,
+            "note": "팀별 담당 및 경기 진행"
+          },
+          {
+            "role": "디자이너",
+            "count": 1,
+            "note": "사전 디자인 작업"
+          }
+        ],
+        "tips": [
+          "팀별 구호 준비시간을 충분히 확보하여 분위기 조성",
+          "경기별 시간을 탄력적으로 운영하되 전체 일정은 준수",
+          "안전사고 예방을 위한 경기 전 주의사항 안내 필수",
+          "우천 대비 실내 대체 프로그램 사전 준비 권장"
+        ]
+      }
+    }
+  }
+]
