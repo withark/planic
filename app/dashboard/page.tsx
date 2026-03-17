@@ -1,6 +1,7 @@
 'use client'
-import { useEffect, useMemo, useState } from 'react'
+import { Suspense, useEffect, useMemo, useState } from 'react'
 import Link from 'next/link'
+import { useSearchParams } from 'next/navigation'
 import { GNB } from '@/components/GNB'
 import { apiFetch } from '@/lib/api/client'
 import { toUserMessage } from '@/lib/errors/toUserMessage'
@@ -9,7 +10,7 @@ import { PRICES_KRW } from '@/lib/plans'
 
 type MeResponse = {
   user: { id: string; email: string | null; name: string | null; image: string | null }
-  subscription: { planType: PlanType; billingCycle: 'monthly' | 'annual' | null; status: string }
+  subscription: { planType: PlanType; billingCycle: 'monthly' | 'annual' | null; status: string; expiresAt: string | null }
   usage: { periodKey: string; quoteGeneratedCount: number; companyProfileCount: number }
   limits: PlanLimits
 }
@@ -25,15 +26,25 @@ function usageLine(label: string, used: number, limit: number) {
   return { label, used, limit, pct: safeLimit > 0 ? Math.min(100, Math.round((used / safeLimit) * 100)) : 0 }
 }
 
-export default function DashboardPage() {
+function DashboardContent() {
+  const searchParams = useSearchParams()
   const [me, setMe] = useState<MeResponse | null>(null)
   const [err, setErr] = useState('')
+  const [successToast, setSuccessToast] = useState('')
 
   useEffect(() => {
     apiFetch<MeResponse>('/api/me')
       .then(setMe)
       .catch((e) => setErr(toUserMessage(e, '정보를 불러오지 못했습니다.')))
   }, [])
+
+  useEffect(() => {
+    if (searchParams.get('checkout') === 'success') {
+      setSuccessToast('결제가 완료되었습니다. 구독이 활성화되었어요.')
+      setTimeout(() => setSuccessToast(''), 4000)
+      window.history.replaceState({}, '', '/dashboard')
+    }
+  }, [searchParams])
 
   const plan = me?.subscription?.planType ?? 'FREE'
   const lines = useMemo(() => {
@@ -128,7 +139,27 @@ export default function DashboardPage() {
           </section>
         </div>
       </div>
+      {successToast && (
+        <div className="fixed bottom-6 left-1/2 -translate-x-1/2 z-50">
+          <div className="px-4 py-2 rounded-xl bg-primary-600 text-white text-sm shadow-lg">{successToast}</div>
+        </div>
+      )}
     </div>
+  )
+}
+
+export default function DashboardPage() {
+  return (
+    <Suspense fallback={
+      <div className="flex h-screen overflow-hidden bg-gray-50/50">
+        <GNB />
+        <div className="flex-1 flex items-center justify-center">
+          <p className="text-sm text-gray-500">로딩 중...</p>
+        </div>
+      </div>
+    }>
+      <DashboardContent />
+    </Suspense>
   )
 }
 

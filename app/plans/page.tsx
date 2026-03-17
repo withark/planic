@@ -1,6 +1,7 @@
 'use client'
 import Link from 'next/link'
-import { useEffect, useMemo, useState } from 'react'
+import { Suspense, useEffect, useMemo, useState } from 'react'
+import { useSearchParams } from 'next/navigation'
 import { EvQuoteLogo } from '@/components/EvQuoteLogo'
 import { apiFetch } from '@/lib/api/client'
 import { toUserMessage } from '@/lib/errors/toUserMessage'
@@ -22,7 +23,8 @@ function annualDiscountText(monthly: number, annual: number) {
   return disc > 0 ? `연간 결제 시 ${fmtKRW(disc)}원 절약 (${pct}% 할인)` : '연간 결제'
 }
 
-export default function PlansPage() {
+function PlansContent() {
+  const searchParams = useSearchParams()
   const [authStatus, setAuthStatus] = useState<'unknown' | 'authenticated' | 'unauthenticated'>('unknown')
   const [cycle, setCycle] = useState<BillingCycle>('monthly')
   const [currentPlan, setCurrentPlan] = useState<PlanType>('FREE')
@@ -35,6 +37,17 @@ export default function PlansPage() {
       .then(() => setAuthStatus('authenticated'))
       .catch(() => setAuthStatus('unauthenticated'))
   }, [])
+
+  useEffect(() => {
+    const checkout = searchParams.get('checkout')
+    if (checkout === 'canceled') {
+      setToast('결제가 취소되었습니다.')
+      setTimeout(() => setToast(''), 3500)
+    } else if (checkout === 'not-configured') {
+      setToast('결제 설정이 완료되지 않았습니다. 관리자에게 문의해 주세요.')
+      setTimeout(() => setToast(''), 4000)
+    }
+  }, [searchParams])
 
   const cards = useMemo(() => {
     const plans: { plan: PlanType; title: string; desc: string; badge?: string; highlight?: boolean }[] = [
@@ -234,9 +247,6 @@ export default function PlansPage() {
           })}
         </div>
 
-        <div className="max-w-5xl mx-auto mt-10 text-center text-xs text-slate-400">
-          결제 연동(월간/연간 실제 결제)은 현재 임시 구독 활성화로 동작합니다. 운영 결제 연동 시 웹훅 기반으로 대체하세요.
-        </div>
       </main>
 
       {toast && (
@@ -245,5 +255,22 @@ export default function PlansPage() {
         </div>
       )}
     </div>
+  )
+}
+
+export default function PlansPage() {
+  return (
+    <Suspense fallback={
+      <div className="min-h-screen flex flex-col bg-slate-50">
+        <header className="flex-shrink-0 flex items-center justify-between px-6 py-4 bg-white border-b border-slate-100">
+          <EvQuoteLogo showText size="md" />
+        </header>
+        <main className="flex-1 flex items-center justify-center">
+          <p className="text-sm text-slate-500">로딩 중...</p>
+        </main>
+      </div>
+    }>
+      <PlansContent />
+    </Suspense>
   )
 }

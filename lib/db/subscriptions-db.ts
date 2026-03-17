@@ -11,6 +11,7 @@ export type SubscriptionRow = {
   startedAt: string | null
   expiresAt: string | null
   canceledAt: string | null
+  stripeSubscriptionId: string | null
   createdAt: string
   updatedAt: string
 }
@@ -43,18 +44,19 @@ export async function getActiveSubscription(userId: string): Promise<Subscriptio
     LIMIT 1
   `
   if (rows.length === 0) return null
-  const r = rows[0] as any
+  const r = rows[0] as Record<string, unknown>
   return {
     id: String(r.id),
     userId: String(r.user_id),
     planType: toPlanType(r.plan_type),
     billingCycle: toBillingCycle(r.billing_cycle),
-    status: r.status,
-    startedAt: r.started_at ? new Date(r.started_at).toISOString() : null,
-    expiresAt: r.expires_at ? new Date(r.expires_at).toISOString() : null,
-    canceledAt: r.canceled_at ? new Date(r.canceled_at).toISOString() : null,
-    createdAt: new Date(r.created_at).toISOString(),
-    updatedAt: new Date(r.updated_at).toISOString(),
+    status: r.status as SubscriptionRow['status'],
+    startedAt: r.started_at ? new Date(r.started_at as string).toISOString() : null,
+    expiresAt: r.expires_at ? new Date(r.expires_at as string).toISOString() : null,
+    canceledAt: r.canceled_at ? new Date(r.canceled_at as string).toISOString() : null,
+    stripeSubscriptionId: r.stripe_subscription_id ? String(r.stripe_subscription_id) : null,
+    createdAt: new Date(r.created_at as string).toISOString(),
+    updatedAt: new Date(r.updated_at as string).toISOString(),
   }
 }
 
@@ -69,10 +71,10 @@ export async function ensureFreeSubscription(userId: string): Promise<Subscripti
   await sql`
     INSERT INTO subscriptions (
       id, user_id, plan_type, billing_cycle, status,
-      started_at, expires_at, canceled_at, created_at, updated_at
+      started_at, expires_at, canceled_at, stripe_subscription_id, created_at, updated_at
     ) VALUES (
       ${id}, ${userId}, 'FREE', NULL, 'active',
-      ${now}::timestamptz, NULL, NULL, ${now}::timestamptz, ${now}::timestamptz
+      ${now}::timestamptz, NULL, NULL, NULL, ${now}::timestamptz, ${now}::timestamptz
     )
     ON CONFLICT DO NOTHING
   `
@@ -92,6 +94,7 @@ export async function setActiveSubscription(input: {
   billingCycle: BillingCycle
   status?: SubscriptionRow['status']
   expiresAt?: string | null
+  stripeSubscriptionId?: string | null
 }): Promise<void> {
   await initDb()
   const sql = getDb()
@@ -108,7 +111,7 @@ export async function setActiveSubscription(input: {
   await sql`
     INSERT INTO subscriptions (
       id, user_id, plan_type, billing_cycle, status,
-      started_at, expires_at, canceled_at, created_at, updated_at
+      started_at, expires_at, canceled_at, stripe_subscription_id, created_at, updated_at
     ) VALUES (
       ${id},
       ${input.userId},
@@ -118,9 +121,76 @@ export async function setActiveSubscription(input: {
       ${now}::timestamptz,
       ${input.expiresAt ? input.expiresAt : null}::timestamptz,
       NULL,
+      ${input.stripeSubscriptionId ?? null},
       ${now}::timestamptz,
       ${now}::timestamptz
     )
+  `
+}
+
+export async function getSubscriptionByStripeSubscriptionId(stripeSubscriptionId: string): Promise<SubscriptionRow | null> {
+  await initDb()
+  const sql = getDb()
+  const rows = await sql`
+    SELECT * FROM subscriptions
+    WHERE stripe_subscription_id = ${stripeSubscriptionId}
+    LIMIT 1
+  `
+  if (rows.length === 0) return null
+  const r = rows[0] as Record<string, unknown>
+  return {
+    id: String(r.id),
+    userId: String(r.user_id),
+    planType: toPlanType(r.plan_type),
+    billingCycle: toBillingCycle(r.billing_cycle),
+    status: r.status as SubscriptionRow['status'],
+    startedAt: r.started_at ? new Date(r.started_at as string).toISOString() : null,
+    expiresAt: r.expires_at ? new Date(r.expires_at as string).toISOString() : null,
+    canceledAt: r.canceled_at ? new Date(r.canceled_at as string).toISOString() : null,
+    stripeSubscriptionId: r.stripe_subscription_id ? String(r.stripe_subscription_id) : null,
+    createdAt: new Date(r.created_at as string).toISOString(),
+    updatedAt: new Date(r.updated_at as string).toISOString(),
+  }
+}
+
+export async function updateSubscriptionByStripeId(
+  stripeSubscriptionId: string,
+  updates: { expiresAt?: string | null; status?: SubscriptionRow['status']; canceledAt?: string | null }
+): Promise<void> {
+  await initDb()
+  const sql = getDb()
+  const now = new Date().toISOString()
+  if (updates.expiresAt !== undefined) {
+    await sql`
+      UPDATE subscriptions
+      SET expires_at = ${updates.expiresAt}::timestamptz, updated_at = ${now}::timestamptz
+      WHERE stripe_subscription_id = ${stripeSubscriptionId}
+    `
+  }
+  if (updates.status !== undefined) {
+    await sql`
+      UPDATE subscriptions
+      SET status = ${updates.status}, updated_at = ${now}::timestamptz
+      WHERE stripe_subscription_id = ${stripeSubscriptionId}
+    `
+  }
+  if (updates.canceledAt !== undefined) {
+    await sql`
+      UPDATE subscriptions
+      SET canceled_at = ${updates.canceledAt}::timestamptz, updated_at = ${now}::timestamptz
+      WHERE stripe_subscription_id = ${stripeSubscriptionId}
+    `
+  }
+}
+
+export async function expireSubscriptionByStripeId(stripeSubscriptionId: string): Promise<void> {
+  await initDb()
+  const sql = getDb()
+  const now = new Date().toISOString()
+  await sql`
+    UPDATE subscriptions
+    SET status = 'expired', updated_at = ${now}::timestamptz
+    WHERE stripe_subscription_id = ${stripeSubscriptionId} AND status = 'active'
   `
 }
 

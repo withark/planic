@@ -1,6 +1,7 @@
 import type { BillingCycle, PlanType } from '@/lib/plans'
 import { getBillingMode } from '@/lib/billing/mode'
 import { setActiveSubscription } from '@/lib/db/subscriptions-db'
+import { createCheckoutSession } from '@/lib/billing/checkout'
 
 export type SubscribeResult =
   | { kind: 'mock_activated' }
@@ -33,9 +34,12 @@ export async function subscribePlan(input: {
     return { kind: 'mock_activated' }
   }
 
-  // live: 결제 제공자 체크아웃 URL을 생성해 클라이언트에 반환하는 구조로 확장
-  // (토스/스트라이프 웹훅 기반으로 최종 구독 활성화)
-  // 지금은 placeholder.
-  return { kind: 'live_checkout_required', checkoutUrl: '/plans?checkout=not-configured' }
+  // live: mock 로직 미실행. 실제 체크아웃 URL만 반환.
+  const checkoutUrl = await createCheckoutSession({
+    userId: input.userId,
+    planType: input.planType,
+    billingCycle: input.billingCycle,
+  })
+  return { kind: 'live_checkout_required', checkoutUrl }
 }
 

@@ -16,6 +16,14 @@ export async function GET() {
     const usage = await getOrCreateUsage(userId)
     const session = await getServerSession(authOptions)
 
+    const subscriptionPayload = sub
+      ? {
+          planType: sub.planType,
+          status: sub.status,
+          billingCycle: sub.billingCycle,
+          expiresAt: sub.expiresAt,
+        }
+      : { planType: plan, status: 'active' as const, billingCycle: null, expiresAt: null }
     return okResponse({
       user: {
         id: userId,
@@ -23,7 +31,7 @@ export async function GET() {
         name: session?.user?.name ?? null,
         image: session?.user?.image ?? null,
       },
-      subscription: sub ?? { planType: plan, status: 'active', billingCycle: null },
+      subscription: subscriptionPayload,
       usage,
       limits: PLAN_LIMITS[plan],
     })

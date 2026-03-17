@@ -56,6 +56,19 @@ export async function initDb(): Promise<void> {
   await sql`CREATE INDEX IF NOT EXISTS idx_subscriptions_user_id ON subscriptions (user_id)`
   await sql`CREATE INDEX IF NOT EXISTS idx_subscriptions_user_status ON subscriptions (user_id, status)`
   await sql`CREATE UNIQUE INDEX IF NOT EXISTS uidx_subscriptions_user_active ON subscriptions (user_id) WHERE status = 'active'`
+  try {
+    await sql`ALTER TABLE subscriptions ADD COLUMN stripe_subscription_id text`
+  } catch (_: unknown) {
+    // column may already exist (e.g. 42701 duplicate_column)
+  }
+  await sql`CREATE UNIQUE INDEX IF NOT EXISTS uidx_subscriptions_stripe_sub_id ON subscriptions (stripe_subscription_id) WHERE stripe_subscription_id IS NOT NULL`
+
+  await sql`
+    CREATE TABLE IF NOT EXISTS stripe_webhook_events (
+      id text PRIMARY KEY,
+      processed_at timestamptz NOT NULL DEFAULT now()
+    )
+  `
 
   await sql`
     CREATE TABLE IF NOT EXISTS usage_quotas (
