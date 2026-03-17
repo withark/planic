@@ -1,13 +1,10 @@
 import Link from 'next/link'
-import { getServerSession } from 'next-auth/next'
 import { EvQuoteLogo } from '@/components/EvQuoteLogo'
-import { authOptions } from '@/lib/auth'
-import { buildStartHref } from '@/lib/auth-redirect'
+import { StartNowLink } from '@/components/StartNowLink'
 
-export default async function IntroPage() {
-  const session = await getServerSession(authOptions)
-  const start = buildStartHref({ isAuthenticated: !!session, targetPath: '/generate' })
+export const dynamic = 'force-dynamic'
 
+export default function IntroPage() {
   return (
     <div className="min-h-screen flex flex-col bg-gradient-to-b from-slate-50 via-white to-primary-50/30">
       <header className="flex-shrink-0 flex items-center justify-between px-6 py-4">
@@ -18,15 +15,7 @@ export default async function IntroPage() {
           <Link href="/plans" className="text-sm font-medium text-gray-600 hover:text-primary-600 transition-colors">
             플랜
           </Link>
-          {session ? (
-            <Link href={start} className="text-sm font-medium text-primary-700 hover:text-primary-800">
-              견적 만들기
-            </Link>
-          ) : (
-            <Link href={start} className="text-sm font-medium text-primary-600 hover:text-primary-700">
-              로그인 / 시작하기
-            </Link>
-          )}
+          <StartNowLink variant="nav" className="text-sm font-medium text-primary-600 hover:text-primary-700" />
         </nav>
       </header>
 
@@ -45,12 +34,12 @@ export default async function IntroPage() {
             >
               플랜 보기
             </Link>
-            <Link
-              href={start}
+            <StartNowLink
+              variant="cta"
               className="w-full sm:w-auto inline-flex items-center justify-center px-6 py-3.5 rounded-xl text-sm font-semibold border-2 border-primary-200 text-primary-700 bg-white hover:bg-primary-50 hover:border-primary-300 transition-colors"
             >
               바로 시작하기
-            </Link>
+            </StartNowLink>
           </div>
         </div>
 
