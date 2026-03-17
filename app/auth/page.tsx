@@ -1,5 +1,5 @@
 import Link from 'next/link'
-import { QuodocLogo } from '@/components/QuodocLogo'
+import { EvQuoteLogo } from '@/components/EvQuoteLogo'
 import { GoogleSignInButton } from '@/components/auth/GoogleSignInButton'
 import { AuthErrorAlert } from '@/components/auth/AuthErrorAlert'
 
@@ -16,7 +16,7 @@ export default function AuthPage({
     <div className="min-h-screen flex flex-col bg-gradient-to-b from-slate-50 via-white to-primary-50/30">
       <header className="flex-shrink-0 flex items-center justify-between px-6 py-4">
         <Link href="/" className="flex items-center gap-2 text-gray-800 hover:text-primary-600 transition-colors">
-          <QuodocLogo showText size="md" />
+          <EvQuoteLogo showText size="md" />
         </Link>
       </header>
 

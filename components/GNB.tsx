@@ -2,7 +2,7 @@
 import Link from 'next/link'
 import { usePathname } from 'next/navigation'
 import clsx from 'clsx'
-import { QuodocLogo } from '@/components/QuodocLogo'
+import { EvQuoteLogo } from '@/components/EvQuoteLogo'
 
 const NAVS = [
   { href: '/generate',   text: '견적', label: '견적 생성' },
@@ -17,7 +17,7 @@ export function GNB() {
   return (
     <div className="pl-4 flex-shrink-0 flex flex-col items-stretch min-h-0">
       <Link href="/generate" className="pt-4 pb-2 px-1 flex flex-col items-center gap-1 group">
-        <QuodocLogo showText size="sm" className="group-hover:[&_svg]:text-primary-600 group-hover:[&_span]:text-primary-600 transition-colors" />
+        <EvQuoteLogo showText size="sm" className="group-hover:[&_svg]:text-primary-600 group-hover:[&_span]:text-primary-600 transition-colors" />
         <span className="text-[9px] text-gray-400 tracking-wide">행사 문서 올인원</span>
       </Link>
       <nav className="w-12 border-r border-slate-200/80 bg-white rounded-r-xl flex flex-col items-center py-2 gap-0.5 shadow-sm">

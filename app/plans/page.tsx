@@ -1,5 +1,5 @@
 import Link from 'next/link'
-import { QuodocLogo } from '@/components/QuodocLogo'
+import { EvQuoteLogo } from '@/components/EvQuoteLogo'
 
 const PLANS = [
   {
@@ -45,7 +45,7 @@ export default function PlansPage() {
     <div className="min-h-screen flex flex-col bg-slate-50">
       <header className="flex-shrink-0 flex items-center justify-between px-6 py-4 bg-white border-b border-slate-100">
         <Link href="/" className="flex items-center gap-2 text-gray-800 hover:text-primary-600 transition-colors">
-          <QuodocLogo showText size="md" />
+          <EvQuoteLogo showText size="md" />
         </Link>
         <nav className="flex items-center gap-4">
           <Link href="/" className="text-sm text-gray-500 hover:text-gray-700">홈</Link>

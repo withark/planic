@@ -1,17 +1,17 @@
 'use client'
 
-/** 쿼닥 로고: 문서+견적 아이콘 + 텍스트(선택) */
-interface QuodocLogoProps {
+/** 에브쿼트 로고: 문서+견적 아이콘 + 텍스트(선택) */
+interface EvQuoteLogoProps {
   showText?: boolean
   size?: 'sm' | 'md' | 'lg'
   className?: string
 }
 
-export function QuodocLogo({
+export function EvQuoteLogo({
   showText = true,
   size = 'md',
   className = '',
-}: QuodocLogoProps) {
+}: EvQuoteLogoProps) {
   const iconSize = size === 'sm' ? 24 : size === 'lg' ? 48 : 32
   const textSize = size === 'sm' ? 'text-sm' : size === 'lg' ? 'text-2xl' : 'text-base'
 
@@ -34,7 +34,7 @@ export function QuodocLogo({
       </svg>
       {showText && (
         <span className={`font-bold tracking-tight text-gray-800 ${textSize}`}>
-          쿼닥
+          에브쿼트
         </span>
       )}
     </div>

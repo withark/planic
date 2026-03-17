@@ -1,12 +1,12 @@
 import Link from 'next/link'
-import { QuodocLogo } from '@/components/QuodocLogo'
+import { EvQuoteLogo } from '@/components/EvQuoteLogo'
 
 export default function IntroPage() {
   return (
     <div className="min-h-screen flex flex-col bg-gradient-to-b from-slate-50 via-white to-primary-50/30">
       <header className="flex-shrink-0 flex items-center justify-between px-6 py-4">
         <Link href="/" className="flex items-center gap-2 text-gray-800 hover:text-primary-600 transition-colors">
-          <QuodocLogo showText size="md" />
+          <EvQuoteLogo showText size="md" />
         </Link>
         <nav className="flex items-center gap-4">
           <Link href="/plans" className="text-sm font-medium text-gray-600 hover:text-primary-600 transition-colors">
@@ -23,7 +23,7 @@ export default function IntroPage() {
 
       <main className="flex-1 flex flex-col items-center justify-center px-6 py-16 text-center">
         <div className="max-w-2xl mx-auto space-y-8">
-          <QuodocLogo showText size="lg" className="justify-center mx-auto" />
+          <EvQuoteLogo showText size="lg" className="justify-center mx-auto" />
           <p className="text-slate-500 text-lg">
             행사 견적서, 제안 프로그램, 타임테이블, 큐시트를 한 번에.
             <br />
@@ -60,7 +60,7 @@ export default function IntroPage() {
       </main>
 
       <footer className="flex-shrink-0 py-6 text-center text-xs text-slate-400">
-        쿼닥 · 행사 문서 올인원
+        에브쿼트 · 행사 문서 올인원
       </footer>
     </div>
   )
