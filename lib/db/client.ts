@@ -38,5 +38,15 @@ export async function initDb(): Promise<void> {
   `
   await sql`CREATE INDEX IF NOT EXISTS idx_quotes_user_id ON quotes (user_id)`
   await sql`CREATE INDEX IF NOT EXISTS idx_quotes_user_created ON quotes (user_id, created_at DESC)`
+  await sql`
+    CREATE TABLE IF NOT EXISTS admin_events (
+      id text PRIMARY KEY,
+      kind text NOT NULL,
+      context text NOT NULL,
+      message text NOT NULL,
+      created_at timestamptz NOT NULL DEFAULT now()
+    )
+  `
+  await sql`CREATE INDEX IF NOT EXISTS idx_admin_events_created_at ON admin_events (created_at DESC)`
   initDone = true
 }

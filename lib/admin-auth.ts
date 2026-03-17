@@ -124,4 +124,13 @@ export function parseAdminSessionFromValue(cookieValue: string | undefined): { u
   return verifyPayload(cookieValue.trim())
 }
 
+/** API 라우트용: 관리자 아니면 401 Response 반환, 관리자면 null 반환. 사용: const err = await requireAdmin(request); if (err) return err; */
+export async function requireAdmin(
+  request: Request,
+): Promise<{ user: string } | null> {
+  const cookieHeader = request.headers.get('cookie')
+  const session = parseAdminSession(cookieHeader)
+  return session
+}
+
 export { COOKIE_NAME }

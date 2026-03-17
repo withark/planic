@@ -7,6 +7,9 @@ const KV_KEYS = {
   scenarioRefs: 'scenario_refs',
   taskOrderRefs: 'task_order_refs',
   cuesheetSamples: 'cuesheet_samples',
+  plans: 'plans',
+  subscriptions: 'subscriptions',
+  engine_config: 'engine_config',
 } as const
 
 export type KvKey = keyof typeof KV_KEYS

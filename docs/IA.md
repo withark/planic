@@ -32,14 +32,14 @@
 
 | 경로 | 분류 | 설명 |
 |------|------|------|
-| `/admin` | 관리자 | 관리자 로그인 또는 대시보드 |
-| `/admin/users` | 관리자 | 사용자 관리 (준비 중) |
-| `/admin/subscriptions` | 관리자 | 구독 관리 (준비 중) |
-| `/admin/plans` | 관리자 | 플랜 관리 (준비 중) |
-| `/admin/usage` | 관리자 | 사용량 관리 (준비 중) |
-| `/admin/engines` | 관리자 | 엔진/모델 관리 (준비 중) |
-| `/admin/logs` | 관리자 | 로그 (준비 중) |
-| `/admin/system` | 관리자 | 시스템·공지 (준비 중) |
+| `/admin` | 관리자 | 관리자 로그인 · 대시보드 (실제 지표: 사용자 수, 생성 건수, 에러 수 등) |
+| `/admin/users` | 관리자 | 사용자 목록 (quotes 테이블 기준 user_id·건수·최근 활동) |
+| `/admin/subscriptions` | 관리자 | 구독 목록 (kv subscriptions + quotes 사용자, 결제 연동 추후) |
+| `/admin/plans` | 관리자 | 플랜 목록·저장 (kv plans, 기본값·CRUD) |
+| `/admin/usage` | 관리자 | 사용량 (사용자별 생성 수, 최근 24h/7d) |
+| `/admin/engines` | 관리자 | 엔진/모델 (env + kv engine_config 오버레이, 저장 시 generate 반영) |
+| `/admin/logs` | 관리자 | 에러 로그 (admin_events 테이블, logError 시 기록) |
+| `/admin/system` | 관리자 | 시스템 상태 (DB·NODE_ENV, 헬스 링크) |
 
 **권한**: 관리자 쿠키(`planic_admin`)가 있는 경우에만 `/admin` 및 `/admin/*` 접근 가능.  
 `/admin/xxx`(하위 경로)는 쿠키 없이 접근 시 `/admin`(로그인)으로 리다이렉트.
@@ -71,8 +71,14 @@
 
 ---
 
-## 6. 참고
+## 6. 관리자 API 및 데이터 소스
 
-- 관리자 인증: `lib/admin-auth.ts`, 쿠키 기반 세션
+- **API**: `/api/admin/stats`, `/api/admin/users`, `/api/admin/plans`, `/api/admin/subscriptions`, `/api/admin/usage`, `/api/admin/engines`, `/api/admin/logs`, `/api/admin/system` — 모두 `requireAdmin` 쿠키 검사 후 응답.
+- **데이터**: `quotes` 테이블(사용자별 이력), `app_kv`(plans, subscriptions, engine_config), `admin_events`(에러 로그).
+- **설정·단가·참고**: 사용자 영역은 현재 전역(kv/파일) 저장. 사용자별 분리는 추후.
+
+## 7. 참고
+
+- 관리자 인증: `lib/admin-auth.ts`, 쿠키 기반 세션, `requireAdmin(request)` 로 API 보호
 - 미들웨어: `middleware.ts` — `/admin/:path*` 에서 쿠키 없으면 `/admin` 리다이렉트
 - 레이아웃: `app/admin/layout.tsx` — 세션 있을 때만 `AdminShell`(사이드바) 적용

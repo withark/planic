@@ -36,6 +36,20 @@ function log(level: LogLevel, context: string, error: unknown) {
 
 export function logError(context: string, error: unknown) {
   log('error', context, error)
+  persistErrorEvent(context, error)
+}
+
+function persistErrorEvent(context: string, error: unknown) {
+  try {
+    const { hasDatabase } = require('@/lib/db/client')
+    const { adminEventsAppend } = require('@/lib/db/admin-events-db')
+    if (hasDatabase()) {
+      const msg = error instanceof Error ? error.message : String(error)
+      void adminEventsAppend('error', context, msg).catch(() => {})
+    }
+  } catch {
+    // ignore
+  }
 }
 
 export function logWarn(context: string, error: unknown) {

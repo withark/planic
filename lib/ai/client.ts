@@ -1,6 +1,9 @@
 import Anthropic from '@anthropic-ai/sdk'
 import OpenAI from 'openai'
 import { getEnv } from '../env'
+import { hasDatabase } from '../db/client'
+import { kvGet } from '../db/kv'
+import type { EngineConfigOverlay } from '../admin-types'
 
 export type AIProvider = 'anthropic' | 'openai'
 
@@ -15,6 +18,33 @@ export function getAIProvider(): AIProvider {
   if (provider === 'openai' || provider === 'anthropic') return provider
   if (env.OPENAI_API_KEY) return 'openai'
   return 'anthropic'
+}
+
+/** env + DB engine_config 오버레이 적용. generate 등에서 사용. */
+export async function getEffectiveEngineConfig(): Promise<{
+  provider: AIProvider
+  model: string
+  maxTokens: number
+}> {
+  const env = getEnv()
+  let overlay: EngineConfigOverlay | null = null
+  if (hasDatabase()) {
+    try {
+      overlay = await kvGet<EngineConfigOverlay | null>('engine_config', null)
+      if (overlay && typeof overlay !== 'object') overlay = null
+    } catch {
+      // ignore
+    }
+  }
+  const provider: AIProvider =
+    overlay?.provider === 'openai' || overlay?.provider === 'anthropic'
+      ? overlay.provider
+      : getAIProvider()
+  const model =
+    overlay?.model?.trim() ||
+    (provider === 'openai' ? (env.OPENAI_MODEL ?? 'gpt-4o') : (env.ANTHROPIC_MODEL ?? 'claude-sonnet-4-6'))
+  const maxTokens = overlay?.maxTokens ?? 4000
+  return { provider, model, maxTokens }
 }
 
 function getAnthropicClient(): Anthropic {
@@ -36,15 +66,15 @@ function getOpenAIClient(): OpenAI {
 }
 
 export async function callLLM(prompt: string, opts: CallLLMOptions = {}): Promise<string> {
-  const provider = getAIProvider()
-  const maxTokens = opts.maxTokens ?? 4000
+  const effective = await getEffectiveEngineConfig()
+  const provider = effective.provider
+  const maxTokens = opts.maxTokens ?? effective.maxTokens
+  const model = opts.model ?? effective.model
 
   if (provider === 'openai') {
     const client = getOpenAIClient()
-    const { OPENAI_MODEL } = getEnv()
-    const model = opts.model ?? OPENAI_MODEL ?? 'gpt-4o'
     const res = await client.chat.completions.create({
-      model,
+      model: model as string,
       max_tokens: maxTokens,
       messages: [{ role: 'user', content: prompt }],
     })
@@ -54,10 +84,8 @@ export async function callLLM(prompt: string, opts: CallLLMOptions = {}): Promis
   }
 
   const client = getAnthropicClient()
-  const { ANTHROPIC_MODEL } = getEnv()
-  const model = opts.model ?? ANTHROPIC_MODEL ?? 'claude-sonnet-4-6'
   const message = await client.messages.create({
-    model,
+    model: model as string,
     max_tokens: maxTokens,
     messages: [{ role: 'user', content: prompt }],
   })
