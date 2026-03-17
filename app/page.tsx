@@ -1,10 +1,16 @@
 import Link from 'next/link'
+import { getServerSession } from 'next-auth/next'
 import { EvQuoteLogo } from '@/components/EvQuoteLogo'
 import { StartNowLink } from '@/components/StartNowLink'
+import { authOptions } from '@/lib/auth'
+import { buildStartHref } from '@/lib/auth-redirect'
 
 export const dynamic = 'force-dynamic'
 
-export default function IntroPage() {
+export default async function IntroPage() {
+  const session = await getServerSession(authOptions)
+  const initialStartHref = buildStartHref({ isAuthenticated: !!session, targetPath: '/generate' })
+
   return (
     <div className="min-h-screen flex flex-col bg-gradient-to-b from-slate-50 via-white to-primary-50/30">
       <header className="flex-shrink-0 flex items-center justify-between px-6 py-4">
@@ -15,7 +21,11 @@ export default function IntroPage() {
           <Link href="/plans" className="text-sm font-medium text-gray-600 hover:text-primary-600 transition-colors">
             플랜
           </Link>
-          <StartNowLink variant="nav" className="text-sm font-medium text-primary-600 hover:text-primary-700" />
+          <StartNowLink
+            variant="nav"
+            className="text-sm font-medium text-primary-600 hover:text-primary-700"
+            initialHref={initialStartHref}
+          />
         </nav>
       </header>
 
@@ -37,6 +47,7 @@ export default function IntroPage() {
             <StartNowLink
               variant="cta"
               className="w-full sm:w-auto inline-flex items-center justify-center px-6 py-3.5 rounded-xl text-sm font-semibold border-2 border-primary-200 text-primary-700 bg-white hover:bg-primary-50 hover:border-primary-300 transition-colors"
+              initialHref={initialStartHref}
             >
               바로 시작하기
             </StartNowLink>
