@@ -18,9 +18,8 @@ export function middleware(request: NextRequest) {
   // 운영 도메인 canonicalize: planic.cloud → www.planic.cloud
   // (NEXTAUTH_URL이 www 기준일 때 쿠키/콜백 도메인 불일치를 방지)
   if (hostname === 'planic.cloud') {
-    const url = request.nextUrl.clone()
-    url.hostname = 'www.planic.cloud'
-    return NextResponse.redirect(url, 308)
+    const target = `https://www.planic.cloud${pathname}${request.nextUrl.search}`
+    return NextResponse.redirect(target, 308)
   }
 
   // 1) 관리자 페이지 보호
