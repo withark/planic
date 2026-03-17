@@ -101,7 +101,7 @@ event-quote/
 
 2. **환경 변수**
    - 로컬: `.env.local`에 `NEXTAUTH_URL`, `NEXTAUTH_SECRET`, `GOOGLE_CLIENT_ID`, `GOOGLE_CLIENT_SECRET` 설정
-   - 운영: Vercel 등에 동일 이름으로 설정, `NEXTAUTH_URL`은 실제 배포 URL(또는 커스텀 도메인)로 고정
+   - 운영: Vercel 등에 동일 이름으로 설정. **운영 도메인**은 `https://www.planic.cloud` 이므로 `NEXTAUTH_URL=https://www.planic.cloud` 로 고정.
 
 3. **Google 로그인**
    - `/auth` 접속 → "Google로 로그인" 클릭 → Google 인증 후 콜백까지 정상 이동
@@ -123,7 +123,7 @@ event-quote/
   `NEXTAUTH_URL`, `NEXTAUTH_SECRET`, `GOOGLE_CLIENT_ID`, `GOOGLE_CLIENT_SECRET` 필수. AI 사용 시 `ANTHROPIC_API_KEY` 또는 `OPENAI_API_KEY` 추가. 상세는 [docs/AUTH_ENV.md](docs/AUTH_ENV.md) 참고.
 - **Google 리디렉션 URI**  
   Google Cloud Console → 사용자 인증 정보 → 승인된 리디렉션 URI에  
-  `https://<배포도메인>/api/auth/callback/google` 등록 (로컬: `http://localhost:3000/api/auth/callback/google`).
+  운영: `https://www.planic.cloud/api/auth/callback/google` / 로컬: `http://localhost:3000/api/auth/callback/google` 등록.
 - **빌드**  
   `npx tsc --noEmit` → `npm run build` 성공 확인 후 배포.
 - **로그인 테스트 순서**  

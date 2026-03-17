@@ -4,7 +4,7 @@
 
 | 변수명 | 설명 | 예시 값 |
 |--------|------|---------|
-| `NEXTAUTH_URL` | 앱의 canonical URL (운영 도메인 기준 고정). **코드에서 변경 금지.** | `https://your-app.vercel.app` |
+| `NEXTAUTH_URL` | 앱의 canonical URL (운영 도메인 기준 고정). **코드에서 변경 금지.** | `https://www.planic.cloud` |
 | `NEXTAUTH_SECRET` | 세션 암호화용 시크릿. 32자 이상 권장. | `openssl rand -base64 32` 로 생성 |
 | `GOOGLE_CLIENT_ID` | Google Cloud Console > 사용자 인증 정보 > OAuth 2.0 클라이언트 ID | `123456-xxx.apps.googleusercontent.com` |
 | `GOOGLE_CLIENT_SECRET` | 위 클라이언트의 비밀번호 | `GOCSPX-xxxxxxxx` |
@@ -23,7 +23,7 @@ GOOGLE_CLIENT_SECRET=GOCSPX-xxx
 Google Cloud Console에서 "승인된 리디렉션 URI"에 다음을 등록:
 
 - 개발: `http://localhost:3000/api/auth/callback/google`
-- 운영: `https://your-domain.com/api/auth/callback/google`
+- 운영: `https://www.planic.cloud/api/auth/callback/google`
 
 ## Vercel 설정
 
@@ -32,7 +32,7 @@ Google Cloud Console에서 "승인된 리디렉션 URI"에 다음을 등록:
 
 | Vercel 변수 이름 | 값 |
 |------------------|-----|
-| `NEXTAUTH_URL` | 배포 URL (예: `https://event-quote-xxx.vercel.app`) 또는 커스텀 도메인 |
+| `NEXTAUTH_URL` | 운영: `https://www.planic.cloud` (고정). Preview 등: 해당 배포 URL |
 | `NEXTAUTH_SECRET` | 32자 이상 랜덤 문자열 |
 | `GOOGLE_CLIENT_ID` | Google OAuth 클라이언트 ID |
 | `GOOGLE_CLIENT_SECRET` | Google OAuth 클라이언트 시크릿 |
