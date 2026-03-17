@@ -1,6 +1,5 @@
 'use client'
 
-import { useState, useEffect } from 'react'
 import { SessionProvider as NextAuthSessionProvider } from 'next-auth/react'
 import type { Session } from 'next-auth'
 
@@ -10,20 +9,10 @@ type Props = {
 }
 
 /**
- * next-auth SessionProvider는 클라이언트 마운트 후에만 렌더.
- * SSR/초기 하이드레이션 시 provider가 실행되면 "Application error: a client-side exception" 등
- * 전역 오류가 날 수 있어, 마운트 완료 후에만 Provider를 붙임.
+ * useSession()을 쓰는 컴포넌트(StartNowLink 등)가 Provider 없이 호출되면
+ * MessagePort 등 내부 오류가 발생할 수 있어, 항상 NextAuthSessionProvider를 렌더.
  */
 export function SessionProvider({ children, session }: Props) {
-  const [mounted, setMounted] = useState(false)
-  useEffect(() => {
-    setMounted(true)
-  }, [])
-
-  if (!mounted) {
-    return <>{children}</>
-  }
-
   return (
     <NextAuthSessionProvider session={session}>
       {children}
