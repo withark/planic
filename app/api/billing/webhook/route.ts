@@ -4,10 +4,12 @@ import { recordBillingWebhookEventIfNew } from '@/lib/billing/webhook-idempotenc
 import { logBillingWebhook } from '@/lib/billing/webhook-log'
 import {
   getBillingOrderByOrderId,
+  markBillingOrderApproved,
   markBillingOrderCanceled,
   markBillingOrderExpired,
 } from '@/lib/billing/toss-orders-db'
-import { cancelActiveSubscription } from '@/lib/db/subscriptions-db'
+import { cancelActiveSubscription, setActiveSubscription } from '@/lib/db/subscriptions-db'
+import type { BillingCycle, PlanType } from '@/lib/plans'
 
 export const dynamic = 'force-dynamic'
 
@@ -20,6 +22,11 @@ type TossPaymentStatusChangedData = {
   [k: string]: unknown
 }
 
+function expiresAtForCycle(cycle: Exclude<BillingCycle, null>): string {
+  const days = cycle === 'annual' ? 365 : 30
+  return new Date(Date.now() + days * 24 * 60 * 60 * 1000).toISOString()
+}
+
 async function handleTossPaymentStatusChanged(data: TossPaymentStatusChangedData): Promise<void> {
   const orderId = data.orderId
   if (!orderId || typeof orderId !== 'string') return
@@ -28,6 +35,26 @@ async function handleTossPaymentStatusChanged(data: TossPaymentStatusChangedData
   if (!order) return
 
   const status = (data.status ?? '').toUpperCase()
+
+  if (status === 'DONE') {
+    if (order.status !== 'approved' && typeof data.paymentKey === 'string') {
+      await markBillingOrderApproved({
+        orderId,
+        paymentKey: data.paymentKey,
+        raw: data,
+        approvedAt: typeof data.approvedAt === 'string' ? data.approvedAt : undefined,
+      })
+      await setActiveSubscription({
+        userId: order.userId,
+        planType: order.planType as Exclude<PlanType, 'FREE'>,
+        billingCycle: order.billingCycle,
+        status: 'active',
+        expiresAt: expiresAtForCycle(order.billingCycle),
+        stripeSubscriptionId: null,
+      })
+    }
+    return
+  }
 
   if (status === 'CANCELED' || status === 'PARTIAL_CANCELED') {
     await markBillingOrderCanceled(orderId, data)
