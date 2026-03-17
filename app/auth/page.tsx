@@ -1,21 +1,36 @@
 import Link from 'next/link'
+import { redirect } from 'next/navigation'
+import { getServerSession } from 'next-auth/next'
 import { EvQuoteLogo } from '@/components/EvQuoteLogo'
 import { GoogleSignInButton } from '@/components/auth/GoogleSignInButton'
 import { AuthErrorAlert } from '@/components/auth/AuthErrorAlert'
 import { isDevAuthEnabled } from '@/lib/auth-dev'
 import { sanitizeCallbackUrl } from '@/lib/auth-callback'
+import { authOptions } from '@/lib/auth'
 
 type SearchParams = { error?: string; errorDescription?: string; callbackUrl?: string; reason?: string }
 
-export default function AuthPage({
+export default async function AuthPage({
   searchParams,
 }: {
   searchParams: SearchParams
 }) {
-  const callbackUrlRaw = typeof searchParams?.callbackUrl === 'string' ? searchParams.callbackUrl : '/'
-  const callbackUrl = sanitizeCallbackUrl(callbackUrlRaw)
+  const session = await getServerSession(authOptions)
+  const hasCallbackParam = typeof searchParams?.callbackUrl === 'string'
+  const callbackUrlRaw = hasCallbackParam ? searchParams.callbackUrl : '/generate'
+  const callbackUrlSanitized = sanitizeCallbackUrl(callbackUrlRaw)
+  const callbackUrl =
+    // callbackUrl이 없거나(기본), 외부/비정상 값이 들어온 경우엔 /generate로 안전하게 통일
+    (!hasCallbackParam || (callbackUrlSanitized === '/' && callbackUrlRaw.trim() !== '/'))
+      ? '/generate'
+      : callbackUrlSanitized
   const reason = typeof searchParams?.reason === 'string' ? searchParams.reason : ''
   const devEnabled = isDevAuthEnabled()
+
+  // 이미 로그인한 사용자가 /auth 접근 시 즉시 목적지로 이동
+  if (session) {
+    redirect(callbackUrl || '/generate')
+  }
 
   return (
     <div className="min-h-screen flex flex-col bg-gradient-to-b from-slate-50 via-white to-primary-50/30">

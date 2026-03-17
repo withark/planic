@@ -5,6 +5,15 @@ import { upsertUser } from '@/lib/db/users-db'
 import { ensureFreeSubscription } from '@/lib/db/subscriptions-db'
 import { devAuthProvider, isDevAuthEnabled } from '@/lib/auth-dev'
 
+function resolveNextAuthSecret() {
+  const s = (process.env.NEXTAUTH_SECRET ?? '').trim()
+  if (s) return s
+  // 개발 중에는 편의상 고정된 로컬 전용 secret을 사용해 세션 불안정을 막는다.
+  // 운영(배포)에서는 반드시 NEXTAUTH_SECRET이 설정되어야 한다.
+  if (process.env.NODE_ENV !== 'production') return 'planic-dev-only-secret'
+  throw new Error('Missing NEXTAUTH_SECRET in production')
+}
+
 /**
  * NextAuth 옵션.
  * - NEXTAUTH_URL 은 env 고정값만 사용. 코드에서 절대 변경하지 않음.
@@ -80,5 +89,5 @@ export const authOptions: NextAuthOptions = {
     strategy: 'jwt',
     maxAge: 30 * 24 * 60 * 60,
   },
-  secret: process.env.NEXTAUTH_SECRET,
+  secret: resolveNextAuthSecret(),
 }

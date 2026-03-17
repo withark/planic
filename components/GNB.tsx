@@ -44,11 +44,14 @@ export function GNB() {
           ))}
         </div>
 
-        {/* 좌측 하단 계정(Claude/ChatGPT 스타일) */}
-        <div className="mt-auto pt-2 pb-1">
-          <AccountPanel placement="top-left" variant="compact" />
-        </div>
+        {/* 하단(여백 유지용) */}
+        <div className="mt-auto pt-2 pb-1" />
       </nav>
+
+      {/* 우측 상단 프로필 메뉴(모바일 포함) */}
+      <div className="fixed top-4 right-4 z-50">
+        <AccountPanel placement="bottom-right" variant="default" />
+      </div>
     </div>
   )
 }
