@@ -70,6 +70,49 @@ export async function initDb(): Promise<void> {
     )
   `
 
+  // ── Billing: Toss Payments orders / webhook (live 운영용) ──
+  await sql`
+    CREATE TABLE IF NOT EXISTS billing_orders (
+      id text PRIMARY KEY,
+      user_id text NOT NULL,
+      provider text NOT NULL DEFAULT 'toss',
+      order_id text NOT NULL,
+      plan_type text NOT NULL,
+      billing_cycle text NOT NULL,
+      amount int NOT NULL,
+      status text NOT NULL DEFAULT 'pending',
+      payment_key text,
+      approved_at timestamptz,
+      raw jsonb NOT NULL DEFAULT '{}'::jsonb,
+      created_at timestamptz NOT NULL DEFAULT now(),
+      updated_at timestamptz NOT NULL DEFAULT now()
+    )
+  `
+  await sql`CREATE UNIQUE INDEX IF NOT EXISTS uidx_billing_orders_order_id ON billing_orders (order_id)`
+  await sql`CREATE INDEX IF NOT EXISTS idx_billing_orders_user_id ON billing_orders (user_id, created_at DESC)`
+
+  await sql`
+    CREATE TABLE IF NOT EXISTS billing_webhook_events (
+      id text PRIMARY KEY,
+      provider text NOT NULL DEFAULT 'toss',
+      created_at timestamptz NOT NULL DEFAULT now()
+    )
+  `
+  await sql`CREATE INDEX IF NOT EXISTS idx_billing_webhook_events_provider ON billing_webhook_events (provider, created_at DESC)`
+
+  await sql`
+    CREATE TABLE IF NOT EXISTS billing_webhook_logs (
+      id text PRIMARY KEY,
+      provider text NOT NULL DEFAULT 'toss',
+      event_type text NOT NULL DEFAULT '',
+      order_id text NOT NULL DEFAULT '',
+      payment_key text NOT NULL DEFAULT '',
+      payload jsonb NOT NULL DEFAULT '{}'::jsonb,
+      received_at timestamptz NOT NULL DEFAULT now()
+    )
+  `
+  await sql`CREATE INDEX IF NOT EXISTS idx_billing_webhook_logs_received ON billing_webhook_logs (provider, received_at DESC)`
+
   await sql`
     CREATE TABLE IF NOT EXISTS usage_quotas (
       id text PRIMARY KEY,

@@ -1,7 +1,17 @@
 import Link from 'next/link'
+import { getServerSession } from 'next-auth/next'
 import { EvQuoteLogo } from '@/components/EvQuoteLogo'
+import { authOptions } from '@/lib/auth'
 
-export default function IntroPage() {
+function startUrl(session: unknown): string {
+  if (session) return '/generate'
+  return `/auth?callbackUrl=${encodeURIComponent('/generate')}&reason=login_required`
+}
+
+export default async function IntroPage() {
+  const session = await getServerSession(authOptions)
+  const start = startUrl(session)
+
   return (
     <div className="min-h-screen flex flex-col bg-gradient-to-b from-slate-50 via-white to-primary-50/30">
       <header className="flex-shrink-0 flex items-center justify-between px-6 py-4">
@@ -13,10 +23,10 @@ export default function IntroPage() {
             플랜
           </Link>
           <Link
-            href="/generate"
+            href={start}
             className="text-sm font-medium text-primary-600 hover:text-primary-700"
           >
-            로그인 / 시작하기
+            {session ? '견적 만들기' : '로그인 / 시작하기'}
           </Link>
         </nav>
       </header>
@@ -37,7 +47,7 @@ export default function IntroPage() {
               플랜 보기
             </Link>
             <Link
-              href="/generate"
+              href={start}
               className="w-full sm:w-auto inline-flex items-center justify-center px-6 py-3.5 rounded-xl text-sm font-semibold border-2 border-primary-200 text-primary-700 bg-white hover:bg-primary-50 hover:border-primary-300 transition-colors"
             >
               바로 시작하기

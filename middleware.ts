@@ -3,7 +3,7 @@ import type { NextRequest } from 'next/server'
 import { getToken } from 'next-auth/jwt'
 
 const ADMIN_COOKIE_NAME = 'planic_admin'
-const PROTECTED_PREFIXES = ['/generate', '/settings', '/history', '/references', '/prices', '/dashboard']
+const PROTECTED_PREFIXES = ['/generate', '/settings', '/history', '/references', '/prices', '/dashboard', '/billing']
 
 /**
  * /admin 이하 경로는 관리자 쿠키가 있을 때만 접근 허용.
@@ -39,5 +39,5 @@ export function middleware(request: NextRequest) {
 }
 
 export const config = {
-  matcher: ['/admin/:path*', '/generate/:path*', '/settings/:path*', '/history/:path*', '/references/:path*', '/prices/:path*', '/dashboard/:path*'],
+  matcher: ['/admin/:path*', '/generate/:path*', '/settings/:path*', '/history/:path*', '/references/:path*', '/prices/:path*', '/dashboard/:path*', '/billing/:path*'],
 }

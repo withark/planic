@@ -11,6 +11,7 @@
     "@anthropic-ai/sdk": "^0.24.0",
     "@aws-sdk/client-s3": "^3.1009.0",
     "@neondatabase/serverless": "^1.0.2",
+    "@tosspayments/payment-sdk": "^1.9.2",
     "clsx": "^2.1.1",
     "html2canvas": "^1.4.1",
     "jspdf": "^2.5.1",

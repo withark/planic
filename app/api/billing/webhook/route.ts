@@ -1,74 +1,43 @@
 import { NextRequest } from 'next/server'
-import Stripe from 'stripe'
 import { getBillingMode } from '@/lib/billing/mode'
-import { getStripe, getStripeWebhookSecret, priceIdToPlan } from '@/lib/billing/stripe-config'
-import { recordWebhookEventIfNew } from '@/lib/billing/webhook-events'
+import { recordBillingWebhookEventIfNew } from '@/lib/billing/webhook-idempotency'
+import { logBillingWebhook } from '@/lib/billing/webhook-log'
 import {
-  setActiveSubscription,
-  getSubscriptionByStripeSubscriptionId,
-  updateSubscriptionByStripeId,
-  expireSubscriptionByStripeId,
-} from '@/lib/db/subscriptions-db'
+  getBillingOrderByOrderId,
+  markBillingOrderCanceled,
+  markBillingOrderExpired,
+} from '@/lib/billing/toss-orders-db'
+import { cancelActiveSubscription } from '@/lib/db/subscriptions-db'
 
 export const dynamic = 'force-dynamic'
 
-async function handleCheckoutSessionCompleted(session: Stripe.Checkout.Session): Promise<void> {
-  const subscriptionId =
-    typeof session.subscription === 'string' ? session.subscription : session.subscription?.id
-  if (!subscriptionId) return
-
-  const userId = (session.client_reference_id || session.metadata?.userId) as string | undefined
-  if (!userId) return
-
-  const stripe = getStripe()
-  const raw = await stripe.subscriptions.retrieve(subscriptionId, {
-    expand: ['items.data.price'],
-  })
-  const subscription = raw as Stripe.Subscription & { current_period_end?: number }
-  const priceId = subscription.items.data[0]?.price?.id
-  if (!priceId) return
-
-  const plan = priceIdToPlan(priceId)
-  if (!plan) return
-
-  const periodEnd = subscription.current_period_end
-  const expiresAt = periodEnd != null ? new Date(periodEnd * 1000).toISOString() : null
-
-  await setActiveSubscription({
-    userId,
-    planType: plan.planType,
-    billingCycle: plan.billingCycle,
-    status: 'active',
-    expiresAt,
-    stripeSubscriptionId: subscription.id,
-  })
+type TossPaymentStatusChangedData = {
+  paymentKey?: string
+  orderId?: string
+  status?: string
+  requestedAt?: string
+  approvedAt?: string
+  [k: string]: unknown
 }
 
-async function handleSubscriptionUpdated(
-  subscription: Stripe.Subscription & { current_period_end?: number }
-): Promise<void> {
-  const existing = await getSubscriptionByStripeSubscriptionId(subscription.id)
-  if (!existing) return
+async function handleTossPaymentStatusChanged(data: TossPaymentStatusChangedData): Promise<void> {
+  const orderId = data.orderId
+  if (!orderId || typeof orderId !== 'string') return
 
-  const periodEnd = subscription.current_period_end
-  const expiresAt = periodEnd != null ? new Date(periodEnd * 1000).toISOString() : null
+  const order = await getBillingOrderByOrderId(orderId)
+  if (!order) return
 
-  if (subscription.status === 'active') {
-    await updateSubscriptionByStripeId(subscription.id, { expiresAt })
+  const status = (data.status ?? '').toUpperCase()
+
+  if (status === 'CANCELED' || status === 'PARTIAL_CANCELED') {
+    await markBillingOrderCanceled(orderId, data)
+    if (order.status === 'approved') await cancelActiveSubscription(order.userId)
     return
   }
-  if (subscription.status === 'canceled' || subscription.status === 'unpaid') {
-    const now = new Date().toISOString()
-    await updateSubscriptionByStripeId(subscription.id, {
-      status: 'canceled',
-      expiresAt,
-      canceledAt: now,
-    })
+  if (status === 'EXPIRED' || status === 'ABORTED') {
+    await markBillingOrderExpired(orderId, data)
+    if (order.status === 'approved') await cancelActiveSubscription(order.userId)
   }
-}
-
-async function handleSubscriptionDeleted(subscription: Stripe.Subscription): Promise<void> {
-  await expireSubscriptionByStripeId(subscription.id)
 }
 
 export async function POST(req: NextRequest) {
@@ -89,27 +58,36 @@ export async function POST(req: NextRequest) {
     })
   }
 
-  const sig = req.headers.get('stripe-signature')
-  if (!sig) {
-    return new Response(JSON.stringify({ error: 'Stripe 서명이 없습니다.' }), {
-      status: 400,
-      headers: { 'Content-Type': 'application/json' },
-    })
-  }
-
-  let event: Stripe.Event
+  let payload: { eventType?: string; data?: TossPaymentStatusChangedData; createdAt?: string; [k: string]: unknown }
   try {
-    const secret = getStripeWebhookSecret()
-    event = Stripe.webhooks.constructEvent(body, sig, secret)
-  } catch (e) {
-    const msg = e instanceof Error ? e.message : '서명 검증 실패'
-    return new Response(JSON.stringify({ error: msg }), {
+    payload = JSON.parse(body) as typeof payload
+  } catch {
+    return new Response(JSON.stringify({ error: 'JSON 형식이 올바르지 않습니다.' }), {
       status: 400,
       headers: { 'Content-Type': 'application/json' },
     })
   }
 
-  const isNew = await recordWebhookEventIfNew(event.id)
+  const eventType = payload?.eventType ?? ''
+  const data = payload?.data ?? {}
+
+  await logBillingWebhook({
+    provider: 'toss',
+    eventType,
+    orderId: typeof data.orderId === 'string' ? data.orderId : undefined,
+    paymentKey: typeof data.paymentKey === 'string' ? data.paymentKey : undefined,
+    payload: payload,
+  })
+
+  if (eventType !== 'PAYMENT_STATUS_CHANGED') {
+    return new Response(JSON.stringify({ received: true }), {
+      status: 200,
+      headers: { 'Content-Type': 'application/json' },
+    })
+  }
+
+  const eventId = `toss_${data.paymentKey ?? ''}_${data.orderId ?? ''}_${data.status ?? ''}_${payload?.createdAt ?? ''}`
+  const isNew = await recordBillingWebhookEventIfNew(eventId, 'toss')
   if (!isNew) {
     return new Response(JSON.stringify({ received: true }), {
       status: 200,
@@ -118,25 +96,7 @@ export async function POST(req: NextRequest) {
   }
 
   try {
-    switch (event.type) {
-      case 'checkout.session.completed': {
-        const session = event.data.object as Stripe.Checkout.Session
-        if (session.mode === 'subscription') await handleCheckoutSessionCompleted(session)
-        break
-      }
-      case 'customer.subscription.updated': {
-        const sub = event.data.object as Stripe.Subscription
-        await handleSubscriptionUpdated(sub)
-        break
-      }
-      case 'customer.subscription.deleted': {
-        const sub = event.data.object as Stripe.Subscription
-        await handleSubscriptionDeleted(sub)
-        break
-      }
-      default:
-        break
-    }
+    await handleTossPaymentStatusChanged(data)
   } catch (e) {
     const msg = e instanceof Error ? e.message : String(e)
     return new Response(JSON.stringify({ error: msg }), {

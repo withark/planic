@@ -1,7 +1,9 @@
 import type { BillingCycle, PlanType } from '@/lib/plans'
 import { getBillingMode } from '@/lib/billing/mode'
 import { setActiveSubscription } from '@/lib/db/subscriptions-db'
-import { createCheckoutSession } from '@/lib/billing/checkout'
+import { amountForPlan, getAppBaseUrl, validateTossLiveEnv } from '@/lib/billing/toss-config'
+import { createBillingOrder } from '@/lib/billing/toss-orders-db'
+import { uid } from '@/lib/calc'
 
 export type SubscribeResult =
   | { kind: 'mock_activated' }
@@ -34,12 +36,19 @@ export async function subscribePlan(input: {
     return { kind: 'mock_activated' }
   }
 
-  // live: mock 로직 미실행. 실제 체크아웃 URL만 반환.
-  const checkoutUrl = await createCheckoutSession({
+  // live: mock 로직 미실행. 토스 결제창으로 진입하는 내부 checkout 페이지 URL만 반환.
+  validateTossLiveEnv()
+  const amount = amountForPlan(input.planType, input.billingCycle)
+  const orderId = `planic_${uid()}`
+  await createBillingOrder({
     userId: input.userId,
+    orderId,
     planType: input.planType,
     billingCycle: input.billingCycle,
+    amount,
   })
+  const base = getAppBaseUrl()
+  const checkoutUrl = `${base}/billing/checkout?orderId=${encodeURIComponent(orderId)}`
   return { kind: 'live_checkout_required', checkoutUrl }
 }
 
