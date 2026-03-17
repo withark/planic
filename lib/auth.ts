@@ -4,15 +4,7 @@ import { hasDatabase } from '@/lib/db/client'
 import { upsertUser } from '@/lib/db/users-db'
 import { ensureFreeSubscription } from '@/lib/db/subscriptions-db'
 import { devAuthProvider, isDevAuthEnabled } from '@/lib/auth-dev'
-
-function resolveNextAuthSecret() {
-  const s = (process.env.NEXTAUTH_SECRET ?? '').trim()
-  if (s) return s
-  // 개발 중에는 편의상 고정된 로컬 전용 secret을 사용해 세션 불안정을 막는다.
-  // 운영(배포)에서는 반드시 NEXTAUTH_SECRET이 설정되어야 한다.
-  if (process.env.NODE_ENV !== 'production') return 'planic-dev-only-secret'
-  return undefined
-}
+import { resolveNextAuthSecret } from '@/lib/nextauth-secret'
 
 /**
  * NextAuth 옵션.
