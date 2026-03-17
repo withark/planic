@@ -41,8 +41,9 @@ export function QuoteResult({ doc, companySettings, prices = [], onChange, onReg
   }, [openPriceForKind])
 
   /** 단가표 품목을 한 줄로 펼친 목록 (카테고리명 포함) */
-  const flatPriceItems = prices.flatMap(cat =>
-    cat.items.map(item => ({ ...item, categoryName: cat.name }))
+  const safePrices = Array.isArray(prices) ? prices : []
+  const flatPriceItems = safePrices.flatMap(cat =>
+    (Array.isArray(cat.items) ? cat.items : []).map(item => ({ ...item, categoryName: cat.name }))
   )
 
   function updLine(ci: number, ii: number, k: string, v: string | number) {
@@ -358,12 +359,12 @@ export function QuoteResult({ doc, companySettings, prices = [], onChange, onReg
                                       <span className="text-xs font-medium text-gray-600">등록된 품목 선택</span>
                                       <button type="button" onClick={() => setOpenPriceForKind(null)} className="text-gray-400 hover:text-gray-600 text-xs">닫기</button>
                                     </div>
-                                    {prices.map((cat) => (
+                                    {(Array.isArray(prices) ? prices : []).map((cat) => (
                                       <div key={cat.id} className="pt-1 first:pt-0">
                                         <div className="px-2 py-1.5 text-[10px] font-semibold text-gray-400 uppercase tracking-wide bg-gray-50 border-y border-gray-100">
                                           {cat.name}
                                         </div>
-                                        {cat.items.map((item) => (
+                                        {(Array.isArray(cat.items) ? cat.items : []).map((item) => (
                                           <button
                                             key={item.id}
                                             type="button"

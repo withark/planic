@@ -32,7 +32,13 @@ export default function GeneratePage() {
   }, [])
 
   useEffect(() => {
-    fetch('/api/prices').then(r => r.json()).then(setPrices).catch(() => [])
+    fetch('/api/prices')
+      .then(r => r.json())
+      .then((res: unknown) => {
+        const arr = Array.isArray(res) ? res : (Array.isArray((res as { data?: unknown })?.data) ? (res as { data: PriceCategory[] }).data : [])
+        setPrices(arr)
+      })
+      .catch(() => setPrices([]))
   }, [])
 
   useEffect(() => {
@@ -215,10 +221,10 @@ export default function GeneratePage() {
             </div>
             <p className="text-xs text-gray-500 px-4 pb-2">비슷한 행사를 선택하면 수정만 하면 됩니다.</p>
             <div className="overflow-y-auto flex-1 px-4 pb-4 space-y-1.5">
-              {historyList.length === 0 ? (
+              {(Array.isArray(historyList) ? historyList : []).length === 0 ? (
                 <p className="text-sm text-gray-500 py-8 text-center">저장된 견적서가 없습니다.</p>
               ) : (
-                historyList.map(h => (
+                (Array.isArray(historyList) ? historyList : []).map(h => (
                   <button
                     key={h.id}
                     type="button"

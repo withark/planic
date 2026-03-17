@@ -21,34 +21,42 @@ export default function ReferencesPage() {
 
   function showToast(msg:string,type:'ok'|'err'='ok'){setToast({msg,type});setTimeout(()=>setToast(null),2500)}
 
+  /** API가 { ok, data } 형태면 data만, 배열이면 그대로, 아니면 [] */
+  function toArray<T>(raw: unknown): T[] {
+    if (Array.isArray(raw)) return raw as T[]
+    if (raw && typeof raw === 'object' && 'data' in (raw as object))
+      return Array.isArray((raw as { data?: unknown }).data) ? ((raw as { data: T[] }).data) : []
+    return []
+  }
+
   useEffect(() => {
     fetch('/api/upload-reference')
       .then(async r => {
         const text = await r.text()
         if (!r.ok || (text && text.trimStart().startsWith('<'))) return []
-        try { return text ? JSON.parse(text) : [] } catch { return [] }
+        try { return toArray<ReferenceDoc>(text ? JSON.parse(text) : []) } catch { return [] }
       })
       .then(setRefs)
   }, [])
 
   useEffect(() => {
     fetch('/api/cuesheet-samples')
-      .then(async r => (r.ok ? r.json() : []))
-      .then(setCuesheetSamples)
+      .then(async r => (r.ok ? r.json() : null))
+      .then((raw) => setCuesheetSamples(toArray<CuesheetSample>(raw)))
       .catch(() => setCuesheetSamples([]))
   }, [])
 
   useEffect(() => {
     fetch('/api/scenario-references')
-      .then(async r => (r.ok ? r.json() : []))
-      .then(setScenarioRefs)
+      .then(async r => (r.ok ? r.json() : null))
+      .then((raw) => setScenarioRefs(toArray<ScenarioRefDoc>(raw)))
       .catch(() => setScenarioRefs([]))
   }, [])
 
   useEffect(() => {
     fetch('/api/task-order-references')
-      .then(async r => (r.ok ? r.json() : []))
-      .then(setTaskOrderRefs)
+      .then(async r => (r.ok ? r.json() : null))
+      .then((raw) => setTaskOrderRefs(toArray<TaskOrderDoc>(raw)))
       .catch(() => setTaskOrderRefs([]))
   }, [])
 
@@ -68,7 +76,7 @@ export default function ReferencesPage() {
           : '업로드 완료! 참고 견적서가 AI에 학습되었습니다. 이후 생성되는 견적서에 반영됩니다.'
       )
       fetch('/api/upload-reference')
-        .then(async r => { const t = await r.text(); try { return t ? JSON.parse(t) : [] } catch { return [] } })
+        .then(async r => { const t = await r.text(); try { return toArray<ReferenceDoc>(t ? JSON.parse(t) : null) } catch { return [] } })
         .then(setRefs)
     } catch(e) {
       showToast(e instanceof Error ? e.message : '업로드 실패', 'err')
@@ -92,8 +100,8 @@ export default function ReferencesPage() {
       const data = await res.json().catch(() => ({}))
       if (!res.ok) throw new Error(data.error || '업로드 실패')
       showToast('큐시트 샘플이 추가되었습니다.')
-      const list = await fetch('/api/cuesheet-samples').then(r => r.json())
-      setCuesheetSamples(list)
+      const raw = await fetch('/api/cuesheet-samples').then(r => r.json())
+      setCuesheetSamples(toArray<CuesheetSample>(raw))
     } catch (e) {
       showToast(e instanceof Error ? e.message : '업로드 실패', 'err')
     } finally {
@@ -117,8 +125,8 @@ export default function ReferencesPage() {
       const data = await res.json().catch(() => ({}))
       if (!res.ok) throw new Error(data.error || '업로드 실패')
       showToast('시나리오 참고가 추가되었습니다. 이후 생성되는 기획안·큐시트에 반영됩니다.')
-      const list = await fetch('/api/scenario-references').then(r => r.json())
-      setScenarioRefs(list)
+      const raw = await fetch('/api/scenario-references').then(r => r.json())
+      setScenarioRefs(toArray<ScenarioRefDoc>(raw))
     } catch (e) {
       showToast(e instanceof Error ? e.message : '업로드 실패', 'err')
     } finally { setScenarioUploading(false) }
@@ -140,8 +148,8 @@ export default function ReferencesPage() {
       const data = await res.json().catch(() => ({}))
       if (!res.ok) throw new Error(data.error || '업로드 실패')
       showToast('과업지시서·기획안 참고가 추가되었습니다. 이후 생성되는 견적서·기획안에 반영됩니다.')
-      const list = await fetch('/api/task-order-references').then(r => r.json())
-      setTaskOrderRefs(list)
+      const raw = await fetch('/api/task-order-references').then(r => r.json())
+      setTaskOrderRefs(toArray<TaskOrderDoc>(raw))
     } catch (e) {
       showToast(e instanceof Error ? e.message : '업로드 실패', 'err')
     } finally { setTaskOrderUploading(false) }
@@ -200,13 +208,13 @@ export default function ReferencesPage() {
               <p className="text-xs text-gray-500 mb-3">
                 지원 형식: PDF, 엑셀(.xlsx, .xls), 이미지(png, jpg, gif, webp), 텍스트(.txt, .csv, .md), PPT(.ppt, .pptx), Word(.doc, .docx)
               </p>
-              {cuesheetSamples.length === 0 ? (
+              {(Array.isArray(cuesheetSamples) ? cuesheetSamples : []).length === 0 ? (
                 <div className="text-center py-8 rounded-2xl border border-dashed border-gray-200 bg-gray-50 text-gray-500 text-sm">
                   등록된 큐시트 샘플이 없습니다. 위 박스를 클릭해서 첫 샘플을 올려보세요.
                 </div>
               ) : (
                 <div className="space-y-2">
-                  {cuesheetSamples.map(s => (
+                  {(Array.isArray(cuesheetSamples) ? cuesheetSamples : []).map(s => (
                     <div
                       key={s.id}
                       className="flex items-center justify-between gap-3 bg-white border border-gray-100 rounded-xl p-3 shadow-sm"
@@ -269,13 +277,13 @@ export default function ReferencesPage() {
               <p className="text-xs text-gray-500 mb-3">
                 지원 형식: .txt, .csv, .md, .pdf, .xlsx, .xls, .ppt, .pptx, .doc, .docx
               </p>
-              {taskOrderRefs.length === 0 ? (
+              {(Array.isArray(taskOrderRefs) ? taskOrderRefs : []).length === 0 ? (
                 <div className="text-center py-8 rounded-2xl border border-dashed border-gray-200 bg-gray-50 text-gray-500 text-sm">
                   등록된 과업지시서·기획안 참고가 없습니다. 위 박스를 클릭해서 파일을 올려보세요.
                 </div>
               ) : (
                 <ul className="space-y-1">
-                  {taskOrderRefs.map(r => (
+                  {(Array.isArray(taskOrderRefs) ? taskOrderRefs : []).map(r => (
                     <li
                       key={r.id}
                       className="flex items-center justify-between gap-3 py-2 px-3 rounded-lg hover:bg-gray-50 bg-white border border-gray-100"
@@ -327,13 +335,13 @@ export default function ReferencesPage() {
               <p className="text-xs text-gray-500 mb-3">
                 지원 형식: .txt, .csv, .md, .pdf, .xlsx, .xls, .ppt, .pptx, .doc, .docx
               </p>
-              {scenarioRefs.length === 0 ? (
+              {(Array.isArray(scenarioRefs) ? scenarioRefs : []).length === 0 ? (
                 <div className="text-center py-8 rounded-2xl border border-dashed border-gray-200 bg-gray-50 text-gray-500 text-sm">
                   등록된 시나리오 참고가 없습니다. 위 박스를 클릭해서 파일을 올려보세요.
                 </div>
               ) : (
                 <ul className="space-y-1">
-                  {scenarioRefs.map(r => (
+                  {(Array.isArray(scenarioRefs) ? scenarioRefs : []).map(r => (
                     <li
                       key={r.id}
                       className="flex items-center justify-between gap-3 py-2 px-3 rounded-lg hover:bg-gray-50 bg-white border border-gray-100"
@@ -362,11 +370,11 @@ export default function ReferencesPage() {
               <p className="text-xs text-gray-500 mb-3">
                 .txt, .csv, .md, .pdf, .xlsx, .xls — 업로드된 견적서는 참고 항목으로만 표시됩니다.
               </p>
-              {refs.length === 0 ? (
+              {(Array.isArray(refs) ? refs : []).length === 0 ? (
                 <p className="text-sm text-gray-400 py-4">등록된 참고 견적서가 없습니다. 상단 헤더의 「+ 파일 업로드」로 추가하세요.</p>
               ) : (
                 <ul className="space-y-1">
-                  {refs.map(r => (
+                  {(Array.isArray(refs) ? refs : []).map(r => (
                     <li key={r.id} className="flex items-center justify-between gap-3 py-2 px-3 rounded-lg hover:bg-gray-50">
                       <div className="min-w-0 flex-1">
                         <span className="text-sm text-gray-800 truncate block">{r.filename}</span>

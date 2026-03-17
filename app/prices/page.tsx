@@ -22,7 +22,13 @@ export default function PricesPage() {
   const [suggesting, setSuggesting] = useState(false)
 
   useEffect(() => {
-    fetch('/api/prices').then(r => r.json()).then(setPrices)
+    fetch('/api/prices')
+      .then(r => r.json())
+      .then((res: unknown) => {
+        const arr = Array.isArray(res) ? res : (Array.isArray((res as { data?: unknown })?.data) ? (res as { data: PriceCategory[] }).data : [])
+        setPrices(arr)
+      })
+      .catch(() => setPrices([]))
   }, [])
 
   const showToast = useCallback((m: string) => {
@@ -159,7 +165,7 @@ export default function PricesPage() {
             <span className="font-medium text-primary-700">참고</span> 참고 견적서를 업로드하면 AI가 분석해 단가표에 자동 반영합니다.
           </div>
 
-          {prices.map((cat, ci) => (
+          {(Array.isArray(prices) ? prices : []).map((cat, ci) => (
             <section key={cat.id} className="rounded-xl border border-gray-100 bg-white shadow-card overflow-hidden">
               <div className="flex items-center justify-between px-5 py-3 bg-primary-50/30 border-b border-gray-100">
                 <div className="flex items-center gap-3">
@@ -192,7 +198,7 @@ export default function PricesPage() {
                     </tr>
                   </thead>
                   <tbody>
-                    {cat.items.map((it, ii) => (
+                    {(Array.isArray(cat.items) ? cat.items : []).map((it, ii) => (
                       <tr key={it.id} className="border-b border-gray-50 hover:bg-gray-50/60 group transition-colors">
                         <td className="px-4 py-2 align-middle">
                           <input value={it.name} onChange={e => updItem(ci,ii,'name',e.target.value)}

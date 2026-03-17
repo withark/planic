@@ -249,7 +249,7 @@ export default function QuoteView({ doc, onChange, companyName }: Props) {
               <div>
                 <p className="text-[10px] font-semibold tracking-widest text-gray-400 uppercase mb-2">투입 인력</p>
                 <div className="grid grid-cols-3 gap-2">
-                  {doc.program.staffing.map((s, i) => (
+                  {(Array.isArray(doc.program?.staffing) ? doc.program.staffing : []).map((s, i) => (
                     <Card key={i} className="p-2.5">
                       <p className="text-xs font-medium">{s.role} <span className="font-normal text-gray-400">×{s.count}</span></p>
                       <p className="text-[11px] text-gray-400 mt-0.5">{s.note}</p>
@@ -263,7 +263,7 @@ export default function QuoteView({ doc, onChange, companyName }: Props) {
               <Card className="p-3">
                 <p className="text-[10px] font-semibold tracking-widest text-gray-400 uppercase mb-2">진행 팁 / 주의사항</p>
                 <ul className="space-y-1">
-                  {doc.program.tips.map((t, i) => (
+                  {(Array.isArray(doc.program?.tips) ? doc.program.tips : []).map((t, i) => (
                     <li key={i} className="text-xs text-gray-500 flex gap-2"><span className="text-gray-300">·</span>{t}</li>
                   ))}
                 </ul>
