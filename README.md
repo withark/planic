@@ -32,13 +32,34 @@ npm run dev
 
 ## 페이지 구성
 
+### 사용자 영역 (고객용)
+
 | 경로 | 기능 |
 |------|------|
+| `/` | 랜딩 · 소개 |
 | `/auth` | Google 로그인 |
+| `/plans` | 플랜 선택 (요금제 보기) |
 | `/generate` | AI 견적서 생성 · Excel/PDF 다운로드 |
 | `/prices`   | 단가표 관리 (내 단가 → AI 자동 반영) |
+| `/references` | 참고 견적서·시나리오·큐시트 샘플 |
 | `/history`  | 견적 이력 · 통계 |
-| `/settings` | 회사 정보 · 기본값 · 참고 견적서 업로드 |
+| `/settings` | 회사 정보 · 기본값 |
+
+### 관리자 영역 (`/admin` — 운영자 전용)
+
+| 경로 | 기능 |
+|------|------|
+| `/admin` | 관리자 로그인 · 대시보드 |
+| `/admin/users` | 사용자 관리 (준비 중) |
+| `/admin/subscriptions` | 구독 관리 (준비 중) |
+| `/admin/plans` | 플랜 관리 (준비 중) |
+| `/admin/usage` | 사용량 관리 (준비 중) |
+| `/admin/engines` | 엔진/모델 (준비 중) |
+| `/admin/logs` | 로그 (준비 중) |
+| `/admin/system` | 시스템 (준비 중) |
+
+관리자 화면은 `/admin` 이하로만 제공되며, 관리자 쿠키가 없으면 접근 시 로그인 페이지로 이동합니다.  
+상세 IA·권한 구조는 [docs/IA.md](docs/IA.md) 참고.
 
 ---
 
@@ -47,11 +68,14 @@ npm run dev
 ```
 event-quote/
 ├── app/
-│   ├── api/           ← API 라우트 (generate, prices, history, settings)
+│   ├── admin/         ← 관리자 전용 (/admin, /admin/users, …)
+│   ├── api/           ← API 라우트 (generate, prices, history, settings, auth)
 │   ├── generate/      ← 메인 견적 생성 페이지
 │   ├── prices/        ← 단가표 관리
+│   ├── references/    ← 참고 견적서·시나리오·큐시트
 │   ├── history/       ← 견적 이력
 │   └── settings/      ← 설정
+├── middleware.ts     ← /admin 하위 비관리자 접근 차단
 ├── components/
 │   ├── quote/         ← InputForm, QuoteResult
 │   └── ui/            ← 공통 UI 컴포넌트
