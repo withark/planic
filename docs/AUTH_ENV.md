@@ -23,7 +23,15 @@ GOOGLE_CLIENT_SECRET=GOCSPX-xxx
 Google Cloud Console에서 "승인된 리디렉션 URI"에 다음을 등록:
 
 - 개발: `http://localhost:3000/api/auth/callback/google`
-- 운영: `https://www.planic.cloud/api/auth/callback/google`
+- 운영(권장): `https://www.planic.cloud/api/auth/callback/google`
+- **NEXTAUTH_URL을 `https://planic.cloud`로 둔 경우** 동일하게 추가: `https://planic.cloud/api/auth/callback/google`
+
+### 로그인 후에도 /generate 가 막힐 때 (apex vs www)
+
+- `NEXTAUTH_URL=https://planic.cloud` 이면 OAuth 콜백·세션 쿠키가 **apex**에만 붙을 수 있음.
+- 그런데 사이트는 **www.planic.cloud**로 리다이렉트되면, 브라우저는 **호스트 전용 쿠키를 www로 보내지 않아** middleware가 항상 비로그인으로 판단함.
+- **권장:** `NEXTAUTH_URL=https://www.planic.cloud` + Google 리디렉션 URI도 www만 사용.
+- 코드 쪽에서는 `NEXTAUTH_URL`이 planic.cloud일 때 세션 쿠키에 **`Domain=.planic.cloud`** 를 두어 apex/www 공통으로 쓰도록 보완함.
 
 ## Vercel 설정
 

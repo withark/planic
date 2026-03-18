@@ -7,9 +7,23 @@ import { devAuthProvider, isDevAuthEnabled } from '@/lib/auth-dev'
 import { resolveNextAuthSecret } from '@/lib/nextauth-secret'
 
 /**
+ * OAuth 콜백이 apex(planic.cloud)인데 이후 www로 리다이렉트되면 호스트 전용 쿠키는 www에 안 붙음.
+ * Domain=.planic.cloud 로 apex·www 공통 세션.
+ */
+function planicSessionCookieDomain(): string | undefined {
+  if (process.env.NODE_ENV !== 'production') return undefined
+  const u = (process.env.NEXTAUTH_URL || '').trim()
+  if (!/^https:\/\/(www\.)?planic\.cloud/i.test(u)) return undefined
+  return '.planic.cloud'
+}
+
+const secure = process.env.NODE_ENV === 'production'
+const cookieDomain = planicSessionCookieDomain()
+
+/**
  * NextAuth 옵션.
  * - NEXTAUTH_URL 은 env 고정값만 사용. 코드에서 절대 변경하지 않음.
- * - x-forwarded-host / host 기반 런타임 덮어쓰기 없음.
+ * - 운영 canonical: https://www.planic.cloud
  */
 export const authOptions: NextAuthOptions = {
   providers: [
@@ -22,6 +36,22 @@ export const authOptions: NextAuthOptions = {
   pages: {
     signIn: '/auth',
   },
+  ...(cookieDomain
+    ? {
+        cookies: {
+          sessionToken: {
+            name: secure ? '__Secure-next-auth.session-token' : 'next-auth.session-token',
+            options: {
+              httpOnly: true,
+              sameSite: 'lax',
+              path: '/',
+              secure: secure,
+              domain: cookieDomain,
+            },
+          },
+        },
+      }
+    : {}),
   callbacks: {
     async signIn({ user }) {
       try {
