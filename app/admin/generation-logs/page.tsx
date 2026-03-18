@@ -17,6 +17,17 @@ type Run = {
   createdAt: string
 }
 
+function getSampleUsage(engineSnapshot: Record<string, unknown> | undefined): {
+  proposal?: any
+  timetable?: any
+  cuesheet?: any
+  scenario?: any
+} | null {
+  const u = (engineSnapshot as any)?.sampleUsage
+  if (!u || typeof u !== 'object') return null
+  return u as any
+}
+
 export default function AdminGenerationLogsPage() {
   const [runs, setRuns] = useState<Run[]>([])
   const [loading, setLoading] = useState(true)
@@ -81,8 +92,36 @@ export default function AdminGenerationLogsPage() {
                       {r.success ? <span className="text-green-600 font-medium">✓</span> : <span className="text-red-600 font-medium">✗</span>}
                     </td>
                     <td className="px-3 py-2">
-                      <span className="text-xs">{r.sampleFilename || '—'}</span>
-                      {r.sampleId && <span className="block text-[11px] text-slate-400 font-mono">{r.sampleId.slice(0, 8)}…</span>}
+                      {(() => {
+                        const usage = getSampleUsage(r.engineSnapshot)
+                        const prompt = (r.engineSnapshot as any)?.prompt
+                        return (
+                          <div className="space-y-1">
+                            <div>
+                              <span className="text-xs">{r.sampleFilename || '—'}</span>
+                              {r.sampleId && <span className="block text-[11px] text-slate-400 font-mono">{r.sampleId.slice(0, 8)}…</span>}
+                            </div>
+                            {usage && (
+                              <div className="text-[11px] text-slate-600 space-y-0.5">
+                                {(['proposal', 'timetable', 'cuesheet', 'scenario'] as const).map(k => (
+                                  <div key={k} className="flex gap-1">
+                                    <span className="w-12 text-slate-400">{k}</span>
+                                    <span className="truncate" title={usage?.[k]?.filename || ''}>
+                                      {usage?.[k]?.filename ? String(usage[k].filename) : '—'}
+                                      {usage?.[k]?.hasParsed ? <span className="text-emerald-700"> · 구조✓</span> : usage?.[k]?.filename ? <span className="text-amber-700"> · 구조—</span> : null}
+                                    </span>
+                                  </div>
+                                ))}
+                              </div>
+                            )}
+                            {prompt?.chars && (
+                              <div className="text-[11px] text-slate-500">
+                                prompt: {String(prompt.chars)} chars{prompt?.approxTokens ? ` · ~${String(prompt.approxTokens)}t` : ''}
+                              </div>
+                            )}
+                          </div>
+                        )
+                      })()}
                     </td>
                     <td className="px-3 py-2 text-center">{r.cuesheetApplied ? '예' : '—'}</td>
                     <td className="px-3 py-2 text-center">

@@ -174,6 +174,7 @@ export function normalizeQuoteDoc(
       mainPoints: [],
       closing: '',
       directionNotes: '',
+      scenes: [],
     }
   } else {
     scenario = {
@@ -183,6 +184,7 @@ export function normalizeQuoteDoc(
       mainPoints: Array.isArray(scenario.mainPoints) ? scenario.mainPoints : [],
       closing: scenario.closing || '',
       directionNotes: scenario.directionNotes || '',
+      scenes: Array.isArray((scenario as any).scenes) ? (scenario as any).scenes : [],
     }
   }
 
@@ -205,6 +207,35 @@ export function normalizeQuoteDoc(
     scenario.closing = `${tl[tl.length - 1].content}${tl[tl.length - 1].time ? ` (${tl[tl.length - 1].time})` : ''}`
   if (!scenario.directionNotes.trim())
     scenario.directionNotes = `담당: ${tl.map(t => t.manager).filter(Boolean).join(', ') || '현장'} · 장비·멘트 사전 확인`
+
+  // scenes 보강: 없으면 timeline 기반으로 최소 구성
+  if (!scenario.scenes || !Array.isArray(scenario.scenes) || scenario.scenes.length === 0) {
+    const fromTimeline = (program.timeline || []).slice(0, 12)
+    scenario.scenes = fromTimeline.map((t, idx) => ({
+      seq: idx + 1,
+      time: t.time || '',
+      place: '',
+      title: t.content || `장면 ${idx + 1}`,
+      flow: t.detail || '',
+      mcScript: '',
+      opsNotes: t.manager ? `담당: ${t.manager}` : '',
+      checkpoints: [],
+    }))
+  } else {
+    // 최소 필드 정합
+    scenario.scenes = scenario.scenes
+      .map((s: any, idx: number) => ({
+        seq: typeof s?.seq === 'number' && Number.isFinite(s.seq) ? s.seq : idx + 1,
+        time: typeof s?.time === 'string' ? s.time : '',
+        place: typeof s?.place === 'string' ? s.place : '',
+        title: typeof s?.title === 'string' ? s.title : '',
+        flow: typeof s?.flow === 'string' ? s.flow : '',
+        mcScript: typeof s?.mcScript === 'string' ? s.mcScript : '',
+        opsNotes: typeof s?.opsNotes === 'string' ? s.opsNotes : '',
+        checkpoints: Array.isArray(s?.checkpoints) ? s.checkpoints.map((v: any) => String(v || '')).filter((v: string) => v.trim()) : [],
+      }))
+      .filter(s => s.title.trim() || s.flow.trim() || s.mcScript.trim())
+  }
 
   return {
     ...doc,

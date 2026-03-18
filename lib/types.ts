@@ -56,6 +56,17 @@ export interface ScenarioDoc {
   mainPoints: string[]
   closing: string
   directionNotes: string
+  /** 장면 흐름(구조화) */
+  scenes?: {
+    seq: number
+    time: string
+    place: string
+    title: string
+    flow: string
+    mcScript: string
+    opsNotes: string
+    checkpoints: string[]
+  }[]
 }
 
 // ─── 견적서 ──────────────────────────────────

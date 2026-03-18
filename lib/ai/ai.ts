@@ -1,6 +1,6 @@
 import type { GenerateInput, QuoteDoc, PriceCategory } from './types'
 import { callLLM, getEffectiveEngineConfig } from './client'
-import { buildGeneratePrompt } from './prompts'
+import { buildGeneratePrompt, GENERATION_SYSTEM_PROMPT } from './prompts'
 import {
   extractQuoteJson,
   safeParseQuoteJson,
@@ -102,7 +102,7 @@ export async function generateQuote(input: GenerateInput): Promise<QuoteDoc> {
   const prompt = buildGeneratePrompt(input)
 
   async function runOnce(extra = ''): Promise<string> {
-    return callLLM(prompt + extra, { maxTokens: maxOut })
+    return callLLM(prompt + extra, { maxTokens: maxOut, system: GENERATION_SYSTEM_PROMPT })
   }
 
   let text = await runOnce()

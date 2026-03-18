@@ -116,7 +116,7 @@ export function QuoteResult({ doc, companySettings, prices = [], planType = 'FRE
   }
 
   const program = d.program
-  const scenario = d.scenario || { summaryTop: '', opening: '', development: '', mainPoints: [], closing: '', directionNotes: '' }
+  const scenario = d.scenario || { summaryTop: '', opening: '', development: '', mainPoints: [], closing: '', directionNotes: '', scenes: [] }
 
   return (
     <div className="flex flex-col h-full overflow-hidden">
@@ -525,6 +525,74 @@ export function QuoteResult({ doc, companySettings, prices = [], planType = 'FRE
               <label className="text-[10px] font-semibold text-gray-500">한 줄 요약</label>
               <input value={scenario.summaryTop} onChange={e => patchDoc(base => { if (!base.scenario) base.scenario = { summaryTop: '', opening: '', development: '', mainPoints: [], closing: '', directionNotes: '' }; base.scenario.summaryTop = e.target.value; return base })} className="w-full mt-1 text-sm font-medium bg-white border rounded px-2 py-1" />
             </div>
+
+            <div className="border border-gray-200 rounded-lg p-3 overflow-x-auto">
+              <p className="text-xs font-semibold text-primary-700 mb-2">장면 흐름(운영·멘트 포함)</p>
+              <table className="w-full min-w-[900px] text-xs border-collapse border border-gray-200">
+                <thead>
+                  <tr className="bg-slate-100">
+                    {['순번', '시간', '장소', '장면 제목', '진행/동선 흐름', '사회자/운영 멘트', '운영 메모', '체크포인트', ''].map(h => (
+                      <th key={h} className="border border-gray-200 px-2 py-2 text-left font-semibold text-gray-600 whitespace-nowrap">{h}</th>
+                    ))}
+                  </tr>
+                </thead>
+                <tbody>
+                  {(scenario.scenes || []).map((s, i) => (
+                    <tr key={`sc-${i}`} className="border-b border-gray-50 align-top">
+                      <td className="border border-gray-100 px-2 py-1 tabular-nums w-12">{s.seq ?? i + 1}</td>
+                      {(['time', 'place', 'title', 'flow', 'mcScript', 'opsNotes'] as const).map(field => (
+                        <td key={field} className="border border-gray-100 px-1 py-1">
+                          <input
+                            value={(s as any)[field] || ''}
+                            onChange={e => patchDoc(base => {
+                              if (!base.scenario) base.scenario = { summaryTop: '', opening: '', development: '', mainPoints: [], closing: '', directionNotes: '', scenes: [] }
+                              if (!Array.isArray(base.scenario.scenes)) base.scenario.scenes = []
+                              if (!base.scenario.scenes[i]) base.scenario.scenes[i] = { seq: i + 1, time: '', place: '', title: '', flow: '', mcScript: '', opsNotes: '', checkpoints: [] }
+                              base.scenario.scenes[i] = { ...base.scenario.scenes[i]!, [field]: e.target.value }
+                              return base
+                            })}
+                            className="w-full min-w-[90px] bg-transparent outline-none rounded px-1 py-0.5 text-xs"
+                          />
+                        </td>
+                      ))}
+                      <td className="border border-gray-100 px-1 py-1">
+                        <input
+                          value={(s.checkpoints || []).join(' | ')}
+                          onChange={e => patchDoc(base => {
+                            if (!base.scenario) base.scenario = { summaryTop: '', opening: '', development: '', mainPoints: [], closing: '', directionNotes: '', scenes: [] }
+                            if (!Array.isArray(base.scenario.scenes)) base.scenario.scenes = []
+                            if (!base.scenario.scenes[i]) base.scenario.scenes[i] = { seq: i + 1, time: '', place: '', title: '', flow: '', mcScript: '', opsNotes: '', checkpoints: [] }
+                            base.scenario.scenes[i] = { ...base.scenario.scenes[i]!, checkpoints: e.target.value.split('|').map(v => v.trim()).filter(Boolean) }
+                            return base
+                          })}
+                          className="w-full min-w-[120px] bg-transparent outline-none rounded px-1 py-0.5 text-xs"
+                          placeholder="예) 무전 체크 | 영상 큐 | VIP 동선"
+                        />
+                      </td>
+                      <td className="border border-gray-100 px-1 py-1">
+                        <button type="button" className="text-red-400 text-xs" onClick={() => patchDoc(base => { base.scenario!.scenes!.splice(i, 1); return base })}>✕</button>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+              <Button
+                size="sm"
+                className="mt-2"
+                onClick={() =>
+                  patchDoc(base => {
+                    if (!base.scenario) base.scenario = { summaryTop: '', opening: '', development: '', mainPoints: [], closing: '', directionNotes: '', scenes: [] }
+                    if (!Array.isArray(base.scenario.scenes)) base.scenario.scenes = []
+                    const i = base.scenario.scenes.length
+                    base.scenario.scenes.push({ seq: i + 1, time: '', place: '', title: '', flow: '', mcScript: '', opsNotes: '', checkpoints: [] })
+                    return base
+                  })
+                }
+              >
+                + 장면 추가
+              </Button>
+            </div>
+
             {[
               { k: 'opening' as const, label: '오프닝' },
               { k: 'development' as const, label: '전개' },

@@ -23,8 +23,22 @@ export interface GenerateInput {
   settings: CompanySettings
   references: ReferenceDoc[]
   taskOrderRefs?: TaskOrderDoc[]
+  /** 제안 프로그램 샘플(기준 양식) 원문 텍스트 */
+  proposalSampleContext?: string
+  /** 제안 프로그램 샘플 구조 요약(파싱 결과, JSON/텍스트) */
+  proposalSampleStructure?: string
+  /** 타임테이블 샘플(기준 양식) 원문 텍스트 */
+  timetableSampleContext?: string
+  /** 타임테이블 샘플 구조 요약(파싱 결과, JSON/텍스트) */
+  timetableSampleStructure?: string
   /** 큐시트 샘플에서 추출한 텍스트(레이아웃·표 흐름 참고) */
   cuesheetSampleContext?: string
+  /** 큐시트 샘플 구조 요약(파싱 결과, JSON/텍스트) */
+  cuesheetSampleStructure?: string
+  /** 시나리오(기준 양식) 샘플 원문 텍스트 */
+  scenarioSampleContext?: string
+  /** 시나리오 샘플 구조 요약(파싱 결과, JSON/텍스트) */
+  scenarioSampleStructure?: string
   /** 시나리오/PPT 참고 원문 일부 */
   scenarioRefs?: ScenarioRefDoc[]
   /** 관리자 엔진 강화(k engine_config) — 프롬프트에 반영 */

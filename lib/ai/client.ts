@@ -11,6 +11,8 @@ export type AIProvider = 'anthropic' | 'openai'
 export interface CallLLMOptions {
   maxTokens?: number
   model?: string
+  /** 시스템 프롬프트(가능한 provider에서는 system으로 전달) */
+  system?: string
 }
 
 export function getAIProvider(): AIProvider {
@@ -72,13 +74,19 @@ export async function callLLM(prompt: string, opts: CallLLMOptions = {}): Promis
   const provider = effective.provider
   const maxTokens = opts.maxTokens ?? effective.maxTokens
   const model = opts.model ?? effective.model
+  const system = opts.system?.trim() || undefined
 
   if (provider === 'openai') {
     const client = getOpenAIClient()
     const res = await client.chat.completions.create({
       model: model as string,
       max_tokens: maxTokens,
-      messages: [{ role: 'user', content: prompt }],
+      messages: system
+        ? [
+            { role: 'system', content: system },
+            { role: 'user', content: prompt },
+          ]
+        : [{ role: 'user', content: prompt }],
     })
     const text = res.choices[0]?.message?.content
     if (text == null) throw new Error('OpenAI 응답이 비어 있습니다.')
@@ -89,6 +97,7 @@ export async function callLLM(prompt: string, opts: CallLLMOptions = {}): Promis
   const message = await client.messages.create({
     model: model as string,
     max_tokens: maxTokens,
+    ...(system ? { system } : {}),
     messages: [{ role: 'user', content: prompt }],
   })
   return message.content[0].type === 'text' ? message.content[0].text : ''
