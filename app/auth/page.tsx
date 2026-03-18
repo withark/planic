@@ -90,12 +90,35 @@ export default async function AuthPage({
 
             <AuthErrorAlert error={searchParams?.error} errorDescription={searchParams?.errorDescription} />
 
-            <div className="space-y-3">
-              <GoogleSignInButton callbackUrl={callbackUrl} className="btn-primary w-full py-3.5 rounded-xl text-sm font-semibold" />
+            <div className="space-y-4">
+              <p className="text-center text-sm text-slate-600 leading-relaxed px-0.5">
+                같은 <strong className="text-gray-900">Google 계정</strong>으로 로그인과 회원가입이 이뤄져요.
+                <span className="block mt-1 text-slate-500 text-xs">
+                  버튼만 다를 뿐, 연결되는 화면은 동일하며 가입·로그인 후 바로 이어서 이용할 수 있어요.
+                </span>
+              </p>
+              <div className="flex flex-col gap-3">
+                <GoogleSignInButton
+                  intent="signup"
+                  callbackUrl={callbackUrl}
+                  aria-label="Google 계정으로 회원가입하기"
+                  className="btn-primary w-full min-h-[52px] py-4 rounded-xl text-base font-semibold shadow-sm"
+                >
+                  회원가입하기
+                </GoogleSignInButton>
+                <GoogleSignInButton
+                  intent="login"
+                  callbackUrl={callbackUrl}
+                  aria-label="Google 계정으로 로그인하기"
+                  className="w-full min-h-[52px] py-4 rounded-xl text-base font-semibold border-2 border-slate-300 bg-white text-gray-800 hover:bg-slate-50 hover:border-slate-400 transition-colors"
+                >
+                  로그인하기
+                </GoogleSignInButton>
+              </div>
               {devEnabled && (
                 <Link
                   href={`/api/auth/signin?callbackUrl=${encodeURIComponent(callbackUrl)}`}
-                  className="w-full inline-flex items-center justify-center py-3 rounded-xl text-sm font-semibold border border-slate-200 text-gray-700 hover:bg-slate-50"
+                  className="w-full inline-flex items-center justify-center min-h-[48px] py-3 rounded-xl text-sm font-semibold border border-slate-200 text-gray-700 hover:bg-slate-50"
                 >
                   개발용 로그인(자격 증명)
                 </Link>
@@ -121,12 +144,35 @@ export default async function AuthPage({
 
             <AuthErrorAlert error={searchParams?.error} errorDescription={searchParams?.errorDescription} />
 
-            <div className="space-y-3">
-              <GoogleSignInButton callbackUrl={callbackUrl} className="btn-primary w-full" />
+            <div className="space-y-4">
+              <p className="text-center text-sm text-slate-600 leading-relaxed">
+                <strong className="text-gray-900">Google 계정</strong>으로 간편하게 로그인·가입할 수 있어요.
+                <span className="block mt-1 text-slate-500 text-xs">
+                  처음이시면 회원가입, 기존 회원이시면 로그인을 눌러 주세요. (둘 다 Google로 연결됩니다)
+                </span>
+              </p>
+              <div className="flex flex-col gap-3">
+                <GoogleSignInButton
+                  intent="signup"
+                  callbackUrl={callbackUrl}
+                  aria-label="Google 계정으로 회원가입하기"
+                  className="btn-primary w-full min-h-[52px] py-4 rounded-xl text-base font-semibold"
+                >
+                  회원가입하기
+                </GoogleSignInButton>
+                <GoogleSignInButton
+                  intent="login"
+                  callbackUrl={callbackUrl}
+                  aria-label="Google 계정으로 로그인하기"
+                  className="w-full min-h-[52px] py-4 rounded-xl text-base font-semibold border-2 border-slate-300 bg-white text-gray-800 hover:bg-slate-50 hover:border-slate-400 transition-colors"
+                >
+                  로그인하기
+                </GoogleSignInButton>
+              </div>
               {devEnabled && (
                 <Link
                   href={`/api/auth/signin?callbackUrl=${encodeURIComponent(callbackUrl)}`}
-                  className="w-full inline-flex items-center justify-center py-3 rounded-xl text-sm font-semibold border border-slate-200 text-gray-700 hover:bg-slate-50"
+                  className="w-full inline-flex items-center justify-center min-h-[48px] py-3 rounded-xl text-sm font-semibold border border-slate-200 text-gray-700 hover:bg-slate-50"
                 >
                   개발용 로그인(자격 증명)
                 </Link>
