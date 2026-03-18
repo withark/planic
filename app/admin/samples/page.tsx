@@ -35,6 +35,7 @@ export default function AdminSamplesPage() {
   const [samples, setSamples] = useState<Sample[]>([])
   const [loading, setLoading] = useState(true)
   const [parsingId, setParsingId] = useState<string | null>(null)
+  const [refUploading, setRefUploading] = useState(false)
 
   function load() {
     fetch('/api/admin/samples')
@@ -70,6 +71,25 @@ export default function AdminSamplesPage() {
     }
   }
 
+  async function uploadSample(file: File) {
+    if (!file) return
+    setRefUploading(true)
+    try {
+      const fd = new FormData()
+      fd.append('file', file)
+      const res = await fetch('/api/admin/samples', { method: 'POST', body: fd })
+      const data = await res.json().catch(() => ({}))
+      if (res.ok && data?.ok) {
+        load()
+        alert('기준 양식이 등록되었습니다.')
+      } else {
+        alert(data?.error?.message ?? '업로드에 실패했습니다.')
+      }
+    } finally {
+      setRefUploading(false)
+    }
+  }
+
   if (loading) return <p className="text-sm text-gray-500">로딩…</p>
 
   return (
@@ -81,6 +101,15 @@ export default function AdminSamplesPage() {
           연결 탭·반영 방식을 지정하고, 생성 결과에 어떻게 쓰일지 확인할 수 있습니다.
         </p>
       </div>
+
+      {/* 역할 구분 */}
+      <section className="rounded-xl border border-amber-200 bg-amber-50/60 p-4">
+        <h2 className="text-sm font-semibold text-gray-800 mb-2">역할 구분</h2>
+        <ul className="text-sm text-gray-700 space-y-1 list-disc list-inside">
+          <li><strong>사용자 「참고 자료」</strong> — 각 사용자 본인 문서(견적서·시나리오·과업지시서 등)를 올리는 곳입니다. 사용자 정보로만 활용됩니다.</li>
+          <li><strong>관리자 기준 양식</strong> — 여기서 등록·관리하는 양식은 <strong>엔진 성능 및 생성 결과물 품질</strong> 향상용입니다. 활성·우선순위에 따라 생성 시 참고됩니다.</li>
+        </ul>
+      </section>
 
       {/* 업로드 → 분석 → 연결 → 반영 방식 확인 */}
       <section className="rounded-xl border border-slate-200 bg-slate-50/60 p-4">
@@ -106,27 +135,18 @@ export default function AdminSamplesPage() {
             예상 영향 확인
           </li>
         </ol>
-        <p className="text-xs text-gray-500 mt-2">
-          사용자 화면의 「참고」에서 파일을 업로드하면 여기 목록에 반영됩니다. 활성·우선순위에 따라{' '}
-          <strong>생성 시 참고할 1건</strong>이 선택됩니다.
-        </p>
       </section>
 
-      {/* 샘플 업로드 안내 */}
+      {/* 기준 양식 등록: 관리자 직접 업로드 */}
       <section className="rounded-xl border border-primary-200 bg-primary-50/40 p-4">
         <h2 className="text-sm font-semibold text-gray-800 mb-2">기준 양식 등록(업로드)</h2>
         <p className="text-sm text-gray-700 mb-3">
-          새 샘플을 등록하려면 사용자 계정으로 로그인한 뒤 <strong>참고</strong> 메뉴에서 파일을 업로드하세요.
-          업로드된 파일은 자동으로 여기 목록에 반영되며, 문서 유형·연결 탭·우선순위를 설정할 수 있습니다.
+          엔진·생성 품질용 기준 양식을 <strong>여기에서 직접</strong> 등록하세요. 아래에서 파일을 선택하면 목록에 추가되며, 문서 유형·연결 탭·우선순위를 설정할 수 있습니다.
         </p>
-        <a
-          href="/references"
-          target="_blank"
-          rel="noopener noreferrer"
-          className="inline-flex items-center gap-2 rounded-lg bg-primary-600 text-white px-4 py-2 text-sm font-medium hover:bg-primary-700"
-        >
-          사용자 「참고」 메뉴에서 업로드 (새 탭)
-        </a>
+        <label className="inline-flex items-center gap-2 rounded-lg bg-primary-600 text-white px-4 py-2 text-sm font-medium hover:bg-primary-700 cursor-pointer">
+          <input type="file" className="sr-only" accept=".pdf,.xlsx,.xls,.png,.jpg,.jpeg,.gif,.webp,.txt,.csv,.md,.ppt,.pptx,.doc,.docx" onChange={(e) => { const f = e.target.files?.[0]; if (f) uploadSample(f); e.target.value = ''; }} />
+          {refUploading ? '업로드 중…' : '파일 선택 후 기준 양식 등록'}
+        </label>
       </section>
 
       <div className="overflow-x-auto border border-slate-200 rounded-lg bg-white shadow-sm">
@@ -265,7 +285,7 @@ export default function AdminSamplesPage() {
 
       {samples.length === 0 && (
         <p className="text-sm text-gray-500">
-          등록된 기준 양식이 없습니다. 사용자 「참고」 메뉴에서 큐시트 등 파일을 업로드하면 여기에 표시됩니다.
+          등록된 기준 양식이 없습니다. 위 「파일 선택 후 기준 양식 등록」으로 파일을 올려주세요.
         </p>
       )}
 

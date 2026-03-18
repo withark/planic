@@ -7,8 +7,19 @@ import {
   updateCuesheetSampleAdmin,
   archiveCuesheetSampleAdmin,
   duplicateCuesheetSampleAdmin,
+  insertCuesheetSampleWithFile,
   type DocumentTab,
 } from '@/lib/db/cuesheet-samples-db'
+
+/** 관리자 등록 기준 양식용 user_id (엔진·품질용, 사용자 참고 자료와 구분) */
+const ADMIN_SAMPLE_USER_ID = 'system'
+
+const ALLOWED_EXT = ['pdf', 'xlsx', 'xls', 'png', 'jpg', 'jpeg', 'gif', 'webp', 'txt', 'csv', 'md', 'ppt', 'pptx', 'doc', 'docx']
+
+function getExt(filename: string): string {
+  const ext = (filename.split('.').pop() || '').toLowerCase()
+  return ALLOWED_EXT.includes(ext) ? ext : 'bin'
+}
 
 export const dynamic = 'force-dynamic'
 
@@ -55,5 +66,23 @@ export async function PATCH(req: NextRequest) {
     return okResponse(null)
   } catch {
     return errorResponse(500, 'INTERNAL_ERROR', '샘플 수정 실패')
+  }
+}
+
+export async function POST(req: NextRequest) {
+  if (!(await requireAdmin(req)))
+    return errorResponse(401, 'UNAUTHORIZED', '관리자만 접근할 수 있습니다.')
+  if (!hasDatabase()) return errorResponse(503, 'NO_DB', 'DB 없음')
+  try {
+    const formData = await req.formData()
+    const file = formData.get('file') as File | null
+    if (!file) return errorResponse(400, 'INVALID_REQUEST', '파일이 없습니다.')
+    const filename = file.name || 'unnamed'
+    const ext = getExt(filename)
+    const buffer = Buffer.from(await file.arrayBuffer())
+    await insertCuesheetSampleWithFile(ADMIN_SAMPLE_USER_ID, { filename, ext, content: buffer })
+    return okResponse({ ok: true })
+  } catch {
+    return errorResponse(500, 'INTERNAL_ERROR', '기준 양식 업로드에 실패했습니다.')
   }
 }

@@ -58,7 +58,7 @@ export async function listCuesheetSamples(userId: string): Promise<CuesheetSampl
   }))
 }
 
-/** 생성: 활성 큐시트 샘플 우선순위대로 후보 (첫 번째만 텍스트 로드) */
+/** 생성 시 참고할 샘플: 해당 사용자 + 관리자 등록(system) 기준 양식. 활성·우선순위 순. */
 export async function listCuesheetSamplesForGeneration(userId: string): Promise<CuesheetSampleRow[]> {
   await initDb()
   const sql = getDb()
@@ -68,7 +68,7 @@ export async function listCuesheetSamplesForGeneration(userId: string): Promise<
            COALESCE(priority, 0) AS priority, COALESCE(is_active, true) AS is_active,
            archived_at, COALESCE(generation_use_count, 0) AS generation_use_count, last_used_at
     FROM cuesheet_samples
-    WHERE user_id = ${userId}
+    WHERE (user_id = ${userId} OR user_id = 'system')
       AND archived_at IS NULL
       AND COALESCE(is_active, true) = true
     ORDER BY priority DESC, uploaded_at DESC
