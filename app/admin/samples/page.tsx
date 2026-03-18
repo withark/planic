@@ -1,6 +1,7 @@
 'use client'
 
 import { useEffect, useState } from 'react'
+import Link from 'next/link'
 
 type Sample = {
   id: string
@@ -18,12 +19,16 @@ type Sample = {
   ext: string
 }
 
-const TABS = [
+/** 문서 유형: 견적서, 제안 프로그램, 타임테이블, 큐시트, 시나리오, 과업지시서, 제안서 */
+const DOCUMENT_TYPES = [
   { v: 'cuesheet', l: '큐시트' },
+  { v: 'quote', l: '견적서' },
   { v: 'proposal', l: '제안 프로그램' },
   { v: 'timetable', l: '타임테이블' },
   { v: 'scenario', l: '시나리오' },
-]
+  { v: 'task_order', l: '과업지시서' },
+  { v: 'proposal_doc', l: '제안서' },
+] as const
 
 export default function AdminSamplesPage() {
   const [samples, setSamples] = useState<Sample[]>([])
@@ -54,20 +59,53 @@ export default function AdminSamplesPage() {
   if (loading) return <p className="text-sm text-gray-500">로딩…</p>
 
   return (
-    <div className="space-y-4">
-      <h1 className="text-lg font-bold text-gray-900">샘플 관리</h1>
-      <p className="text-sm text-gray-600 max-w-3xl">
-        업로드된 큐시트(및 탭 분류) 자료입니다. <strong>비활성·보관</strong>으로 숨기고, 우선순위로 생성 시 반영 순서를
-        조정합니다. 생성 파이프라인은 <strong>활성 샘플 중 우선순위 ↑ · 최신 순</strong> 1건을 큐시트 문맥으로
-        사용합니다.
-      </p>
+    <div className="space-y-6">
+      <div>
+        <h1 className="text-lg font-bold text-gray-900">기준 양식 관리</h1>
+        <p className="text-sm text-gray-600 mt-1 max-w-3xl">
+          문서 생성 시 참고할 <strong>기준 양식을 등록하고 연결</strong>하는 메뉴입니다. 업로드한 파일은 분석 후
+          연결 탭·반영 방식을 지정하고, 생성 결과에 어떻게 쓰일지 확인할 수 있습니다.
+        </p>
+      </div>
+
+      {/* 흐름 안내: 업로드 → 분석 → 연결 → 반영 방식 확인 */}
+      <section className="rounded-xl border border-slate-200 bg-slate-50/60 p-4">
+        <h2 className="text-sm font-semibold text-gray-800 mb-2">운영 흐름</h2>
+        <ol className="flex flex-wrap gap-x-6 gap-y-1 text-sm text-gray-600 list-none">
+          <li className="flex items-center gap-2">
+            <span className="inline-flex w-6 h-6 rounded-full bg-primary-100 text-primary-700 text-xs font-bold items-center justify-center">1</span>
+            업로드
+          </li>
+          <li className="text-slate-400">→</li>
+          <li className="flex items-center gap-2">
+            <span className="inline-flex w-6 h-6 rounded-full bg-primary-100 text-primary-700 text-xs font-bold items-center justify-center">2</span>
+            분석(파싱)
+          </li>
+          <li className="text-slate-400">→</li>
+          <li className="flex items-center gap-2">
+            <span className="inline-flex w-6 h-6 rounded-full bg-primary-100 text-primary-700 text-xs font-bold items-center justify-center">3</span>
+            연결 탭·반영 방식 지정
+          </li>
+          <li className="text-slate-400">→</li>
+          <li className="flex items-center gap-2">
+            <span className="inline-flex w-6 h-6 rounded-full bg-primary-100 text-primary-700 text-xs font-bold items-center justify-center">4</span>
+            예상 영향 확인
+          </li>
+        </ol>
+        <p className="text-xs text-gray-500 mt-2">
+          사용자 화면의 「참고」에서 파일을 업로드하면 여기 목록에 반영됩니다. 활성·우선순위에 따라{' '}
+          <strong>생성 시 참고할 1건</strong>이 선택됩니다.
+        </p>
+      </section>
+
       <div className="overflow-x-auto border border-slate-200 rounded-lg bg-white shadow-sm">
         <table className="min-w-full text-sm">
           <thead className="bg-slate-50 text-left text-xs text-slate-600">
             <tr>
-              <th className="p-2">샘플명</th>
-              <th className="p-2">user</th>
-              <th className="p-2">탭</th>
+              <th className="p-2">파일명 / 문서 유형</th>
+              <th className="p-2">연결 탭</th>
+              <th className="p-2">반영 방식</th>
+              <th className="p-2">예상 영향</th>
               <th className="p-2">우선순위</th>
               <th className="p-2">활성</th>
               <th className="p-2">사용 횟수</th>
@@ -81,31 +119,47 @@ export default function AdminSamplesPage() {
                 <td className="p-2">
                   <div className="font-medium">{s.displayName || s.filename}</div>
                   <div className="text-xs text-gray-400">{s.filename}</div>
-                  <input
-                    className="mt-1 w-full text-xs border rounded px-1"
-                    placeholder="설명"
-                    defaultValue={s.description}
-                    onBlur={(e) => patch(s.id, { description: e.target.value })}
-                  />
-                </td>
-                <td className="p-2 font-mono text-xs break-all max-w-[100px]">{s.userId.slice(0, 12)}…</td>
-                <td className="p-2">
                   <select
-                    className="text-xs border rounded"
-                    value={s.documentTab}
-                    onChange={(e) => patch(s.id, { documentTab: e.target.value })}
+                    className="mt-1 text-xs border border-slate-200 rounded px-2 py-1 bg-white"
+                    value={DOCUMENT_TYPES.some((t) => t.v === s.documentTab) ? s.documentTab : 'cuesheet'}
+                    onChange={(e) => {
+                      const v = e.target.value
+                      if (['proposal', 'timetable', 'cuesheet', 'scenario'].includes(v))
+                        patch(s.id, { documentTab: v })
+                    }}
                   >
-                    {TABS.map((t) => (
+                    {DOCUMENT_TYPES.filter((t) => ['proposal', 'timetable', 'cuesheet', 'scenario'].includes(t.v)).map((t) => (
                       <option key={t.v} value={t.v}>
                         {t.l}
                       </option>
                     ))}
                   </select>
+                  <input
+                    className="mt-1 w-full text-xs border border-slate-200 rounded px-2 py-1"
+                    placeholder="설명"
+                    defaultValue={s.description}
+                    onBlur={(e) => patch(s.id, { description: e.target.value })}
+                  />
+                </td>
+                <td className="p-2">
+                  <span className="text-xs text-gray-600">
+                    {DOCUMENT_TYPES.find((t) => t.v === s.documentTab)?.l ?? s.documentTab}
+                  </span>
+                </td>
+                <td className="p-2 max-w-[140px]">
+                  <p className="text-[11px] text-gray-500">
+                    문체·구조·레이아웃·표 형식 참고 (설정은 <Link href="/admin/engines" className="text-primary-600 underline">생성 규칙</Link>에서)
+                  </p>
+                </td>
+                <td className="p-2 max-w-[200px]">
+                  <p className="text-[11px] text-gray-500">
+                    예: 큐시트 생성 시 시간/담당/준비물 열 구성을 우선 반영
+                  </p>
                 </td>
                 <td className="p-2">
                   <input
                     type="number"
-                    className="w-16 border rounded px-1 text-xs"
+                    className="w-14 border border-slate-200 rounded px-1 text-xs"
                     defaultValue={s.priority}
                     onBlur={(e) => patch(s.id, { priority: parseInt(e.target.value, 10) || 0 })}
                   />
@@ -148,7 +202,17 @@ export default function AdminSamplesPage() {
           </tbody>
         </table>
       </div>
-      {samples.length === 0 && <p className="text-sm text-gray-500">등록된 샘플이 없습니다.</p>}
+
+      {samples.length === 0 && (
+        <p className="text-sm text-gray-500">
+          등록된 기준 양식이 없습니다. 사용자 「참고」 메뉴에서 큐시트 등 파일을 업로드하면 여기에 표시됩니다.
+        </p>
+      )}
+
+      <p className="text-xs text-gray-400">
+        반영 방식·예상 영향 상세 필드는 DB 확장 후 입력 가능합니다. 파싱 결과 미리보기·최근 반영 이력은{' '}
+        <Link href="/admin/generation-logs" className="text-primary-600 underline">생성 로그</Link>에서 확인할 수 있습니다.
+      </p>
     </div>
   )
 }

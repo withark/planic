@@ -4,7 +4,7 @@ import Link from 'next/link'
 import { usePathname } from 'next/navigation'
 import clsx from 'clsx'
 
-/** 운영 백오피스: 문서·품질 / 비즈니스·정산 / 계정 / 시스템 */
+/** 운영 백오피스: 문서 생성 운영 / 비즈니스 운영 / 시스템 */
 export const ADMIN_NAV_GROUPS: {
   label: string
   items: { href: string; label: string; desc?: string }[]
@@ -14,28 +14,24 @@ export const ADMIN_NAV_GROUPS: {
     items: [{ href: '/admin', label: '대시보드', desc: '서비스 상태 요약' }],
   },
   {
-    label: '문서·품질',
+    label: '문서 생성 운영',
     items: [
-      { href: '/admin/samples', label: '샘플 관리', desc: '큐시트·탭·우선순위' },
-      { href: '/admin/engines', label: '엔진 강화 설정', desc: '모델·프롬프트·품질' },
+      { href: '/admin/samples', label: '기준 양식 관리', desc: '참고 양식 등록·연결·반영 방식' },
+      { href: '/admin/engines', label: '생성 규칙 설정', desc: '탭별 규칙·샘플 강도·출력 형식' },
       { href: '/admin/generation-logs', label: '생성 로그', desc: '샘플·엔진 반영 추적' },
       { href: '/admin/review', label: '검수·미리보기', desc: '출력 품질 확인' },
+      { href: '/admin/references-collect', label: '외부 자료 수집', desc: '웹/URL 수집 → 검토 → 샘플 등록' },
     ],
   },
   {
-    label: '비즈니스·정산',
+    label: '비즈니스 운영',
     items: [
       { href: '/admin/payments', label: '결제 관리', desc: '토스 주문·웹훅' },
       { href: '/admin/payment-test', label: '결제 테스트', desc: '체크리스트·연동 확인' },
       { href: '/admin/settlement', label: '정산 관리', desc: '기간별 매출' },
       { href: '/admin/ops-stats', label: '운영 통계', desc: '매출·전환' },
-      { href: '/admin/usage', label: '사용통계', desc: '생성·탭·업로드' },
+      { href: '/admin/usage', label: '사용 통계', desc: '생성·탭·업로드' },
       { href: '/admin/subscriptions', label: '구독 현황', desc: 'KV 구독' },
-    ],
-  },
-  {
-    label: '계정·플랜',
-    items: [
       { href: '/admin/users', label: '사용자 관리', desc: '가입·생성·플랜' },
       { href: '/admin/plans', label: '플랜 관리', desc: '요금·기능' },
     ],

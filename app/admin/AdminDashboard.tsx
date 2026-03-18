@@ -4,14 +4,17 @@ import { useState, useEffect } from 'react'
 import Link from 'next/link'
 
 const ADMIN_LINKS = [
-  { href: '/admin/users', label: '사용자 관리', desc: '가입·로그인·플랜·한도' },
-  { href: '/admin/subscriptions', label: '구독 관리', desc: '구독 이력·플랜별' },
-  { href: '/admin/payments', label: '결제·정산', desc: '매출·실패·환불' },
+  { href: '/admin/samples', label: '기준 양식 관리', desc: '참고 양식 등록·반영 방식' },
+  { href: '/admin/engines', label: '생성 규칙 설정', desc: '탭별 규칙·샘플 강도·출력 형식' },
+  { href: '/admin/generation-logs', label: '생성 로그', desc: '샘플·엔진 반영 추적' },
+  { href: '/admin/references-collect', label: '외부 자료 수집', desc: '웹/URL 수집 → 검토 → 샘플 등록' },
+  { href: '/admin/users', label: '사용자 관리', desc: '가입·플랜·한도' },
+  { href: '/admin/subscriptions', label: '구독 현황', desc: '구독 이력·플랜별' },
+  { href: '/admin/payments', label: '결제 관리', desc: '매출·실패·환불' },
   { href: '/admin/plans', label: '플랜 관리', desc: '요금제·한도' },
-  { href: '/admin/usage', label: '사용량', desc: '생성·쿼터' },
-  { href: '/admin/engines', label: '엔진/모델', desc: 'AI 설정' },
-  { href: '/admin/logs', label: '로그', desc: '에러·이벤트' },
-  { href: '/admin/system', label: '시스템', desc: '환경' },
+  { href: '/admin/usage', label: '사용 통계', desc: '생성·쿼터' },
+  { href: '/admin/logs', label: '에러 로그', desc: '에러·이벤트' },
+  { href: '/admin/system', label: '시스템 설정', desc: '환경' },
   { href: '/api/health', label: '헬스', desc: 'API', external: true },
 ]
 
