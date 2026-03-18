@@ -46,6 +46,15 @@ export async function apiFetch<T>(input: RequestInfo | URL, init?: RequestInit):
     return payload as T
   }
 
+  // 서버/플랫폼 요청 body 크기 제한 초과 (예: Vercel 4.5MB)
+  if (res.status === 413) {
+    throw new ApiError(
+      '파일이 너무 큽니다. 4MB 이하로 압축하거나, 불필요한 이미지를 줄인 뒤 다시 올려 주세요.',
+      res.status,
+      payload
+    )
+  }
+
   const msg = toUserMessage(payload, '요청에 실패했습니다.')
   throw new ApiError(msg, res.status, payload)
 }

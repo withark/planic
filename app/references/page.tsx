@@ -23,6 +23,14 @@ export default function ReferencesPage() {
 
   function showToast(msg:string,type:'ok'|'err'='ok'){setToast({msg,type});setTimeout(()=>setToast(null),2500)}
 
+  // 서버리스 요청 body 한계(예: Vercel 4.5MB) 이하로 제한
+  const MAX_UPLOAD_BYTES = 4 * 1024 * 1024 // 4MB
+  function checkFileSize(file: File): boolean {
+    if (file.size <= MAX_UPLOAD_BYTES) return true
+    showToast('파일이 너무 큽니다. 4MB 이하로 압축하거나, 불필요한 이미지를 줄인 뒤 다시 올려 주세요.', 'err')
+    return false
+  }
+
   /** API가 { ok, data } 형태면 data만, 배열이면 그대로, 아니면 [] */
   function toArray<T>(raw: unknown): T[] {
     if (Array.isArray(raw)) return raw as T[]
@@ -57,6 +65,7 @@ export default function ReferencesPage() {
 
   async function upload(file: File) {
     if (!file) return
+    if (!checkFileSize(file)) return
     setUploading(true)
     const fd = new FormData(); fd.append('file', file)
     try {
@@ -87,6 +96,7 @@ export default function ReferencesPage() {
 
   async function uploadCuesheetSample(file: File) {
     if (!file) return
+    if (!checkFileSize(file)) return
     setCuesheetUploading(true)
     const fd = new FormData()
     fd.append('file', file)
@@ -115,6 +125,7 @@ export default function ReferencesPage() {
 
   async function uploadScenario(file: File) {
     if (!file) return
+    if (!checkFileSize(file)) return
     setScenarioUploading(true)
     const fd = new FormData(); fd.append('file', file)
     try {
@@ -140,6 +151,7 @@ export default function ReferencesPage() {
 
   async function uploadTaskOrder(file: File) {
     if (!file) return
+    if (!checkFileSize(file)) return
     setTaskOrderUploading(true)
     const fd = new FormData(); fd.append('file', file)
     try {
@@ -207,7 +219,7 @@ export default function ReferencesPage() {
                 큐시트 샘플 파일을 이 영역에 끌어놓거나 클릭해서 업로드하세요.
               </button>
               <p className="text-xs text-gray-500 mb-3">
-                지원 형식: PDF, 엑셀(.xlsx, .xls), 이미지(png, jpg, gif, webp), 텍스트(.txt, .csv, .md), PPT(.ppt, .pptx), Word(.doc, .docx)
+                지원 형식: PDF, 엑셀(.xlsx, .xls), 이미지(png, jpg, gif, webp), 텍스트(.txt, .csv, .md), PPT(.ppt, .pptx), Word(.doc, .docx) · 파일 크기 4MB 이하
               </p>
               {(Array.isArray(cuesheetSamples) ? cuesheetSamples : []).length === 0 ? (
                 <div className="text-center py-8 rounded-2xl border border-dashed border-gray-200 bg-gray-50 text-gray-500 text-sm">
@@ -276,7 +288,7 @@ export default function ReferencesPage() {
                 한글(.hwp)은 먼저 PDF 또는 Word(.docx)로 저장해서 올려주세요.
               </button>
               <p className="text-xs text-gray-500 mb-3">
-                지원 형식: .txt, .csv, .md, .pdf, .xlsx, .xls, .ppt, .pptx, .doc, .docx
+                지원 형식: .txt, .csv, .md, .pdf, .xlsx, .xls, .ppt, .pptx, .doc, .docx · 파일 크기 4MB 이하
               </p>
               {(Array.isArray(taskOrderRefs) ? taskOrderRefs : []).length === 0 ? (
                 <div className="text-center py-8 rounded-2xl border border-dashed border-gray-200 bg-gray-50 text-gray-500 text-sm">
@@ -334,7 +346,7 @@ export default function ReferencesPage() {
                 한글(.hwp)은 먼저 PDF 또는 Word(.docx)로 저장해서 올려주세요.
               </button>
               <p className="text-xs text-gray-500 mb-3">
-                지원 형식: .txt, .csv, .md, .pdf, .xlsx, .xls, .ppt, .pptx, .doc, .docx
+                지원 형식: .txt, .csv, .md, .pdf, .xlsx, .xls, .ppt, .pptx, .doc, .docx · 파일 크기 4MB 이하
               </p>
               {(Array.isArray(scenarioRefs) ? scenarioRefs : []).length === 0 ? (
                 <div className="text-center py-8 rounded-2xl border border-dashed border-gray-200 bg-gray-50 text-gray-500 text-sm">
