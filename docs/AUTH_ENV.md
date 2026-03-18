@@ -31,7 +31,14 @@ Google Cloud Console에서 "승인된 리디렉션 URI"에 다음을 등록:
 - `NEXTAUTH_URL=https://planic.cloud` 이면 OAuth 콜백·세션 쿠키가 **apex**에만 붙을 수 있음.
 - 그런데 사이트는 **www.planic.cloud**로 리다이렉트되면, 브라우저는 **호스트 전용 쿠키를 www로 보내지 않아** middleware가 항상 비로그인으로 판단함.
 - **권장:** `NEXTAUTH_URL=https://www.planic.cloud` + Google 리디렉션 URI도 www만 사용.
-- 코드 쪽에서는 `NEXTAUTH_URL`이 planic.cloud일 때 세션 쿠키에 **`Domain=.planic.cloud`** 를 두어 apex/www 공통으로 쓰도록 보완함.
+- 코드 쪽에서는 **Vercel Production** 이고 `NEXTAUTH_URL`이 `https://planic.cloud` / `https://www.planic.cloud` 일 때만 세션 쿠키에 **`Domain=.planic.cloud`** + 이름 `next-auth.session-token`(접두사 없음, 브라우저 호환)을 씀. **Preview 배포에는 적용하지 않음.**
+- **운영 Production 빌드** 시 `NEXTAUTH_SECRET` 이 없으면 `prebuild` 단계에서 빌드 실패(미들웨어·세션 영구 불능 방지).
+
+### Google Console (리스크 제거)
+
+- 운영 클라이언트에 **최소** 다음 URI 등록:
+  - `https://www.planic.cloud/api/auth/callback/google`
+  - `https://planic.cloud/api/auth/callback/google` (apex로 들어와도 콜백 가능하도록)
 
 ## Vercel 설정
 

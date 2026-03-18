@@ -2,6 +2,7 @@ import { NextResponse } from 'next/server'
 import type { NextRequest } from 'next/server'
 import { getToken } from 'next-auth/jwt'
 import { resolveNextAuthSecret } from '@/lib/nextauth-secret'
+import { planicProductionSharedCookie, PLANIC_SESSION_COOKIE_NAME } from '@/lib/planic-auth-env'
 
 const ADMIN_COOKIE_NAME = 'planic_admin'
 const PROTECTED_PREFIXES = ['/generate', '/settings', '/history', '/references', '/prices', '/dashboard', '/billing']
@@ -40,7 +41,19 @@ export function middleware(request: NextRequest) {
   if (!needsAuth) return NextResponse.next()
 
   return (async () => {
-    const token = await getToken({ req: request, secret: resolveNextAuthSecret() })
+    const secret = resolveNextAuthSecret()
+    const token = planicProductionSharedCookie()
+      ? await getToken({
+          req: request,
+          secret,
+          cookieName: PLANIC_SESSION_COOKIE_NAME,
+          secureCookie: false,
+        })
+      : await getToken({
+          req: request,
+          secret,
+          secureCookie: process.env.NODE_ENV === 'production',
+        })
     if (token) return NextResponse.next()
 
     const url = request.nextUrl.clone()

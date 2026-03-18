@@ -5,20 +5,10 @@ import { upsertUser } from '@/lib/db/users-db'
 import { ensureFreeSubscription } from '@/lib/db/subscriptions-db'
 import { devAuthProvider, isDevAuthEnabled } from '@/lib/auth-dev'
 import { resolveNextAuthSecret } from '@/lib/nextauth-secret'
-
-/**
- * OAuth 콜백이 apex(planic.cloud)인데 이후 www로 리다이렉트되면 호스트 전용 쿠키는 www에 안 붙음.
- * Domain=.planic.cloud 로 apex·www 공통 세션.
- */
-function planicSessionCookieDomain(): string | undefined {
-  if (process.env.NODE_ENV !== 'production') return undefined
-  const u = (process.env.NEXTAUTH_URL || '').trim()
-  if (!/^https:\/\/(www\.)?planic\.cloud/i.test(u)) return undefined
-  return '.planic.cloud'
-}
+import { planicProductionSharedCookie, PLANIC_SESSION_COOKIE_NAME } from '@/lib/planic-auth-env'
 
 const secure = process.env.NODE_ENV === 'production'
-const cookieDomain = planicSessionCookieDomain()
+const cookieDomain = planicProductionSharedCookie() ? '.planic.cloud' : undefined
 
 /**
  * NextAuth 옵션.
@@ -40,7 +30,7 @@ export const authOptions: NextAuthOptions = {
     ? {
         cookies: {
           sessionToken: {
-            name: secure ? '__Secure-next-auth.session-token' : 'next-auth.session-token',
+            name: PLANIC_SESSION_COOKIE_NAME,
             options: {
               httpOnly: true,
               sameSite: 'lax',
@@ -75,13 +65,16 @@ export const authOptions: NextAuthOptions = {
       return true
     },
     redirect({ url, baseUrl }) {
-      if (url.startsWith('/')) return `${baseUrl}${url}`
+      let origin = baseUrl
+      if (/^https:\/\/planic\.cloud$/i.test(origin)) origin = 'https://www.planic.cloud'
+      if (url.startsWith('/')) return `${origin}${url}`
       try {
-        if (new URL(url).origin === baseUrl) return url
+        const u = new URL(url)
+        if (u.origin === origin || u.origin === baseUrl) return url
       } catch {
         // 잘못된 url이면 홈으로
       }
-      return baseUrl + '/'
+      return origin + '/'
     },
     session({ session, token }) {
       if (session.user) {
