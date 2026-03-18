@@ -13,14 +13,14 @@ async function main() {
 
   // AI runtime snapshot (no secrets)
   try {
-    const aiClient = getDefaultExport<{ getAIRuntimeSnapshot: () => Promise<any> }>(await import('../lib/ai/client.ts'))
+    const aiClient = getDefaultExport<{ getAIRuntimeSnapshot: () => Promise<any> }>(await import('../lib/ai/client'))
     const snap = await aiClient.getAIRuntimeSnapshot()
     console.log(JSON.stringify({ aiRuntimeSnapshot: snap }, null, 2))
   } catch (e) {
     console.log(JSON.stringify({ aiRuntimeSnapshotError: e instanceof Error ? e.message : String(e) }, null, 2))
   }
 
-  const dbClientMod = await import('../lib/db/client.ts')
+  const dbClientMod = await import('../lib/db/client')
   const dbClient = getDefaultExport<{
     hasDatabase: () => boolean
     initDb: () => Promise<void>
@@ -94,28 +94,26 @@ async function main() {
     return
   }
 
-  const { DEFAULT_SETTINGS } = getDefaultExport<{ DEFAULT_SETTINGS: AnyObj }>(await import('../lib/defaults.ts'))
-  const pricesDb = getDefaultExport<{ getUserPrices: (uid: string) => Promise<any[]> }>(await import('../lib/db/prices-db.ts'))
+  const { DEFAULT_SETTINGS } = getDefaultExport<{ DEFAULT_SETTINGS: AnyObj }>(await import('../lib/defaults'))
+  const pricesDb = getDefaultExport<{ getUserPrices: (uid: string) => Promise<any[]> }>(await import('../lib/db/prices-db'))
   const refsDb = getDefaultExport<{ listReferenceDocs: (uid: string) => Promise<any[]> }>(
-    await import('../lib/db/reference-docs-db.ts'),
+    await import('../lib/db/reference-docs-db'),
   )
   const taskDb = getDefaultExport<{ listTaskOrderRefs: (uid: string) => Promise<any[]> }>(
-    await import('../lib/db/task-order-refs-db.ts'),
+    await import('../lib/db/task-order-refs-db'),
   )
   const scenarioDb = getDefaultExport<{ listScenarioRefs: (uid: string) => Promise<any[]> }>(
-    await import('../lib/db/scenario-refs-db.ts'),
+    await import('../lib/db/scenario-refs-db'),
   )
   const samplesDb = getDefaultExport<{
     listCuesheetSamplesForGeneration: (uid: string) => Promise<any[]>
     getCuesheetFile: (id: string) => Promise<{ filename: string; ext: string; content: Buffer } | null>
-  }>(await import('../lib/db/cuesheet-samples-db.ts'))
+  }>(await import('../lib/db/cuesheet-samples-db'))
 
-  const fileUtils = getDefaultExport<{ extractTextFromBuffer: (buf: Buffer, ext: string, filename: string) => Promise<string> }>(
-    await import('../lib/file-utils.ts'),
-  )
+  const fileUtils = getDefaultExport<{ extractTextFromBuffer: (buf: Buffer, ext: string, filename: string) => Promise<string> }>(await import('../lib/file-utils'))
 
-  const aiMod = getDefaultExport<{ generateQuote: (input: any) => Promise<any> }>(await import('../lib/ai/index.ts'))
-  const promptsMod = await import('../lib/ai/prompts.ts')
+  const aiMod = getDefaultExport<{ generateQuote: (input: any) => Promise<any> }>(await import('../lib/ai/index'))
+  const promptsMod = await import('../lib/ai/prompts')
   const buildGeneratePrompt = (promptsMod as any).buildGeneratePrompt as (input: any) => string
   const GENERATION_SYSTEM_PROMPT = (promptsMod as any).GENERATION_SYSTEM_PROMPT as string
 
