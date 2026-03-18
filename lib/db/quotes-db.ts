@@ -28,6 +28,20 @@ export async function quotesDbGetById(id: string, userId: string): Promise<Histo
   return (rows[0] as { payload: HistoryRecord }).payload
 }
 
+/** 관리자: userId 없이 견적 조회 */
+export async function quotesDbGetByIdAdmin(id: string): Promise<{ payload: HistoryRecord; userId: string } | undefined> {
+  await initDb()
+  const sql = getDb()
+  const rows = await sql`
+    SELECT user_id, payload
+    FROM quotes
+    WHERE id = ${id}
+  `
+  if (rows.length === 0) return undefined
+  const r = rows[0] as { user_id: string; payload: HistoryRecord }
+  return { userId: r.user_id, payload: r.payload }
+}
+
 export async function quotesDbAppend(record: HistoryRecord, userId: string): Promise<void> {
   await initDb()
   const sql = getDb()

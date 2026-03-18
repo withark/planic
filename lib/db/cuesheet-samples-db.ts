@@ -14,6 +14,7 @@ export type CuesheetSampleRow = CuesheetSample & {
   generationUseCount: number
   lastUsedAt: string | null
   userId: string
+  parsedStructureSummary: string | null
 }
 
 function mapRow(r: Record<string, unknown>): CuesheetSampleRow {
@@ -35,6 +36,7 @@ function mapRow(r: Record<string, unknown>): CuesheetSampleRow {
     generationUseCount: Number(r.generation_use_count ?? 0),
     lastUsedAt: r.last_used_at ? new Date(r.last_used_at as string).toISOString() : null,
     userId: String(r.user_id),
+    parsedStructureSummary: r.parsed_structure_summary != null ? String(r.parsed_structure_summary) : null,
   }
 }
 
@@ -170,7 +172,8 @@ export async function listAllCuesheetSamplesAdmin(): Promise<CuesheetSampleRow[]
            COALESCE(s.description, '') AS description,
            COALESCE(s.priority, 0) AS priority,
            COALESCE(s.is_active, true) AS is_active,
-           s.archived_at, COALESCE(s.generation_use_count, 0) AS generation_use_count, s.last_used_at
+           s.archived_at, COALESCE(s.generation_use_count, 0) AS generation_use_count, s.last_used_at,
+           s.parsed_structure_summary
     FROM cuesheet_samples s
     ORDER BY (s.archived_at IS NOT NULL), s.priority DESC, s.uploaded_at DESC
   `
@@ -226,4 +229,13 @@ export async function assertCuesheetSampleOwner(userId: string, id: string): Pro
   const sql = getDb()
   const rows = await sql`SELECT id FROM cuesheet_samples WHERE user_id = ${userId} AND id = ${id} LIMIT 1`
   return rows.length > 0
+}
+
+/** 관리자: 샘플 파싱 결과 요약 저장 */
+export async function updateParsedStructureSummary(sampleId: string, summary: string): Promise<void> {
+  await initDb()
+  const sql = getDb()
+  await sql`
+    UPDATE cuesheet_samples SET parsed_structure_summary = ${summary} WHERE id = ${sampleId}
+  `
 }

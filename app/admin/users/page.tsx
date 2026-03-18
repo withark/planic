@@ -190,7 +190,7 @@ export default function AdminUsersPage() {
                     <td className="px-3 py-2 text-center">{u.isActive ? '활성' : '비활성'}</td>
                     <td className="px-3 py-2 text-right">
                       <Link
-                        href={`/admin?highlight=${u.userId}`}
+                        href={`/admin/users/${u.userId}`}
                         className="text-xs text-primary-600 hover:underline"
                       >
                         상세

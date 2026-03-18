@@ -17,6 +17,7 @@ type Sample = {
   lastUsedAt: string | null
   uploadedAt: string
   ext: string
+  parsedStructureSummary: string | null
 }
 
 /** 문서 유형: 견적서, 제안 프로그램, 타임테이블, 큐시트, 시나리오, 과업지시서, 제안서 */
@@ -33,6 +34,7 @@ const DOCUMENT_TYPES = [
 export default function AdminSamplesPage() {
   const [samples, setSamples] = useState<Sample[]>([])
   const [loading, setLoading] = useState(true)
+  const [parsingId, setParsingId] = useState<string | null>(null)
 
   function load() {
     fetch('/api/admin/samples')
@@ -54,6 +56,18 @@ export default function AdminSamplesPage() {
       body: JSON.stringify({ id, ...body }),
     })
     load()
+  }
+
+  async function runParse(id: string) {
+    setParsingId(id)
+    try {
+      const res = await fetch(`/api/admin/samples/${id}/parse`, { method: 'POST' })
+      const data = await res.json().catch(() => ({}))
+      if (res.ok && data?.ok) load()
+      else alert(data?.error?.message ?? '파싱 실패')
+    } finally {
+      setParsingId(null)
+    }
   }
 
   if (loading) return <p className="text-sm text-gray-500">로딩…</p>
@@ -160,9 +174,30 @@ export default function AdminSamplesPage() {
                     onBlur={(e) => patch(s.id, { description: e.target.value })}
                   />
                 </td>
-                <td className="p-2 max-w-[160px]">
+                <td className="p-2 max-w-[200px]">
                   <p className="text-[11px] text-slate-500">제목/섹션/표/항목</p>
-                  <p className="text-xs text-slate-400">{s.ext ? '업로드됨 · 미리보기 추후 제공' : '—'}</p>
+                  {s.parsedStructureSummary ? (
+                    <details className="text-xs">
+                      <summary className="cursor-pointer text-primary-600">미리보기</summary>
+                      <pre className="mt-1 max-h-32 overflow-y-auto whitespace-pre-wrap break-words rounded bg-slate-100 p-2 text-[11px]">
+                        {s.parsedStructureSummary}
+                      </pre>
+                    </details>
+                  ) : (
+                    <>
+                      <p className="text-xs text-slate-400">{s.ext ? '분석 버튼으로 추출' : '—'}</p>
+                      {s.ext && (
+                        <button
+                          type="button"
+                          disabled={parsingId === s.id}
+                          onClick={() => runParse(s.id)}
+                          className="mt-1 text-xs text-primary-600 underline disabled:opacity-50"
+                        >
+                          {parsingId === s.id ? '분석 중…' : '분석'}
+                        </button>
+                      )}
+                    </>
+                  )}
                 </td>
                 <td className="p-2">
                   <span className="text-xs text-gray-600">

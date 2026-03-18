@@ -108,9 +108,9 @@ export default function AdminGenerationLogsPage() {
                     </td>
                     <td className="px-3 py-2">
                       {r.quoteId ? (
-                        <span className="font-mono text-xs text-primary-600" title={r.quoteId}>
-                          {r.quoteId.slice(0, 12)}…
-                        </span>
+                        <Link href={`/admin/quotes/${r.quoteId}`} className="font-mono text-xs text-primary-600 hover:underline" title={r.quoteId}>
+                          {r.quoteId.slice(0, 12)}… →
+                        </Link>
                       ) : (
                         '—'
                       )}

@@ -245,6 +245,7 @@ export async function initDb(): Promise<void> {
     sql`ALTER TABLE cuesheet_samples ADD COLUMN IF NOT EXISTS archived_at timestamptz`,
     sql`ALTER TABLE cuesheet_samples ADD COLUMN IF NOT EXISTS generation_use_count int NOT NULL DEFAULT 0`,
     sql`ALTER TABLE cuesheet_samples ADD COLUMN IF NOT EXISTS last_used_at timestamptz`,
+    sql`ALTER TABLE cuesheet_samples ADD COLUMN IF NOT EXISTS parsed_structure_summary text`,
   ] as const
   for (const q of alterCuesheet) {
     try {
@@ -290,5 +291,21 @@ export async function initDb(): Promise<void> {
     )
   `
   await sql`CREATE INDEX IF NOT EXISTS idx_admin_events_created_at ON admin_events (created_at DESC)`
+
+  await sql`
+    CREATE TABLE IF NOT EXISTS reference_candidates (
+      id text PRIMARY KEY,
+      url text NOT NULL DEFAULT '',
+      title text NOT NULL DEFAULT '',
+      document_type text NOT NULL DEFAULT 'quote',
+      status text NOT NULL DEFAULT 'pending',
+      raw_text text,
+      created_at timestamptz NOT NULL DEFAULT now(),
+      updated_at timestamptz NOT NULL DEFAULT now()
+    )
+  `
+  await sql`CREATE INDEX IF NOT EXISTS idx_reference_candidates_status ON reference_candidates (status)`
+  await sql`CREATE INDEX IF NOT EXISTS idx_reference_candidates_created ON reference_candidates (created_at DESC)`
+
   initDone = true
 }

@@ -64,3 +64,27 @@ export async function GET(_req: NextRequest) {
     return errorResponse(500, 'INTERNAL_ERROR', '사용자 목록 조회에 실패했습니다.')
   }
 }
+
+export async function PATCH(req: NextRequest) {
+  const session = await requireAdmin(req)
+  if (!session) return errorResponse(401, 'UNAUTHORIZED', '관리자만 접근할 수 있습니다.')
+  if (!hasDatabase()) return errorResponse(503, 'NO_DB', 'DB 없음')
+
+  try {
+    const body = await req.json()
+    const userId = String(body?.userId ?? '')
+    if (!userId) return errorResponse(400, 'BAD_REQUEST', 'userId 필요')
+
+    await initDb()
+    const sql = getDb()
+
+    if (typeof body?.isActive === 'boolean') {
+      await sql`UPDATE users SET is_active = ${body.isActive}, updated_at = now() WHERE id = ${userId}`
+    }
+
+    return okResponse(null)
+  } catch (e) {
+    console.error(e)
+    return errorResponse(500, 'INTERNAL_ERROR', '사용자 수정에 실패했습니다.')
+  }
+}
