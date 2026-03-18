@@ -224,6 +224,39 @@ export async function initDb(): Promise<void> {
     )
   `
   await sql`CREATE INDEX IF NOT EXISTS idx_cuesheet_samples_user_id ON cuesheet_samples (user_id)`
+  const alterCuesheet = [
+    sql`ALTER TABLE cuesheet_samples ADD COLUMN IF NOT EXISTS display_name text NOT NULL DEFAULT ''`,
+    sql`ALTER TABLE cuesheet_samples ADD COLUMN IF NOT EXISTS document_tab text NOT NULL DEFAULT 'cuesheet'`,
+    sql`ALTER TABLE cuesheet_samples ADD COLUMN IF NOT EXISTS description text NOT NULL DEFAULT ''`,
+    sql`ALTER TABLE cuesheet_samples ADD COLUMN IF NOT EXISTS priority int NOT NULL DEFAULT 0`,
+    sql`ALTER TABLE cuesheet_samples ADD COLUMN IF NOT EXISTS is_active boolean NOT NULL DEFAULT true`,
+    sql`ALTER TABLE cuesheet_samples ADD COLUMN IF NOT EXISTS archived_at timestamptz`,
+    sql`ALTER TABLE cuesheet_samples ADD COLUMN IF NOT EXISTS generation_use_count int NOT NULL DEFAULT 0`,
+    sql`ALTER TABLE cuesheet_samples ADD COLUMN IF NOT EXISTS last_used_at timestamptz`,
+  ] as const
+  for (const q of alterCuesheet) {
+    try {
+      await q
+    } catch {
+      /* duplicate_column etc. */
+    }
+  }
+  await sql`
+    CREATE TABLE IF NOT EXISTS generation_runs (
+      id text PRIMARY KEY,
+      user_id text NOT NULL,
+      quote_id text,
+      success boolean NOT NULL DEFAULT true,
+      error_message text NOT NULL DEFAULT '',
+      sample_id text NOT NULL DEFAULT '',
+      sample_filename text NOT NULL DEFAULT '',
+      cuesheet_applied boolean NOT NULL DEFAULT false,
+      engine_snapshot jsonb NOT NULL DEFAULT '{}'::jsonb,
+      created_at timestamptz NOT NULL DEFAULT now()
+    )
+  `
+  await sql`CREATE INDEX IF NOT EXISTS idx_generation_runs_created ON generation_runs (created_at DESC)`
+  await sql`CREATE INDEX IF NOT EXISTS idx_generation_runs_user ON generation_runs (user_id, created_at DESC)`
   await sql`
     CREATE TABLE IF NOT EXISTS quotes (
       id text PRIMARY KEY,

@@ -4,6 +4,7 @@ import { getEnv } from '../env'
 import { hasDatabase } from '../db/client'
 import { kvGet } from '../db/kv'
 import type { EngineConfigOverlay } from '../admin-types'
+import { clampEngineMaxTokens, ENGINE_MAX_TOKENS_DEFAULT } from './generate-config'
 
 export type AIProvider = 'anthropic' | 'openai'
 
@@ -43,7 +44,7 @@ export async function getEffectiveEngineConfig(): Promise<{
   const model =
     overlay?.model?.trim() ||
     (provider === 'openai' ? (env.OPENAI_MODEL ?? 'gpt-4o') : (env.ANTHROPIC_MODEL ?? 'claude-sonnet-4-6'))
-  const maxTokens = overlay?.maxTokens ?? 4000
+  const maxTokens = clampEngineMaxTokens(overlay?.maxTokens ?? ENGINE_MAX_TOKENS_DEFAULT)
   return { provider, model, maxTokens }
 }
 

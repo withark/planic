@@ -1,5 +1,5 @@
 import type { GenerateInput, QuoteDoc, PriceCategory } from './types'
-import { callLLM } from './client'
+import { callLLM, getEffectiveEngineConfig } from './client'
 import { buildGeneratePrompt } from './prompts'
 import {
   extractQuoteJson,
@@ -8,8 +8,13 @@ import {
   extractSuggestedPrices,
   applySuggestedPrices,
 } from './parsers'
+import { resolveGenerateMaxTokens } from './generate-config'
 
 export type { GenerateInput, QuoteDoc, PriceCategory }
+
+const RETRY_SUFFIX = `
+
+[재시도 지시] 방금 응답이 잘리거나 JSON이 아니었을 수 있습니다. markdown·설명 없이 반드시 완전한 단일 JSON 객체만 출력하세요. { 로 시작해 } 로 끝나야 합니다. program.programRows·timeline·cueRows·scenario까지 모두 채우세요.`
 
 export async function generateQuote(input: GenerateInput): Promise<QuoteDoc> {
   const mock = (process.env.AI_MODE || '').trim().toLowerCase() === 'mock'
@@ -91,17 +96,41 @@ export async function generateQuote(input: GenerateInput): Promise<QuoteDoc> {
       },
     )
   }
-  const prompt = buildGeneratePrompt(input)
-  const text = await callLLM(prompt, { maxTokens: 8192 })
 
+  const eff = await getEffectiveEngineConfig()
+  const maxOut = resolveGenerateMaxTokens(eff.maxTokens, eff.provider)
+  const prompt = buildGeneratePrompt(input)
+
+  async function runOnce(extra = ''): Promise<string> {
+    return callLLM(prompt + extra, { maxTokens: maxOut })
+  }
+
+  let text = await runOnce()
   let jsonText: string
   try {
     jsonText = extractQuoteJson(text)
   } catch {
-    throw new Error('플래닉 응답에서 견적 JSON을 찾을 수 없습니다. 한 번만 다시 시도해 주세요.')
+    text = await runOnce(RETRY_SUFFIX)
+    try {
+      jsonText = extractQuoteJson(text)
+    } catch {
+      throw new Error('플래닉 응답에서 견적 JSON을 찾을 수 없습니다. 잠시 후 다시 시도해 주세요.')
+    }
   }
 
-  let doc = safeParseQuoteJson(jsonText)
+  let doc: QuoteDoc
+  try {
+    doc = safeParseQuoteJson(jsonText)
+  } catch {
+    text = await runOnce(RETRY_SUFFIX)
+    try {
+      jsonText = extractQuoteJson(text)
+      doc = safeParseQuoteJson(jsonText)
+    } catch {
+      throw new Error('플래닉 JSON 파싱에 실패했습니다. 다시 생성해 주세요.')
+    }
+  }
+
   doc = normalizeQuoteDoc(doc, {
     eventStartHHmm: input.eventStartHHmm,
     eventEndHHmm: input.eventEndHHmm,

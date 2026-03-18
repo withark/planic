@@ -124,11 +124,46 @@ export function normalizeQuoteDoc(
   const end = opts.eventEndHHmm?.trim()
   if (start && end && timeline.length > 0) {
     program.timeline = redistributeTimelineTimes(program.timeline, start, end)
-    program.timeline.forEach((t, i) => {
-      if (program!.programRows[i]) program!.programRows[i].time = t.time
-      if (program!.cueRows[i]) program!.cueRows[i].time = t.time
+  }
+
+  const n = program.timeline.length
+  while (program.programRows.length < n) {
+    const i = program.programRows.length
+    const t = program.timeline[i]
+    program.programRows.push({
+      kind: i === 0 ? '오프닝' : i === n - 1 ? '클로징' : '진행',
+      content: t?.content || `구간 ${i + 1}`,
+      tone: '',
+      image: '(이미지 슬롯)',
+      time: t?.time || '',
+      audience: headcount || '',
+      notes: t?.detail || '',
     })
   }
+  while (program.cueRows.length < n) {
+    const i = program.cueRows.length
+    const t = program.timeline[i]
+    program.cueRows.push({
+      time: t?.time || '',
+      order: String(i + 1),
+      content: t?.content || '',
+      staff: t?.manager || '',
+      prep: t?.detail || '',
+      script: '',
+      special: '',
+    })
+  }
+  program.timeline.forEach((t, i) => {
+    if (program!.programRows[i]) {
+      program.programRows[i].time = t.time
+      if (!program.programRows[i].content.trim()) program.programRows[i].content = t.content || `일정 ${i + 1}`
+    }
+    if (program!.cueRows[i]) {
+      program.cueRows[i].time = t.time
+      if (!program.cueRows[i].content.trim()) program.cueRows[i].content = t.content || ''
+      program.cueRows[i].order = String(i + 1)
+    }
+  })
 
   let scenario = doc.scenario as ScenarioDoc | undefined
   if (!scenario || typeof scenario !== 'object') {
@@ -150,6 +185,26 @@ export function normalizeQuoteDoc(
       directionNotes: scenario.directionNotes || '',
     }
   }
+
+  const tl = program.timeline
+  if (!scenario.summaryTop.trim()) scenario.summaryTop = `${eventName} 연출·진행 요약`
+  if (!scenario.opening.trim() && tl[0])
+    scenario.opening = `${tl[0].content}${tl[0].time ? ` (${tl[0].time})` : ''}`
+  if (!scenario.development.trim() && tl.length > 1)
+    scenario.development = tl
+      .slice(1, Math.max(1, tl.length - 1))
+      .map(t => t.content)
+      .filter(Boolean)
+      .join(' → ') || '본 행사 진행'
+  if (!scenario.mainPoints?.length) {
+    const fromRows = program.programRows.map(r => r.content).filter(c => c.trim())
+    scenario.mainPoints = (fromRows.length ? fromRows : tl.map(t => t.content)).filter(Boolean).slice(0, 6)
+    if (!scenario.mainPoints.length) scenario.mainPoints = ['일정·연출은 타임테이블·제안 프로그램 표 참고']
+  }
+  if (!scenario.closing.trim() && tl.length)
+    scenario.closing = `${tl[tl.length - 1].content}${tl[tl.length - 1].time ? ` (${tl[tl.length - 1].time})` : ''}`
+  if (!scenario.directionNotes.trim())
+    scenario.directionNotes = `담당: ${tl.map(t => t.manager).filter(Boolean).join(', ') || '현장'} · 장비·멘트 사전 확인`
 
   return {
     ...doc,

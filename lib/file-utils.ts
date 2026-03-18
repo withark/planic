@@ -84,7 +84,16 @@ export async function extractTextFromBuffer(buf: Buffer, ext: string, filename: 
   if (e === 'txt' || e === 'csv' || e === 'md') {
     return buf.toString('utf-8')
   }
-  return buf.toString('utf-8').slice(0, 8000)
+  const imageExts = ['png', 'jpg', 'jpeg', 'gif', 'webp', 'bmp']
+  if (imageExts.includes(e)) {
+    return (
+      '[이미지 파일 전용 샘플] OCR 미지원. 표·문구가 필요하면 같은 내용을 xlsx/csv/pdf/pptx 등으로 올려 주세요. ' +
+      `파일: ${filename}`
+    )
+  }
+  return (
+    '[바이너리/미지원 형식] 텍스트 추출 불가. xlsx·pdf·docx·pptx 권장. 파일: ' + filename
+  )
 }
 
 /** PDF/엑셀/텍스트/오피스 파일에서 텍스트 추출 (참고 문서 업로드 공용) */
@@ -149,6 +158,11 @@ export async function extractTextFromFile(file: File): Promise<string> {
 
   if (ext === 'ppt') {
     return '(구형 .ppt은 pptx로 저장 후 업로드하면 슬라이드 순서·문구가 시나리오 생성에 반영됩니다.)'
+  }
+
+  const imageExts = ['png', 'jpg', 'jpeg', 'gif', 'webp', 'bmp']
+  if (imageExts.includes(ext)) {
+    return `[이미지 파일 전용 샘플] OCR 미지원. 표·문구는 xlsx/csv/pdf/pptx 등으로 올려 주세요. 파일: ${file.name}`
   }
 
   return file.text()

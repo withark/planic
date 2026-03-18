@@ -36,7 +36,10 @@ export function buildTaskOrderContext(refs: NonNullable<GenerateInput['taskOrder
 export function buildCuesheetSampleContext(text: string | undefined): string {
   if (!text?.trim()) return ''
   const clipped = text.length > 6000 ? text.slice(0, 6000) + '\n...(이하 생략)' : text
-  return `\n[큐시트 샘플 자료 — 아래 열 구조·레이아웃·톤을 cueRows·cueSummary에 반드시 맞출 것]\n${clipped}\n`
+  const imageNote = /\[이미지 파일 전용 샘플\]|OCR 미지원/.test(text)
+    ? '\n[주의] 샘플이 이미지뿐이면 표 텍스트가 없음 → 일반 행사 큐시트 표 형식(시간·순서·담당·준비물·멘트)으로 작성.\n'
+    : ''
+  return `\n[큐시트 샘플 자료 — 열 구조·톤을 cueRows·cueSummary에 맞출 것]${imageNote}\n${clipped}\n`
 }
 
 export function buildScenarioRefsContext(refs: GenerateInput['scenarioRefs']): string {

@@ -14,7 +14,7 @@ export default function AdminEnginesPage() {
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
   const [saving, setSaving] = useState(false)
-  const [overlay, setOverlay] = useState({ provider: '', model: '', maxTokens: 4000 })
+  const [overlay, setOverlay] = useState({ provider: '', model: '', maxTokens: 8192 })
 
   function load() {
     fetch('/api/admin/engines')
@@ -25,7 +25,7 @@ export default function AdminEnginesPage() {
           setOverlay({
             provider: res.data.effective?.provider ?? '',
             model: res.data.effective?.model ?? '',
-            maxTokens: res.data.effective?.maxTokens ?? 4000,
+            maxTokens: res.data.effective?.maxTokens ?? 8192,
           })
         } else setError(res?.error?.message || '조회 실패')
       })
@@ -115,11 +115,13 @@ export default function AdminEnginesPage() {
             />
           </div>
           <div>
-            <label className="block text-xs text-gray-600 mb-1">maxTokens</label>
+            <label className="block text-xs text-gray-600 mb-1">maxTokens (출력 상한 · 최소 6,000 / 최대 32,000, 견적 생성은 최소 10,240까지 자동 확대)</label>
             <input
               type="number"
+              min={6000}
+              max={32000}
               value={overlay.maxTokens}
-              onChange={(e) => setOverlay((o) => ({ ...o, maxTokens: Number(e.target.value) || 4000 }))}
+              onChange={(e) => setOverlay((o) => ({ ...o, maxTokens: Number(e.target.value) || 8192 }))}
               className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm"
             />
           </div>
@@ -129,7 +131,7 @@ export default function AdminEnginesPage() {
         </div>
       </section>
 
-      <p className="text-xs text-gray-400">generate API에서 engine_config 오버레이를 읽어 적용하는 연동은 추후 반영 예정입니다.</p>
+      <p className="text-xs text-gray-400">견적 생성 시 출력 토큰은 설정값과 무관하게 최소 10,240까지 사용해 JSON 잘림을 줄입니다.</p>
     </div>
   )
 }

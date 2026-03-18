@@ -6,6 +6,7 @@ import { getAIProvider } from '@/lib/ai/client'
 import { hasDatabase } from '@/lib/db/client'
 import { kvGet, kvSet } from '@/lib/db/kv'
 import type { EngineConfigOverlay } from '@/lib/admin-types'
+import { clampEngineMaxTokens, ENGINE_MAX_TOKENS_DEFAULT } from '@/lib/ai/generate-config'
 
 export const dynamic = 'force-dynamic'
 
@@ -24,7 +25,7 @@ export async function GET(_req: NextRequest) {
     const effective = {
       provider: overlay?.provider ?? provider,
       model: overlay?.model ?? (provider === 'openai' ? (env.OPENAI_MODEL ?? 'gpt-4o') : (env.ANTHROPIC_MODEL ?? 'claude-sonnet-4-6')),
-      maxTokens: overlay?.maxTokens ?? 4000,
+      maxTokens: clampEngineMaxTokens(overlay?.maxTokens ?? ENGINE_MAX_TOKENS_DEFAULT),
     }
     return okResponse({
       effective,
@@ -50,10 +51,16 @@ export async function POST(req: NextRequest) {
 
   try {
     const body = await req.json()
+    const prev = (await kvGet<EngineConfigOverlay | null>('engine_config', null)) || {}
     const overlay: EngineConfigOverlay = {
-      provider: body?.provider === 'openai' || body?.provider === 'anthropic' ? body.provider : undefined,
-      model: typeof body?.model === 'string' ? body.model : undefined,
-      maxTokens: typeof body?.maxTokens === 'number' ? body.maxTokens : undefined,
+      provider:
+        body?.provider === 'openai' || body?.provider === 'anthropic'
+          ? body.provider
+          : prev.provider,
+      model: typeof body?.model === 'string' && body.model.trim() ? body.model : prev.model,
+      maxTokens: clampEngineMaxTokens(
+        typeof body?.maxTokens === 'number' ? body.maxTokens : prev.maxTokens ?? ENGINE_MAX_TOKENS_DEFAULT,
+      ),
     }
     await kvSet('engine_config', overlay)
     return okResponse(null)
