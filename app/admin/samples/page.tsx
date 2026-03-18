@@ -68,7 +68,7 @@ export default function AdminSamplesPage() {
         </p>
       </div>
 
-      {/* 흐름 안내: 업로드 → 분석 → 연결 → 반영 방식 확인 */}
+      {/* 업로드 → 분석 → 연결 → 반영 방식 확인 */}
       <section className="rounded-xl border border-slate-200 bg-slate-50/60 p-4">
         <h2 className="text-sm font-semibold text-gray-800 mb-2">운영 흐름</h2>
         <ol className="flex flex-wrap gap-x-6 gap-y-1 text-sm text-gray-600 list-none">
@@ -98,17 +98,36 @@ export default function AdminSamplesPage() {
         </p>
       </section>
 
+      {/* 샘플 업로드 안내 */}
+      <section className="rounded-xl border border-primary-200 bg-primary-50/40 p-4">
+        <h2 className="text-sm font-semibold text-gray-800 mb-2">기준 양식 등록(업로드)</h2>
+        <p className="text-sm text-gray-700 mb-3">
+          새 샘플을 등록하려면 사용자 계정으로 로그인한 뒤 <strong>참고</strong> 메뉴에서 파일을 업로드하세요.
+          업로드된 파일은 자동으로 여기 목록에 반영되며, 문서 유형·연결 탭·우선순위를 설정할 수 있습니다.
+        </p>
+        <a
+          href="/references"
+          target="_blank"
+          rel="noopener noreferrer"
+          className="inline-flex items-center gap-2 rounded-lg bg-primary-600 text-white px-4 py-2 text-sm font-medium hover:bg-primary-700"
+        >
+          사용자 「참고」 메뉴에서 업로드 (새 탭)
+        </a>
+      </section>
+
       <div className="overflow-x-auto border border-slate-200 rounded-lg bg-white shadow-sm">
         <table className="min-w-full text-sm">
           <thead className="bg-slate-50 text-left text-xs text-slate-600">
             <tr>
               <th className="p-2">파일명 / 문서 유형</th>
+              <th className="p-2">추출된 구조(파싱)</th>
               <th className="p-2">연결 탭</th>
               <th className="p-2">반영 방식</th>
               <th className="p-2">예상 영향</th>
               <th className="p-2">우선순위</th>
               <th className="p-2">활성</th>
               <th className="p-2">사용 횟수</th>
+              <th className="p-2">최근 반영</th>
               <th className="p-2">보관</th>
               <th className="p-2">동작</th>
             </tr>
@@ -141,20 +160,21 @@ export default function AdminSamplesPage() {
                     onBlur={(e) => patch(s.id, { description: e.target.value })}
                   />
                 </td>
+                <td className="p-2 max-w-[160px]">
+                  <p className="text-[11px] text-slate-500">제목/섹션/표/항목</p>
+                  <p className="text-xs text-slate-400">{s.ext ? '업로드됨 · 미리보기 추후 제공' : '—'}</p>
+                </td>
                 <td className="p-2">
                   <span className="text-xs text-gray-600">
                     {DOCUMENT_TYPES.find((t) => t.v === s.documentTab)?.l ?? s.documentTab}
                   </span>
                 </td>
                 <td className="p-2 max-w-[140px]">
-                  <p className="text-[11px] text-gray-500">
-                    문체·구조·레이아웃·표 형식 참고 (설정은 <Link href="/admin/engines" className="text-primary-600 underline">생성 규칙</Link>에서)
-                  </p>
+                  <p className="text-[11px] text-gray-600">문체·구조·레이아웃·표 형식 참고</p>
+                  <Link href="/admin/engines" className="text-[11px] text-primary-600 underline">생성 규칙에서 설정</Link>
                 </td>
                 <td className="p-2 max-w-[200px]">
-                  <p className="text-[11px] text-gray-500">
-                    예: 큐시트 생성 시 시간/담당/준비물 열 구성을 우선 반영
-                  </p>
+                  <p className="text-[11px] text-gray-600">예: 큐시트 생성 시 시간/담당/준비물 열 구성을 우선 반영</p>
                 </td>
                 <td className="p-2">
                   <input
@@ -173,6 +193,11 @@ export default function AdminSamplesPage() {
                   />
                 </td>
                 <td className="p-2 tabular-nums">{s.generationUseCount}</td>
+                <td className="p-2 text-xs text-slate-600">
+                  {s.lastUsedAt ? new Date(s.lastUsedAt).toLocaleString('ko-KR') : '—'}
+                  <br />
+                  <Link href="/admin/generation-logs" className="text-primary-600 underline">반영 이력</Link>
+                </td>
                 <td className="p-2">{s.archivedAt ? '보관' : '—'}</td>
                 <td className="p-2 space-x-1 flex flex-wrap">
                   {!s.archivedAt && (

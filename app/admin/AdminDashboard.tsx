@@ -2,6 +2,7 @@
 
 import { useState, useEffect } from 'react'
 import Link from 'next/link'
+import { AdminCard, AdminSection } from '@/components/admin/AdminCard'
 
 const ADMIN_LINKS = [
   { href: '/admin/samples', label: '기준 양식 관리', desc: '참고 양식 등록·반영 방식' },
@@ -18,19 +19,15 @@ const ADMIN_LINKS = [
   { href: '/api/health', label: '헬스', desc: 'API', external: true },
 ]
 
-type Stats = Record<string, unknown> & {
+type Stats = {
   hasDatabase?: boolean
-  userCount?: number
   usersTotal?: number
   usersActive30d?: number
   usersPaidActive?: number
   usersFreeActive?: number
   signupsToday?: number
   signupsLast7d?: number
-  signupsLast30d?: number;
-  quoteCountTotal?: number
-  quoteCountLast24h?: number
-  quoteCountLast7d?: number
+  signupsLast30d?: number
   monthlyGenerationCount?: number
   quotesSavedTotal?: number
   errorsLast24h?: number
@@ -44,20 +41,12 @@ type Stats = Record<string, unknown> & {
   paymentsFailedMonth?: number
   paymentSuccessRateMonth?: number
   refundsCanceledOrders30d?: number
-  subscriptionsActivePaid?: number
+  refundAmountCanceled30dKrw?: number
   revenueLast7Days?: { date: string; amountKrw: number }[]
   planPaymentShare?: { planType: string; count: number; revenueKrw: number }[]
-  recentPayments?: { orderId: string; amount: number; approvedAt: string | null }[]
-}
-
-function Card({ label, value, sub, danger }: { label: string; value: string | number; sub?: string; danger?: boolean }) {
-  return (
-    <div className="p-3 rounded-lg border border-slate-200 bg-white">
-      <p className="text-xs text-gray-500">{label}</p>
-      <p className={`text-lg font-semibold tabular-nums ${danger ? 'text-red-600' : ''}`}>{value}</p>
-      {sub && <p className="text-[10px] text-gray-400 mt-0.5">{sub}</p>}
-    </div>
-  )
+  recentPayments?: { orderId: string; userId: string; planType: string; amount: number; approvedAt: string | null }[]
+  recentPaymentFailures?: { orderId: string; userId: string; status: string; updatedAt: string }[]
+  recentCanceledOrders?: { orderId: string; userId: string; amount: number; updatedAt: string }[]
 }
 
 export function AdminDashboard() {
@@ -109,93 +98,182 @@ export function AdminDashboard() {
   return (
     <div className="min-h-full flex flex-col">
       <div className="max-w-6xl mx-auto w-full space-y-8 pb-12">
+        {/* A. 상단 헤더 */}
+        <header className="border-b border-slate-200 pb-4">
+          <h1 className="text-xl font-bold text-gray-900">관리자 대시보드</h1>
+          <p className="mt-1 text-sm text-slate-600">
+            현재 서비스 운영 현황, 사용자, 생성량, 결제 상태를 한눈에 보는 화면입니다.
+          </p>
+        </header>
+
         {stats && (
           <>
-            <section>
-              <h2 className="text-sm font-medium text-gray-700 mb-3">사용자·가입</h2>
-              <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-3">
-                <Card label="전체 사용자" value={fmt(Number(stats.usersTotal ?? stats.userCount ?? 0))} />
-                <Card label="활성(30일 내 로그인)" value={fmt(Number(stats.usersActive30d ?? 0))} />
-                <Card label="유료 플랜(활성 구독)" value={fmt(Number(stats.usersPaidActive ?? 0))} />
-                <Card label="무료(FREE 활성)" value={fmt(Number(stats.usersFreeActive ?? 0))} />
-                <Card label="신규 오늘" value={fmt(Number(stats.signupsToday ?? 0))} />
-                <Card label="신규 7일" value={fmt(Number(stats.signupsLast7d ?? 0))} />
-                <Card label="신규 30일" value={fmt(Number(stats.signupsLast30d ?? 0))} />
-                <Card label="한도 초과 추정" value={fmt(Number(stats.usersOverQuotaApprox ?? 0))} sub="이번 달 생성 한도 도달" danger={Number(stats.usersOverQuotaApprox) > 0} />
+            {/* B. 핵심 KPI 카드 */}
+            <AdminSection title="핵심 KPI" description="사용자 규모">
+              <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+                <AdminCard label="전체 사용자 수" value={fmt(Number(stats.usersTotal ?? 0))} />
+                <AdminCard label="활성 사용자 수" value={fmt(Number(stats.usersActive30d ?? 0))} sub="30일 내 로그인" />
+                <AdminCard label="무료 사용자 수" value={fmt(Number(stats.usersFreeActive ?? 0))} />
+                <AdminCard label="유료 사용자 수" value={fmt(Number(stats.usersPaidActive ?? 0))} />
               </div>
-            </section>
-            <section>
-              <h2 className="text-sm font-medium text-gray-700 mb-3">생성·저장·오류</h2>
-              <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-3">
-                <Card label="월간 생성 건수(쿼터 합)" value={fmt(Number(stats.monthlyGenerationCount ?? 0))} />
-                <Card label="저장된 견적(글) 수" value={fmt(Number(stats.quotesSavedTotal ?? stats.quoteCountTotal ?? 0))} />
-                <Card label="총 견적 행 수" value={fmt(Number(stats.quoteCountTotal ?? 0))} />
-                <Card label="24h 생성" value={fmt(Number(stats.quoteCountLast24h ?? 0))} />
-                <Card label="7일 생성" value={fmt(Number(stats.quoteCountLast7d ?? 0))} />
-                <Card label="24h 관리자 에러 이벤트" value={fmt(Number(stats.errorsLast24h ?? 0))} danger={Number(stats.errorsLast24h) > 0} />
-                <Card label="7일 생성 실패" value={fmt(Number(stats.generationFailuresLast7d ?? 0))} danger={Number(stats.generationFailuresLast7d) > 0} />
-                <Card label="DB" value={stats.hasDatabase ? '연결' : '미설정'} />
+            </AdminSection>
+
+            {/* C. 운영 지표 카드 */}
+            <AdminSection title="운영 지표" description="가입·생성·저장·한도">
+              <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+                <AdminCard label="신규 가입 (오늘)" value={fmt(Number(stats.signupsToday ?? 0))} />
+                <AdminCard label="신규 가입 (최근 7일)" value={fmt(Number(stats.signupsLast7d ?? 0))} />
+                <AdminCard label="신규 가입 (최근 30일)" value={fmt(Number(stats.signupsLast30d ?? 0))} />
+                <AdminCard label="월간 생성 건수" value={fmt(Number(stats.monthlyGenerationCount ?? 0))} />
+                <AdminCard label="저장된 문서 수" value={fmt(Number(stats.quotesSavedTotal ?? 0))} />
+                <AdminCard
+                  label="사용량 초과 사용자"
+                  value={fmt(Number(stats.usersOverQuotaApprox ?? 0))}
+                  danger={Number(stats.usersOverQuotaApprox ?? 0) > 0}
+                  sub="이번 달 생성 한도 도달"
+                />
               </div>
-            </section>
-            <section>
-              <h2 className="text-sm font-medium text-gray-700 mb-3">결제·구독 요약</h2>
-              <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-3">
-                <Card label="오늘 승인 건수" value={fmt(Number(stats.paymentsApprovedToday ?? 0))} />
-                <Card label="이번 달 승인 건수" value={fmt(Number(stats.paymentsApprovedMonth ?? 0))} />
-                <Card label="오늘 매출" value={won(Number(stats.revenueTodayKrw ?? 0))} />
-                <Card label="이번 달 매출" value={won(Number(stats.revenueMonthKrw ?? 0))} />
-                <Card label="오늘 결제 실패" value={fmt(Number(stats.paymentsFailedToday ?? 0))} danger />
-                <Card label="이번 달 실패" value={fmt(Number(stats.paymentsFailedMonth ?? 0))} danger={Number(stats.paymentsFailedMonth) > 0} />
-                <Card label="이번 달 성공률" value={`${stats.paymentSuccessRateMonth ?? 0}%`} />
-                <Card label="30일 환불/취소 건" value={fmt(Number(stats.refundsCanceledOrders30d ?? 0))} />
-                <Card label="활성 유료 구독 레코드" value={fmt(Number(stats.subscriptionsActivePaid ?? 0))} />
+            </AdminSection>
+
+            {/* D. 오류/안정성 요약 */}
+            <AdminSection title="오류·안정성 요약" description="최근 오류 및 생성 실패">
+              <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+                <AdminCard
+                  label="최근 24h 오류 건수"
+                  value={fmt(Number(stats.errorsLast24h ?? 0))}
+                  danger={Number(stats.errorsLast24h ?? 0) > 0}
+                />
+                <AdminCard
+                  label="최근 7일 생성 실패"
+                  value={fmt(Number(stats.generationFailuresLast7d ?? 0))}
+                  danger={Number(stats.generationFailuresLast7d ?? 0) > 0}
+                />
+                <AdminCard label="DB 연결" value={stats.hasDatabase ? '연결됨' : '미설정'} />
               </div>
-              {stats.revenueLast7Days && stats.revenueLast7Days.length > 0 && (
-                <div className="mt-3 p-3 rounded-lg border border-slate-200 bg-white text-xs">
-                  <p className="font-medium text-gray-700 mb-2">최근 7일 매출 추이</p>
-                  <div className="flex flex-wrap gap-3">
-                    {stats.revenueLast7Days.map((d) => (
-                      <span key={d.date} className="tabular-nums">
-                        {d.date}: {won(d.amountKrw)}
-                      </span>
-                    ))}
+              {(Number(stats.errorsLast24h ?? 0) > 0 || Number(stats.generationFailuresLast7d ?? 0) > 0) && (
+                <p className="mt-2 text-xs text-amber-700">
+                  운영 주의: 에러 로그·생성 로그에서 원인을 확인하세요. →{' '}
+                  <Link href="/admin/logs" className="text-primary-600 underline">에러 로그</Link>
+                  {' · '}
+                  <Link href="/admin/generation-logs" className="text-primary-600 underline">생성 로그</Link>
+                </p>
+              )}
+            </AdminSection>
+
+            {/* E. 결제/매출 요약 */}
+            <AdminSection title="결제·매출 요약" description="오늘·이번 달 결제·매출·환불·성공률">
+              <div className="grid grid-cols-2 sm:grid-cols-4 lg:grid-cols-8 gap-3">
+                <AdminCard label="오늘 결제 건수" value={fmt(Number(stats.paymentsApprovedToday ?? 0))} />
+                <AdminCard label="이번 달 결제 건수" value={fmt(Number(stats.paymentsApprovedMonth ?? 0))} />
+                <AdminCard label="오늘 매출" value={won(Number(stats.revenueTodayKrw ?? 0))} />
+                <AdminCard label="이번 달 매출" value={won(Number(stats.revenueMonthKrw ?? 0))} />
+                <AdminCard label="환불 건수(30일)" value={fmt(Number(stats.refundsCanceledOrders30d ?? 0))} />
+                <AdminCard label="환불 금액(30일)" value={won(Number(stats.refundAmountCanceled30dKrw ?? 0))} />
+                <AdminCard label="결제 성공률(이번 달)" value={`${stats.paymentSuccessRateMonth ?? 0}%`} />
+                <AdminCard
+                  label="결제 실패(이번 달)"
+                  value={fmt(Number(stats.paymentsFailedMonth ?? 0))}
+                  danger={Number(stats.paymentsFailedMonth ?? 0) > 0}
+                />
+              </div>
+              <p className="mt-1 text-xs text-slate-500">
+                해지/환불/실패 상세: <Link href="/admin/subscriptions" className="text-primary-600 underline">구독 및 결제 관리</Link>
+                {' · '}
+                <Link href="/admin/payments" className="text-primary-600 underline">결제 관리</Link>
+              </p>
+            </AdminSection>
+
+            {/* F. 최근 7일 매출 추이 */}
+            {stats.revenueLast7Days && stats.revenueLast7Days.length > 0 && (
+              <AdminSection title="최근 7일 매출 추이" description="일별 승인 매출">
+                <div className="rounded-lg border border-slate-200 bg-white overflow-hidden">
+                  <div className="overflow-x-auto">
+                    <table className="min-w-full text-sm">
+                      <thead className="bg-slate-50">
+                        <tr>
+                          <th className="px-3 py-2 text-left font-medium text-slate-600">날짜</th>
+                          <th className="px-3 py-2 text-right font-medium text-slate-600">매출</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {stats.revenueLast7Days.map((d) => (
+                          <tr key={d.date} className="border-t border-slate-100">
+                            <td className="px-3 py-2">{d.date}</td>
+                            <td className="px-3 py-2 text-right tabular-nums font-medium">{won(d.amountKrw)}</td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
                   </div>
                 </div>
-              )}
-              {stats.planPaymentShare && stats.planPaymentShare.length > 0 && (
-                <div className="mt-3 p-3 rounded-lg border border-slate-200 bg-white text-xs">
-                  <p className="font-medium text-gray-700 mb-2">플랜별 결제(이번 달)</p>
-                  <ul className="space-y-1">
-                    {stats.planPaymentShare.map((p) => (
-                      <li key={p.planType}>
-                        {p.planType}: {p.count}건 · {won(p.revenueKrw)}
+              </AdminSection>
+            )}
+
+            {/* G. 최근 활동 리스트 */}
+            <AdminSection title="최근 활동" description="최근 결제 성공·실패·환불">
+              <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
+                <div className="rounded-lg border border-slate-200 bg-white overflow-hidden">
+                  <div className="px-3 py-2 bg-slate-50 border-b border-slate-100 text-xs font-semibold text-slate-700">
+                    최근 결제 성공
+                  </div>
+                  <ul className="divide-y divide-slate-100 max-h-48 overflow-y-auto">
+                    {(stats.recentPayments ?? []).slice(0, 8).map((p) => (
+                      <li key={p.orderId} className="px-3 py-2 text-xs">
+                        <span className="font-mono text-slate-500">{p.orderId.slice(0, 16)}…</span>
+                        <span className="ml-2 tabular-nums">{won(p.amount)}</span>
+                        <span className="ml-2 text-slate-400">{p.approvedAt?.slice(0, 10) ?? ''}</span>
                       </li>
                     ))}
+                    {(!stats.recentPayments || stats.recentPayments.length === 0) && (
+                      <li className="px-3 py-4 text-slate-400 text-xs">내역 없음</li>
+                    )}
                   </ul>
+                  <div className="px-3 py-2 border-t border-slate-100">
+                    <Link href="/admin/payments" className="text-xs text-primary-600 hover:underline">결제 관리 전체 →</Link>
+                  </div>
                 </div>
-              )}
-              {stats.recentPayments && stats.recentPayments.length > 0 && (
-                <div className="mt-3 p-3 rounded-lg border border-slate-200 bg-white text-xs">
-                  <p className="font-medium text-gray-700 mb-2">최근 결제</p>
-                  <ul className="font-mono text-[11px] space-y-0.5">
-                    {stats.recentPayments.slice(0, 8).map((p) => (
-                      <li key={p.orderId}>
-                        {p.orderId.slice(0, 20)}… {won(p.amount)} {p.approvedAt?.slice(0, 19) ?? ''}
+                <div className="rounded-lg border border-slate-200 bg-white overflow-hidden">
+                  <div className="px-3 py-2 bg-slate-50 border-b border-slate-100 text-xs font-semibold text-slate-700">
+                    최근 실패 결제
+                  </div>
+                  <ul className="divide-y divide-slate-100 max-h-48 overflow-y-auto">
+                    {(stats.recentPaymentFailures ?? []).slice(0, 8).map((p) => (
+                      <li key={p.orderId} className="px-3 py-2 text-xs">
+                        <span className="font-mono text-slate-500">{p.orderId.slice(0, 16)}…</span>
+                        <span className="ml-2 text-red-600">{p.status}</span>
+                        <span className="ml-2 text-slate-400">{p.updatedAt?.slice(0, 10) ?? ''}</span>
                       </li>
                     ))}
+                    {(!stats.recentPaymentFailures || stats.recentPaymentFailures.length === 0) && (
+                      <li className="px-3 py-4 text-slate-400 text-xs">내역 없음</li>
+                    )}
                   </ul>
-                  <Link href="/admin/payments" className="text-primary-600 mt-2 inline-block">
-                    결제 관리 전체 →
-                  </Link>
                 </div>
-              )}
-            </section>
+                <div className="rounded-lg border border-slate-200 bg-white overflow-hidden">
+                  <div className="px-3 py-2 bg-slate-50 border-b border-slate-100 text-xs font-semibold text-slate-700">
+                    최근 환불/취소
+                  </div>
+                  <ul className="divide-y divide-slate-100 max-h-48 overflow-y-auto">
+                    {(stats.recentCanceledOrders ?? []).slice(0, 8).map((p) => (
+                      <li key={p.orderId} className="px-3 py-2 text-xs">
+                        <span className="font-mono text-slate-500">{p.orderId.slice(0, 16)}…</span>
+                        <span className="ml-2 tabular-nums">{won(p.amount)}</span>
+                        <span className="ml-2 text-slate-400">{p.updatedAt?.slice(0, 10) ?? ''}</span>
+                      </li>
+                    ))}
+                    {(!stats.recentCanceledOrders || stats.recentCanceledOrders.length === 0) && (
+                      <li className="px-3 py-4 text-slate-400 text-xs">내역 없음</li>
+                    )}
+                  </ul>
+                </div>
+              </div>
+            </AdminSection>
           </>
         )}
 
-        <section>
-          <h2 className="text-sm font-medium text-gray-700 mb-3">운영 바로가기</h2>
-          <ul className="grid gap-2 sm:grid-cols-2">
+        {/* 운영 바로가기 */}
+        <AdminSection title="운영 바로가기" description="문서 품질·비즈니스·시스템">
+          <ul className="grid gap-2 sm:grid-cols-2 lg:grid-cols-3">
             {ADMIN_LINKS.map(({ href, label, desc, external }) => (
               <li key={href}>
                 {external ? (
@@ -203,24 +281,27 @@ export function AdminDashboard() {
                     href={href}
                     target="_blank"
                     rel="noopener noreferrer"
-                    className="block p-3 rounded-lg border border-slate-200 bg-white hover:border-primary-300"
+                    className="block p-3 rounded-lg border border-slate-200 bg-white hover:border-primary-300 hover:bg-slate-50/50"
                   >
                     <span className="font-medium text-gray-900">{label}</span>
-                    <p className="text-xs text-gray-500 mt-0.5">{desc}</p>
+                    <p className="text-xs text-slate-500 mt-0.5">{desc}</p>
                   </a>
                 ) : (
-                  <Link href={href} className="block p-3 rounded-lg border border-slate-200 bg-white hover:border-primary-300">
+                  <Link
+                    href={href}
+                    className="block p-3 rounded-lg border border-slate-200 bg-white hover:border-primary-300 hover:bg-slate-50/50"
+                  >
                     <span className="font-medium text-gray-900">{label}</span>
-                    <p className="text-xs text-gray-500 mt-0.5">{desc}</p>
+                    <p className="text-xs text-slate-500 mt-0.5">{desc}</p>
                   </Link>
                 )}
               </li>
             ))}
           </ul>
-        </section>
+        </AdminSection>
 
-        <section>
-          <h2 className="text-sm font-medium text-gray-700 mb-3">비밀번호 변경</h2>
+        {/* 비밀번호 변경 */}
+        <AdminSection title="비밀번호 변경" description="관리자 로그인 비밀번호">
           <form onSubmit={onChangePassword} className="space-y-3 max-w-sm">
             {pwMessage && (
               <p className={`text-sm px-3 py-2 rounded-md ${pwMessage.type === 'ok' ? 'text-green-700 bg-green-50' : 'text-red-600 bg-red-50'}`}>
@@ -233,9 +314,9 @@ export function AdminDashboard() {
                 type={showCurrentPassword ? 'text' : 'password'}
                 value={currentPassword}
                 onChange={(e) => setCurrentPassword(e.target.value)}
-                className="w-full border rounded-lg px-3 py-2 text-sm"
+                className="w-full border border-slate-200 rounded-lg px-3 py-2 text-sm"
               />
-              <button type="button" onClick={() => setShowCurrentPassword((v) => !v)} className="text-xs mt-1 text-gray-500">
+              <button type="button" onClick={() => setShowCurrentPassword((v) => !v)} className="text-xs mt-1 text-slate-500">
                 {showCurrentPassword ? '숨김' : '보기'}
               </button>
             </div>
@@ -245,9 +326,9 @@ export function AdminDashboard() {
                 type={showNewPassword ? 'text' : 'password'}
                 value={newPassword}
                 onChange={(e) => setNewPassword(e.target.value)}
-                className="w-full border rounded-lg px-3 py-2 text-sm"
+                className="w-full border border-slate-200 rounded-lg px-3 py-2 text-sm"
               />
-              <button type="button" onClick={() => setShowNewPassword((v) => !v)} className="text-xs mt-1 text-gray-500">
+              <button type="button" onClick={() => setShowNewPassword((v) => !v)} className="text-xs mt-1 text-slate-500">
                 {showNewPassword ? '숨김' : '보기'}
               </button>
             </div>
@@ -255,7 +336,7 @@ export function AdminDashboard() {
               {pwLoading ? '변경 중…' : '비밀번호 변경'}
             </button>
           </form>
-        </section>
+        </AdminSection>
       </div>
     </div>
   )
