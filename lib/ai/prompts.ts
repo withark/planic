@@ -85,6 +85,17 @@ ${scenCtx}
 ${timeRule}
 
 ${taskOrderCtx ? '[과업지시서 반영] 과업 범위를 견적 항목·program에 반영.\n' : ''}
+${(() => {
+  const q = input.engineQuality
+  if (!q || (!q.structureFirst && !q.toneFirst && !q.outputFormatTemplate && !q.sampleWeightNote && !q.qualityBoost)) return ''
+  const lines = ['\n[관리자·엔진 강화 지시 — 반드시 반영]']
+  if (q.structureFirst) lines.push('- 구조 우선: 표·행·열 배치를 문장 톤보다 우선해 programRows·cueRows·timeline을 채울 것.')
+  if (q.toneFirst) lines.push('- 문체 우선: 톤·멘트·연출 문구를 구조 수정보다 우선할 것.')
+  if (q.outputFormatTemplate?.trim()) lines.push(`- 출력 포맷: ${q.outputFormatTemplate.trim()}`)
+  if (q.sampleWeightNote?.trim()) lines.push(`- 샘플 반영: ${q.sampleWeightNote.trim()}`)
+  if (q.qualityBoost?.trim()) lines.push(q.qualityBoost.trim())
+  return lines.join('\n')
+})()}
 [중요] 단가표 항목은 그 단가 그대로. 없는 항목만 시장 평균. 인력은 행사 시간에 맞게.
 각 항목 kind: "인건비"|"필수"|"선택1"|"선택2"
 제경비율: ${expenseRate}%, 이윤율: ${profitRate}%

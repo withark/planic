@@ -21,11 +21,12 @@ export function getAIProvider(): AIProvider {
   return 'anthropic'
 }
 
-/** env + DB engine_config 오버레이 적용. generate 등에서 사용. */
+/** env + DB engine_config 오버레이. LLM 호출·프롬프트·관리자 스냅샷 공통. */
 export async function getEffectiveEngineConfig(): Promise<{
   provider: AIProvider
   model: string
   maxTokens: number
+  overlay: EngineConfigOverlay | null
 }> {
   const env = getEnv()
   let overlay: EngineConfigOverlay | null = null
@@ -45,7 +46,7 @@ export async function getEffectiveEngineConfig(): Promise<{
     overlay?.model?.trim() ||
     (provider === 'openai' ? (env.OPENAI_MODEL ?? 'gpt-4o') : (env.ANTHROPIC_MODEL ?? 'claude-sonnet-4-6'))
   const maxTokens = clampEngineMaxTokens(overlay?.maxTokens ?? ENGINE_MAX_TOKENS_DEFAULT)
-  return { provider, model, maxTokens }
+  return { provider, model, maxTokens, overlay }
 }
 
 function getAnthropicClient(): Anthropic {

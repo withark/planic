@@ -4,23 +4,57 @@ import { useState, useEffect } from 'react'
 import Link from 'next/link'
 
 const ADMIN_LINKS = [
-  { href: '/admin/users', label: '사용자 관리', desc: '가입 사용자·권한' },
-  { href: '/admin/subscriptions', label: '구독 관리', desc: '구독 현황·갱신' },
-  { href: '/admin/plans', label: '플랜 관리', desc: '요금제·한도 설정' },
-  { href: '/admin/usage', label: '사용량 관리', desc: 'API·생성 사용량' },
-  { href: '/admin/engines', label: '엔진/모델', desc: 'AI 모델·엔진 정책' },
-  { href: '/admin/logs', label: '로그', desc: '요청·장애 로그' },
-  { href: '/admin/system', label: '시스템', desc: '공지·시스템 설정' },
-  { href: '/api/health', label: '헬스 체크', desc: 'API 상태 (새 탭)', external: true },
+  { href: '/admin/users', label: '사용자 관리', desc: '가입·로그인·플랜·한도' },
+  { href: '/admin/subscriptions', label: '구독 관리', desc: '구독 이력·플랜별' },
+  { href: '/admin/payments', label: '결제·정산', desc: '매출·실패·환불' },
+  { href: '/admin/plans', label: '플랜 관리', desc: '요금제·한도' },
+  { href: '/admin/usage', label: '사용량', desc: '생성·쿼터' },
+  { href: '/admin/engines', label: '엔진/모델', desc: 'AI 설정' },
+  { href: '/admin/logs', label: '로그', desc: '에러·이벤트' },
+  { href: '/admin/system', label: '시스템', desc: '환경' },
+  { href: '/api/health', label: '헬스', desc: 'API', external: true },
 ]
 
-type Stats = {
+type Stats = Record<string, unknown> & {
+  hasDatabase?: boolean
   userCount?: number
+  usersTotal?: number
+  usersActive30d?: number
+  usersPaidActive?: number
+  usersFreeActive?: number
+  signupsToday?: number
+  signupsLast7d?: number
+  signupsLast30d?: number;
   quoteCountTotal?: number
   quoteCountLast24h?: number
   quoteCountLast7d?: number
-  errorCountLast24h?: number
-  hasDatabase?: boolean
+  monthlyGenerationCount?: number
+  quotesSavedTotal?: number
+  errorsLast24h?: number
+  generationFailuresLast7d?: number
+  usersOverQuotaApprox?: number
+  paymentsApprovedToday?: number
+  paymentsApprovedMonth?: number
+  revenueTodayKrw?: number
+  revenueMonthKrw?: number
+  paymentsFailedToday?: number
+  paymentsFailedMonth?: number
+  paymentSuccessRateMonth?: number
+  refundsCanceledOrders30d?: number
+  subscriptionsActivePaid?: number
+  revenueLast7Days?: { date: string; amountKrw: number }[]
+  planPaymentShare?: { planType: string; count: number; revenueKrw: number }[]
+  recentPayments?: { orderId: string; amount: number; approvedAt: string | null }[]
+}
+
+function Card({ label, value, sub, danger }: { label: string; value: string | number; sub?: string; danger?: boolean }) {
+  return (
+    <div className="p-3 rounded-lg border border-slate-200 bg-white">
+      <p className="text-xs text-gray-500">{label}</p>
+      <p className={`text-lg font-semibold tabular-nums ${danger ? 'text-red-600' : ''}`}>{value}</p>
+      {sub && <p className="text-[10px] text-gray-400 mt-0.5">{sub}</p>}
+    </div>
+  )
 }
 
 export function AdminDashboard() {
@@ -66,39 +100,94 @@ export function AdminDashboard() {
     }
   }
 
+  const fmt = (n: number) => (n ?? 0).toLocaleString('ko-KR')
+  const won = (n: number) => `₩${fmt(n ?? 0)}`
+
   return (
     <div className="min-h-full flex flex-col">
-      <div className="max-w-3xl mx-auto w-full space-y-8">
+      <div className="max-w-6xl mx-auto w-full space-y-8 pb-12">
         {stats && (
-          <section>
-            <h2 className="text-sm font-medium text-gray-700 mb-3">운영 지표</h2>
-            <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
-              <div className="p-3 rounded-lg border border-slate-200 bg-white">
-                <p className="text-xs text-gray-500">사용자 수</p>
-                <p className="text-lg font-semibold tabular-nums">{stats.userCount ?? 0}</p>
+          <>
+            <section>
+              <h2 className="text-sm font-medium text-gray-700 mb-3">사용자·가입</h2>
+              <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-3">
+                <Card label="전체 사용자" value={fmt(Number(stats.usersTotal ?? stats.userCount ?? 0))} />
+                <Card label="활성(30일 내 로그인)" value={fmt(Number(stats.usersActive30d ?? 0))} />
+                <Card label="유료 플랜(활성 구독)" value={fmt(Number(stats.usersPaidActive ?? 0))} />
+                <Card label="무료(FREE 활성)" value={fmt(Number(stats.usersFreeActive ?? 0))} />
+                <Card label="신규 오늘" value={fmt(Number(stats.signupsToday ?? 0))} />
+                <Card label="신규 7일" value={fmt(Number(stats.signupsLast7d ?? 0))} />
+                <Card label="신규 30일" value={fmt(Number(stats.signupsLast30d ?? 0))} />
+                <Card label="한도 초과 추정" value={fmt(Number(stats.usersOverQuotaApprox ?? 0))} sub="이번 달 생성 한도 도달" danger={Number(stats.usersOverQuotaApprox) > 0} />
               </div>
-              <div className="p-3 rounded-lg border border-slate-200 bg-white">
-                <p className="text-xs text-gray-500">총 생성 건수</p>
-                <p className="text-lg font-semibold tabular-nums">{stats.quoteCountTotal ?? 0}</p>
+            </section>
+            <section>
+              <h2 className="text-sm font-medium text-gray-700 mb-3">생성·저장·오류</h2>
+              <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-3">
+                <Card label="월간 생성 건수(쿼터 합)" value={fmt(Number(stats.monthlyGenerationCount ?? 0))} />
+                <Card label="저장된 견적(글) 수" value={fmt(Number(stats.quotesSavedTotal ?? stats.quoteCountTotal ?? 0))} />
+                <Card label="총 견적 행 수" value={fmt(Number(stats.quoteCountTotal ?? 0))} />
+                <Card label="24h 생성" value={fmt(Number(stats.quoteCountLast24h ?? 0))} />
+                <Card label="7일 생성" value={fmt(Number(stats.quoteCountLast7d ?? 0))} />
+                <Card label="24h 관리자 에러 이벤트" value={fmt(Number(stats.errorsLast24h ?? 0))} danger={Number(stats.errorsLast24h) > 0} />
+                <Card label="7일 생성 실패" value={fmt(Number(stats.generationFailuresLast7d ?? 0))} danger={Number(stats.generationFailuresLast7d) > 0} />
+                <Card label="DB" value={stats.hasDatabase ? '연결' : '미설정'} />
               </div>
-              <div className="p-3 rounded-lg border border-slate-200 bg-white">
-                <p className="text-xs text-gray-500">최근 24h 생성</p>
-                <p className="text-lg font-semibold tabular-nums">{stats.quoteCountLast24h ?? 0}</p>
+            </section>
+            <section>
+              <h2 className="text-sm font-medium text-gray-700 mb-3">결제·구독 요약</h2>
+              <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-3">
+                <Card label="오늘 승인 건수" value={fmt(Number(stats.paymentsApprovedToday ?? 0))} />
+                <Card label="이번 달 승인 건수" value={fmt(Number(stats.paymentsApprovedMonth ?? 0))} />
+                <Card label="오늘 매출" value={won(Number(stats.revenueTodayKrw ?? 0))} />
+                <Card label="이번 달 매출" value={won(Number(stats.revenueMonthKrw ?? 0))} />
+                <Card label="오늘 결제 실패" value={fmt(Number(stats.paymentsFailedToday ?? 0))} danger />
+                <Card label="이번 달 실패" value={fmt(Number(stats.paymentsFailedMonth ?? 0))} danger={Number(stats.paymentsFailedMonth) > 0} />
+                <Card label="이번 달 성공률" value={`${stats.paymentSuccessRateMonth ?? 0}%`} />
+                <Card label="30일 환불/취소 건" value={fmt(Number(stats.refundsCanceledOrders30d ?? 0))} />
+                <Card label="활성 유료 구독 레코드" value={fmt(Number(stats.subscriptionsActivePaid ?? 0))} />
               </div>
-              <div className="p-3 rounded-lg border border-slate-200 bg-white">
-                <p className="text-xs text-gray-500">최근 7일 생성</p>
-                <p className="text-lg font-semibold tabular-nums">{stats.quoteCountLast7d ?? 0}</p>
-              </div>
-              <div className="p-3 rounded-lg border border-slate-200 bg-white">
-                <p className="text-xs text-gray-500">최근 24h 에러</p>
-                <p className="text-lg font-semibold tabular-nums text-red-600">{stats.errorCountLast24h ?? 0}</p>
-              </div>
-              <div className="p-3 rounded-lg border border-slate-200 bg-white">
-                <p className="text-xs text-gray-500">DB</p>
-                <p className="text-sm font-medium">{stats.hasDatabase ? '연결됨' : '미설정'}</p>
-              </div>
-            </div>
-          </section>
+              {stats.revenueLast7Days && stats.revenueLast7Days.length > 0 && (
+                <div className="mt-3 p-3 rounded-lg border border-slate-200 bg-white text-xs">
+                  <p className="font-medium text-gray-700 mb-2">최근 7일 매출 추이</p>
+                  <div className="flex flex-wrap gap-3">
+                    {stats.revenueLast7Days.map((d) => (
+                      <span key={d.date} className="tabular-nums">
+                        {d.date}: {won(d.amountKrw)}
+                      </span>
+                    ))}
+                  </div>
+                </div>
+              )}
+              {stats.planPaymentShare && stats.planPaymentShare.length > 0 && (
+                <div className="mt-3 p-3 rounded-lg border border-slate-200 bg-white text-xs">
+                  <p className="font-medium text-gray-700 mb-2">플랜별 결제(이번 달)</p>
+                  <ul className="space-y-1">
+                    {stats.planPaymentShare.map((p) => (
+                      <li key={p.planType}>
+                        {p.planType}: {p.count}건 · {won(p.revenueKrw)}
+                      </li>
+                    ))}
+                  </ul>
+                </div>
+              )}
+              {stats.recentPayments && stats.recentPayments.length > 0 && (
+                <div className="mt-3 p-3 rounded-lg border border-slate-200 bg-white text-xs">
+                  <p className="font-medium text-gray-700 mb-2">최근 결제</p>
+                  <ul className="font-mono text-[11px] space-y-0.5">
+                    {stats.recentPayments.slice(0, 8).map((p) => (
+                      <li key={p.orderId}>
+                        {p.orderId.slice(0, 20)}… {won(p.amount)} {p.approvedAt?.slice(0, 19) ?? ''}
+                      </li>
+                    ))}
+                  </ul>
+                  <Link href="/admin/payments" className="text-primary-600 mt-2 inline-block">
+                    결제 관리 전체 →
+                  </Link>
+                </div>
+              )}
+            </section>
+          </>
         )}
 
         <section>
@@ -111,16 +200,13 @@ export function AdminDashboard() {
                     href={href}
                     target="_blank"
                     rel="noopener noreferrer"
-                    className="block p-3 rounded-lg border border-slate-200 bg-white hover:border-primary-300 hover:bg-primary-50/30 transition-colors"
+                    className="block p-3 rounded-lg border border-slate-200 bg-white hover:border-primary-300"
                   >
                     <span className="font-medium text-gray-900">{label}</span>
                     <p className="text-xs text-gray-500 mt-0.5">{desc}</p>
                   </a>
                 ) : (
-                  <Link
-                    href={href}
-                    className="block p-3 rounded-lg border border-slate-200 bg-white hover:border-primary-300 hover:bg-primary-50/30 transition-colors"
-                  >
+                  <Link href={href} className="block p-3 rounded-lg border border-slate-200 bg-white hover:border-primary-300">
                     <span className="font-medium text-gray-900">{label}</span>
                     <p className="text-xs text-gray-500 mt-0.5">{desc}</p>
                   </Link>
@@ -132,66 +218,35 @@ export function AdminDashboard() {
 
         <section>
           <h2 className="text-sm font-medium text-gray-700 mb-3">비밀번호 변경</h2>
-          <div className="mb-3 rounded-lg border border-slate-200 bg-white p-3 text-xs text-gray-600 max-w-sm">
-            <p className="font-medium text-gray-800">비밀번호 생성 규칙</p>
-            <ul className="mt-1 space-y-0.5 list-disc list-inside">
-              <li>최소 8자 이상</li>
-              <li>영문 대문자/소문자/숫자/특수문자 중 3종류 이상 포함</li>
-              <li>추측하기 쉬운 문자열(예: admin, 1234) 사용 금지</li>
-            </ul>
-          </div>
           <form onSubmit={onChangePassword} className="space-y-3 max-w-sm">
             {pwMessage && (
-              <p
-                className={`text-sm px-3 py-2 rounded-md ${pwMessage.type === 'ok' ? 'text-green-700 bg-green-50' : 'text-red-600 bg-red-50'}`}
-                role="alert"
-              >
+              <p className={`text-sm px-3 py-2 rounded-md ${pwMessage.type === 'ok' ? 'text-green-700 bg-green-50' : 'text-red-600 bg-red-50'}`}>
                 {pwMessage.text}
               </p>
             )}
             <div>
-              <label htmlFor="current-pw" className="block text-sm text-gray-600 mb-1">현재 비밀번호</label>
-              <div className="relative">
-                <input
-                  id="current-pw"
-                  type={showCurrentPassword ? 'text' : 'password'}
-                  autoComplete="current-password"
-                  value={currentPassword}
-                  onChange={(e) => setCurrentPassword(e.target.value)}
-                  className="w-full border border-gray-300 rounded-lg px-3 py-2 pr-14 text-sm"
-                />
-                <button
-                  type="button"
-                  onClick={() => setShowCurrentPassword((v) => !v)}
-                  className="absolute right-2 top-1/2 -translate-y-1/2 px-2 py-1 text-xs font-medium text-gray-600 hover:text-gray-900"
-                  aria-pressed={showCurrentPassword}
-                  aria-label={showCurrentPassword ? '현재 비밀번호 숨기기' : '현재 비밀번호 보기'}
-                >
-                  {showCurrentPassword ? '숨김' : '보기'}
-                </button>
-              </div>
+              <label className="block text-sm text-gray-600 mb-1">현재 비밀번호</label>
+              <input
+                type={showCurrentPassword ? 'text' : 'password'}
+                value={currentPassword}
+                onChange={(e) => setCurrentPassword(e.target.value)}
+                className="w-full border rounded-lg px-3 py-2 text-sm"
+              />
+              <button type="button" onClick={() => setShowCurrentPassword((v) => !v)} className="text-xs mt-1 text-gray-500">
+                {showCurrentPassword ? '숨김' : '보기'}
+              </button>
             </div>
             <div>
-              <label htmlFor="new-pw" className="block text-sm text-gray-600 mb-1">새 비밀번호</label>
-              <div className="relative">
-                <input
-                  id="new-pw"
-                  type={showNewPassword ? 'text' : 'password'}
-                  autoComplete="new-password"
-                  value={newPassword}
-                  onChange={(e) => setNewPassword(e.target.value)}
-                  className="w-full border border-gray-300 rounded-lg px-3 py-2 pr-14 text-sm"
-                />
-                <button
-                  type="button"
-                  onClick={() => setShowNewPassword((v) => !v)}
-                  className="absolute right-2 top-1/2 -translate-y-1/2 px-2 py-1 text-xs font-medium text-gray-600 hover:text-gray-900"
-                  aria-pressed={showNewPassword}
-                  aria-label={showNewPassword ? '새 비밀번호 숨기기' : '새 비밀번호 보기'}
-                >
-                  {showNewPassword ? '숨김' : '보기'}
-                </button>
-              </div>
+              <label className="block text-sm text-gray-600 mb-1">새 비밀번호</label>
+              <input
+                type={showNewPassword ? 'text' : 'password'}
+                value={newPassword}
+                onChange={(e) => setNewPassword(e.target.value)}
+                className="w-full border rounded-lg px-3 py-2 text-sm"
+              />
+              <button type="button" onClick={() => setShowNewPassword((v) => !v)} className="text-xs mt-1 text-gray-500">
+                {showNewPassword ? '숨김' : '보기'}
+              </button>
             </div>
             <button type="submit" disabled={pwLoading} className="btn-primary text-sm py-2 px-4 disabled:opacity-50">
               {pwLoading ? '변경 중…' : '비밀번호 변경'}

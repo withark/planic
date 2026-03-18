@@ -4,6 +4,7 @@ import { getTossSecretKey } from '@/lib/billing/toss-config'
 import { tossBasicAuthHeader } from '@/lib/billing/toss-auth'
 import { getBillingOrderByOrderId, markBillingOrderApproved, markBillingOrderFailed } from '@/lib/billing/toss-orders-db'
 import { setActiveSubscription } from '@/lib/db/subscriptions-db'
+import { adminEventsAppend } from '@/lib/db/admin-events-db'
 
 function addDaysIso(days: number): string {
   return new Date(Date.now() + days * 24 * 60 * 60 * 1000).toISOString()
@@ -39,6 +40,7 @@ export async function confirmTossPayment(input: { paymentKey: string; orderId: s
   const json = await res.json().catch(() => ({} as any))
   if (!res.ok) {
     await markBillingOrderFailed(input.orderId, json)
+    await adminEventsAppend('warn', 'billing', `결제 실패 orderId=${input.orderId}`).catch(() => {})
     const msg = toUserMessage(json, '결제 승인에 실패했습니다.')
     throw new Error(msg)
   }
@@ -58,6 +60,12 @@ export async function confirmTossPayment(input: { paymentKey: string; orderId: s
     expiresAt: expiresAtForCycle(order.billingCycle),
     stripeSubscriptionId: null,
   })
+
+  await adminEventsAppend(
+    'info',
+    'billing',
+    `결제 승인 orderId=${input.orderId} user=${order.userId.slice(0, 12)} plan=${order.planType} amount=${order.amount}`,
+  ).catch(() => {})
 
   return { ok: true as const, alreadyApproved: false as const }
 }

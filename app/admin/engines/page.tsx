@@ -6,7 +6,7 @@ import Link from 'next/link'
 type EnginesData = {
   effective: { provider: string; model: string; maxTokens: number }
   env: { hasAnthropic: boolean; hasOpenAI: boolean; aiProvider: string | null; openaiModel: string | null; anthropicModel: string | null }
-  overlay: { provider?: string; model?: string; maxTokens?: number } | null
+  overlay: Record<string, unknown> | null
 }
 
 export default function AdminEnginesPage() {
@@ -14,7 +14,16 @@ export default function AdminEnginesPage() {
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
   const [saving, setSaving] = useState(false)
-  const [overlay, setOverlay] = useState({ provider: '', model: '', maxTokens: 8192 })
+  const [overlay, setOverlay] = useState({
+    provider: '',
+    model: '',
+    maxTokens: 8192,
+    structureFirst: false,
+    toneFirst: false,
+    outputFormatTemplate: '',
+    sampleWeightNote: '',
+    qualityBoost: '',
+  })
 
   function load() {
     fetch('/api/admin/engines')
@@ -22,10 +31,16 @@ export default function AdminEnginesPage() {
       .then((res) => {
         if (res?.ok && res?.data) {
           setData(res.data)
+          const ov = res.data.overlay || {}
           setOverlay({
             provider: res.data.effective?.provider ?? '',
             model: res.data.effective?.model ?? '',
             maxTokens: res.data.effective?.maxTokens ?? 8192,
+            structureFirst: !!ov.structureFirst,
+            toneFirst: !!ov.toneFirst,
+            outputFormatTemplate: String(ov.outputFormatTemplate ?? ''),
+            sampleWeightNote: String(ov.sampleWeightNote ?? ''),
+            qualityBoost: String(ov.qualityBoost ?? ''),
           })
         } else setError(res?.error?.message || '조회 실패')
       })
@@ -45,6 +60,11 @@ export default function AdminEnginesPage() {
           provider: overlay.provider === 'anthropic' || overlay.provider === 'openai' ? overlay.provider : undefined,
           model: overlay.model || undefined,
           maxTokens: overlay.maxTokens,
+          structureFirst: overlay.structureFirst,
+          toneFirst: overlay.toneFirst,
+          outputFormatTemplate: overlay.outputFormatTemplate,
+          sampleWeightNote: overlay.sampleWeightNote,
+          qualityBoost: overlay.qualityBoost,
         }),
       })
       const result = await res.json().catch(() => ({}))
@@ -64,7 +84,7 @@ export default function AdminEnginesPage() {
   return (
     <div className="space-y-6">
       <div className="flex items-center justify-between">
-        <h1 className="text-lg font-semibold text-gray-900">엔진/모델</h1>
+        <h1 className="text-lg font-semibold text-gray-900">엔진 강화 설정</h1>
         <Link href="/admin" className="text-sm text-primary-600 hover:text-primary-700">← 대시보드</Link>
       </div>
 
@@ -90,7 +110,10 @@ export default function AdminEnginesPage() {
 
       <section className="border border-slate-200 rounded-lg bg-white p-4">
         <h2 className="text-sm font-medium text-gray-700 mb-3">DB 오버레이 저장 (env보다 우선)</h2>
-        <p className="text-xs text-gray-500 mb-3">DB가 있을 때 저장됩니다. 견적·AI 호출 시 <code className="bg-slate-100 px-1 rounded">callLLM</code>가 이 값(provider/model/maxTokens)을 그대로 사용합니다.</p>
+        <p className="text-xs text-gray-500 mb-3">
+          저장 값은 <strong>실제 생성 파이프라인에 반영</strong>됩니다. provider/model/maxTokens → LLM 호출;
+          구조/문체/품질 문장 → <code className="bg-slate-100 px-1 rounded">buildGeneratePrompt</code>에 주입됩니다.
+        </p>
         <div className="space-y-2 max-w-sm">
           <div>
             <label className="block text-xs text-gray-600 mb-1">provider</label>
@@ -125,7 +148,52 @@ export default function AdminEnginesPage() {
               className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm"
             />
           </div>
-          <button type="button" onClick={save} disabled={saving} className="btn-primary text-sm py-2 px-4 disabled:opacity-50">
+          <div className="space-y-2 pt-2 border-t border-slate-100 mt-2">
+            <p className="text-xs font-medium text-gray-700">품질 방향 (프롬프트)</p>
+            <label className="flex items-center gap-2 text-sm">
+              <input
+                type="checkbox"
+                checked={overlay.structureFirst}
+                onChange={(e) =>
+                  setOverlay((o) => ({ ...o, structureFirst: e.target.checked, toneFirst: e.target.checked ? false : o.toneFirst }))
+                }
+              />
+              구조 우선 (표·행)
+            </label>
+            <label className="flex items-center gap-2 text-sm">
+              <input
+                type="checkbox"
+                checked={overlay.toneFirst}
+                onChange={(e) =>
+                  setOverlay((o) => ({ ...o, toneFirst: e.target.checked, structureFirst: e.target.checked ? false : o.structureFirst }))
+                }
+              />
+              문체 우선
+            </label>
+            <label className="block text-xs text-gray-600">출력 포맷 힌트</label>
+            <textarea
+              className="w-full border rounded-lg px-2 py-1 text-sm"
+              rows={2}
+              value={overlay.outputFormatTemplate}
+              onChange={(e) => setOverlay((o) => ({ ...o, outputFormatTemplate: e.target.value }))}
+              placeholder="예: 표 위주, 멘트는 짧게"
+            />
+            <label className="block text-xs text-gray-600">샘플 가중치·반영 지시</label>
+            <textarea
+              className="w-full border rounded-lg px-2 py-1 text-sm"
+              rows={2}
+              value={overlay.sampleWeightNote}
+              onChange={(e) => setOverlay((o) => ({ ...o, sampleWeightNote: e.target.value }))}
+            />
+            <label className="block text-xs text-gray-600">품질 보강(말미 주입)</label>
+            <textarea
+              className="w-full border rounded-lg px-2 py-1 text-sm"
+              rows={2}
+              value={overlay.qualityBoost}
+              onChange={(e) => setOverlay((o) => ({ ...o, qualityBoost: e.target.value }))}
+            />
+          </div>
+          <button type="button" onClick={save} disabled={saving} className="btn-primary text-sm py-2 px-4 disabled:opacity-50 mt-3">
             {saving ? '저장 중…' : '오버레이 저장'}
           </button>
         </div>

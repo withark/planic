@@ -1,10 +1,10 @@
 import { NextRequest } from 'next/server'
 import { requireAdmin } from '@/lib/admin-auth'
 import { okResponse, errorResponse } from '@/lib/api/response'
-import { hasDatabase } from '@/lib/db/client'
+import { hasDatabase, initDb, getDb } from '@/lib/db/client'
 import { kvGet, kvSet } from '@/lib/db/kv'
-import { getAdminUserStats } from '@/lib/db/admin-stats-db'
 import type { AdminSubscription } from '@/lib/admin-types'
+import { getAdminDashboardStats } from '@/lib/db/admin-operational-db'
 
 export const dynamic = 'force-dynamic'
 
@@ -12,30 +12,61 @@ export async function GET(_req: NextRequest) {
   const session = await requireAdmin(_req)
   if (!session) return errorResponse(401, 'UNAUTHORIZED', '관리자만 접근할 수 있습니다.')
 
+  if (!hasDatabase()) {
+    return okResponse({ stats: null, rows: [], kvSubscriptions: [] })
+  }
+
   try {
-    let list: AdminSubscription[] = []
-    if (hasDatabase()) {
-      list = await kvGet<AdminSubscription[]>('subscriptions', [])
-      if (!Array.isArray(list)) list = []
+    await initDb()
+    const sql = getDb()
+    const stats = await getAdminDashboardStats()
+
+    const rows = await sql`
+      SELECT id, user_id, plan_type, billing_cycle, status, started_at, expires_at, canceled_at, created_at
+      FROM subscriptions
+      ORDER BY created_at DESC
+      LIMIT 500
+    `
+    const list = (rows as Record<string, unknown>[]).map((r) => ({
+      id: String(r.id),
+      userId: String(r.user_id),
+      planType: String(r.plan_type),
+      billingCycle: r.billing_cycle ? String(r.billing_cycle) : null,
+      status: String(r.status),
+      startedAt: r.started_at ? new Date(r.started_at as string).toISOString() : null,
+      expiresAt: r.expires_at ? new Date(r.expires_at as string).toISOString() : null,
+      canceledAt: r.canceled_at ? new Date(r.canceled_at as string).toISOString() : null,
+      createdAt: new Date(r.created_at as string).toISOString(),
+      trial: false,
+    }))
+
+    let kvSubscriptions: AdminSubscription[] = []
+    try {
+      kvSubscriptions = await kvGet<AdminSubscription[]>('subscriptions', [])
+      if (!Array.isArray(kvSubscriptions)) kvSubscriptions = []
+    } catch {
+      kvSubscriptions = []
     }
-    const userStats = hasDatabase() ? await getAdminUserStats() : []
-    const userIds = new Set(userStats.map((r) => r.user_id))
-    list.forEach((s) => userIds.add(s.userId))
-    const withUser = Array.from(userIds).map((userId) => {
-      const sub = list.find((s) => s.userId === userId)
-      const stats = userStats.find((r) => r.user_id === userId)
-      return {
-        userId,
-        planId: sub?.planId ?? null,
-        status: sub?.status ?? 'trial',
-        startedAt: sub?.startedAt ?? null,
-        expiresAt: sub?.expiresAt ?? null,
-        quoteCount: stats?.quote_count ?? 0,
-        lastActivityAt: stats?.last_created_at ?? null,
-      }
+
+    const recentChanges = list.slice(0, 30)
+
+    return okResponse({
+      stats: {
+        paidSubscribersActive: stats.subscriptionsActivePaid,
+        activePaidCount: stats.usersPaidActive,
+        freeToPaidThisMonth: stats.subscriptionsFreeToPaidMonth,
+        activeSubscriptionsPaid: stats.subscriptionsActivePaid,
+        canceledThisMonth: stats.subscriptionsCanceledCompletedMonth,
+        planSubscriberCounts: stats.planSubscriberCounts,
+        planPaymentShare: stats.planPaymentShare,
+        paymentFailuresMonth: stats.paymentsFailedMonth,
+      },
+      rows: list,
+      recentChanges,
+      kvSubscriptions,
     })
-    return okResponse(withUser)
-  } catch {
+  } catch (e) {
+    console.error(e)
     return errorResponse(500, 'INTERNAL_ERROR', '구독 목록 조회에 실패했습니다.')
   }
 }
@@ -48,7 +79,7 @@ export async function POST(req: NextRequest) {
 
   try {
     const body = await req.json()
-    const subs = Array.isArray(body) ? body : (body?.data && Array.isArray(body.data) ? body.data : [])
+    const subs = Array.isArray(body) ? body : body?.data && Array.isArray(body.data) ? body.data : []
     const list = subs.map((s: { userId?: string; planId?: string; status?: string; startedAt?: string; expiresAt?: string | null }) => ({
       userId: String(s.userId ?? ''),
       planId: String(s.planId ?? 'trial'),

@@ -4,15 +4,48 @@ import Link from 'next/link'
 import { usePathname } from 'next/navigation'
 import clsx from 'clsx'
 
-const ADMIN_NAV = [
-  { href: '/admin', label: '대시보드' },
-  { href: '/admin/users', label: '사용자 관리' },
-  { href: '/admin/subscriptions', label: '구독 관리' },
-  { href: '/admin/plans', label: '플랜 관리' },
-  { href: '/admin/usage', label: '사용량 관리' },
-  { href: '/admin/engines', label: '엔진/모델' },
-  { href: '/admin/logs', label: '로그' },
-  { href: '/admin/system', label: '시스템' },
+/** 운영 백오피스: 문서·품질 / 비즈니스·정산 / 계정 / 시스템 */
+export const ADMIN_NAV_GROUPS: {
+  label: string
+  items: { href: string; label: string; desc?: string }[]
+}[] = [
+  {
+    label: '운영 개요',
+    items: [{ href: '/admin', label: '대시보드', desc: '서비스 상태 요약' }],
+  },
+  {
+    label: '문서·품질',
+    items: [
+      { href: '/admin/samples', label: '샘플 관리', desc: '큐시트·탭·우선순위' },
+      { href: '/admin/engines', label: '엔진 강화 설정', desc: '모델·프롬프트·품질' },
+      { href: '/admin/generation-logs', label: '생성 로그', desc: '샘플·엔진 반영 추적' },
+      { href: '/admin/review', label: '검수·미리보기', desc: '출력 품질 확인' },
+    ],
+  },
+  {
+    label: '비즈니스·정산',
+    items: [
+      { href: '/admin/payments', label: '결제 관리', desc: '토스 주문·웹훅' },
+      { href: '/admin/settlement', label: '정산 관리', desc: '기간별 매출' },
+      { href: '/admin/ops-stats', label: '운영 통계', desc: '매출·전환' },
+      { href: '/admin/usage', label: '사용통계', desc: '생성·탭·업로드' },
+      { href: '/admin/subscriptions', label: '구독 현황', desc: 'KV 구독' },
+    ],
+  },
+  {
+    label: '계정·플랜',
+    items: [
+      { href: '/admin/users', label: '사용자 관리', desc: '가입·생성·플랜' },
+      { href: '/admin/plans', label: '플랜 관리', desc: '요금·기능' },
+    ],
+  },
+  {
+    label: '시스템',
+    items: [
+      { href: '/admin/system', label: '시스템 설정', desc: '헬스·환경' },
+      { href: '/admin/logs', label: '에러 로그', desc: 'admin_events' },
+    ],
+  },
 ]
 
 export function AdminShell({ children }: { children: React.ReactNode }) {
@@ -27,45 +60,56 @@ export function AdminShell({ children }: { children: React.ReactNode }) {
     href === '/admin' ? pathname === '/admin' : pathname.startsWith(href + '/') || pathname === href
 
   return (
-    <div className="min-h-screen flex bg-slate-50">
-      <aside className="w-52 flex-shrink-0 flex flex-col border-r border-slate-200 bg-white">
-        <div className="px-4 py-4 border-b border-slate-100">
-          <span className="text-sm font-semibold text-gray-900">관리자</span>
+    <div className="min-h-screen flex bg-slate-100">
+      <aside className="w-56 lg:w-60 flex-shrink-0 flex flex-col border-r border-slate-200 bg-white shadow-sm">
+        <div className="px-3 py-3 border-b border-slate-100">
+          <span className="text-xs font-bold uppercase tracking-wide text-slate-500">Planic</span>
+          <p className="text-sm font-semibold text-gray-900">운영 백오피스</p>
         </div>
-        <nav className="flex-1 py-2 px-2 space-y-0.5">
-          {ADMIN_NAV.map(({ href, label }) => (
-            <Link
-              key={href}
-              href={href}
-              className={clsx(
-                'block px-3 py-2 rounded-lg text-sm font-medium transition-colors',
-                isActive(href)
-                  ? 'bg-primary-50 text-primary-700'
-                  : 'text-gray-600 hover:bg-slate-100 hover:text-gray-900'
-              )}
-            >
-              {label}
-            </Link>
+        <nav className="flex-1 overflow-y-auto py-2 px-2 space-y-4">
+          {ADMIN_NAV_GROUPS.map((group) => (
+            <div key={group.label}>
+              <p className="px-2 text-[10px] font-semibold uppercase tracking-wider text-slate-400 mb-1">
+                {group.label}
+              </p>
+              <ul className="space-y-0.5">
+                {group.items.map(({ href, label }) => (
+                  <li key={href}>
+                    <Link
+                      href={href}
+                      className={clsx(
+                        'block px-2.5 py-1.5 rounded-md text-sm font-medium transition-colors',
+                        isActive(href)
+                          ? 'bg-primary-50 text-primary-800 border border-primary-100'
+                          : 'text-gray-600 hover:bg-slate-50 hover:text-gray-900 border border-transparent',
+                      )}
+                    >
+                      {label}
+                    </Link>
+                  </li>
+                ))}
+              </ul>
+            </div>
           ))}
         </nav>
         <div className="p-2 border-t border-slate-100 space-y-0.5">
           <Link
             href="/"
-            className="block px-3 py-2 rounded-lg text-sm text-gray-500 hover:bg-slate-100 hover:text-gray-700"
+            className="block px-2.5 py-2 rounded-md text-xs text-gray-500 hover:bg-slate-50"
           >
-            메인으로
+            서비스 메인
           </Link>
           <button
             type="button"
             onClick={onLogout}
-            className="w-full text-left px-3 py-2 rounded-lg text-sm text-gray-500 hover:bg-slate-100 hover:text-gray-700"
+            className="w-full text-left px-2.5 py-2 rounded-md text-xs text-gray-500 hover:bg-slate-50"
           >
             로그아웃
           </button>
         </div>
       </aside>
-      <main className="flex-1 min-w-0 p-6 overflow-auto">
-        {children}
+      <main className="flex-1 min-w-0 p-4 md:p-6 overflow-auto admin-main">
+        <div className="max-w-6xl mx-auto">{children}</div>
       </main>
     </div>
   )

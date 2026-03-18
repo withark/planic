@@ -61,7 +61,19 @@ export async function POST(req: NextRequest) {
       maxTokens: clampEngineMaxTokens(
         typeof body?.maxTokens === 'number' ? body.maxTokens : prev.maxTokens ?? ENGINE_MAX_TOKENS_DEFAULT,
       ),
+      structureFirst:
+        typeof body?.structureFirst === 'boolean' ? body.structureFirst : !!prev.structureFirst,
+      toneFirst: typeof body?.toneFirst === 'boolean' ? body.toneFirst : !!prev.toneFirst,
+      outputFormatTemplate:
+        typeof body?.outputFormatTemplate === 'string'
+          ? body.outputFormatTemplate
+          : prev.outputFormatTemplate ?? '',
+      sampleWeightNote:
+        typeof body?.sampleWeightNote === 'string' ? body.sampleWeightNote : prev.sampleWeightNote ?? '',
+      qualityBoost: typeof body?.qualityBoost === 'string' ? body.qualityBoost : prev.qualityBoost ?? '',
     }
+    if (overlay.structureFirst) overlay.toneFirst = false
+    if (overlay.toneFirst) overlay.structureFirst = false
     await kvSet('engine_config', overlay)
     return okResponse(null)
   } catch {

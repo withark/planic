@@ -27,4 +27,12 @@ export interface GenerateInput {
   cuesheetSampleContext?: string
   /** 시나리오/PPT 참고 원문 일부 */
   scenarioRefs?: ScenarioRefDoc[]
+  /** 관리자 엔진 강화(k engine_config) — 프롬프트에 반영 */
+  engineQuality?: {
+    structureFirst?: boolean
+    toneFirst?: boolean
+    outputFormatTemplate?: string
+    sampleWeightNote?: string
+    qualityBoost?: string
+  }
 }

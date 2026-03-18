@@ -127,6 +127,29 @@ export async function markBillingOrderCanceled(orderId: string, raw: unknown): P
   `
 }
 
+export async function listBillingOrdersAdmin(limit = 500): Promise<BillingOrderRow[]> {
+  await initDb()
+  const sql = getDb()
+  const rows = await sql`
+    SELECT * FROM billing_orders ORDER BY created_at DESC LIMIT ${limit}
+  `
+  return (rows as Record<string, unknown>[]).map((r) => ({
+    id: String(r.id),
+    userId: String(r.user_id),
+    provider: 'toss',
+    orderId: String(r.order_id),
+    planType: toPlanType(r.plan_type),
+    billingCycle: toBillingCycle(r.billing_cycle),
+    amount: Number(r.amount),
+    status: toStatus(r.status),
+    paymentKey: r.payment_key ? String(r.payment_key) : null,
+    approvedAt: r.approved_at ? new Date(r.approved_at as string).toISOString() : null,
+    raw: r.raw ?? {},
+    createdAt: new Date(r.created_at as string).toISOString(),
+    updatedAt: new Date(r.updated_at as string).toISOString(),
+  }))
+}
+
 export async function markBillingOrderExpired(orderId: string, raw: unknown): Promise<void> {
   await initDb()
   const sql = getDb()

@@ -16,11 +16,19 @@ import { normalizeTemplateForPlan } from '@/lib/plan-entitlements'
 import { getUserPrices } from '@/lib/db/prices-db'
 import { listReferenceDocs } from '@/lib/db/reference-docs-db'
 import { listTaskOrderRefs } from '@/lib/db/task-order-refs-db'
-import { listCuesheetSamples, getCuesheetFile } from '@/lib/db/cuesheet-samples-db'
+import {
+  listCuesheetSamplesForGeneration,
+  getCuesheetFile,
+  bumpSampleGenerationUse,
+} from '@/lib/db/cuesheet-samples-db'
+import { insertGenerationRun } from '@/lib/db/generation-runs-db'
+import { kvGet } from '@/lib/db/kv'
+import type { EngineConfigOverlay } from '@/lib/admin-types'
 import { listScenarioRefs } from '@/lib/db/scenario-refs-db'
 import { extractTextFromBuffer } from '@/lib/file-utils'
 import { normalizeQuoteDoc } from '@/lib/ai/parsers'
 import type { QuoteDoc } from '@/lib/types'
+import { hasDatabase } from '@/lib/db/client'
 
 const GenerateRequestSchema = z.object({
   eventName: z.string().min(1, '행사명을 입력해주세요.'),
@@ -78,30 +86,57 @@ export async function POST(req: NextRequest) {
     const usage = await getOrCreateUsage(userId)
     assertQuoteGenerateAllowed(plan, usage.quoteGeneratedCount)
 
-    const [prices, settings, references, taskOrderRefs, cuesheetList, scenarioRefsList] = await Promise.all([
-      getUserPrices(userId),
-      (async () => {
-        const p = await getDefaultCompanyProfile(userId)
-        return p ? profileToCompanySettings(p) : DEFAULT_SETTINGS
-      })(),
-      listReferenceDocs(userId),
-      listTaskOrderRefs(userId),
-      listCuesheetSamples(userId),
-      listScenarioRefs(userId),
-    ])
+    const [prices, settings, references, taskOrderRefs, cuesheetCandidates, scenarioRefsList, engineOverlay] =
+      await Promise.all([
+        getUserPrices(userId),
+        (async () => {
+          const p = await getDefaultCompanyProfile(userId)
+          return p ? profileToCompanySettings(p) : DEFAULT_SETTINGS
+        })(),
+        listReferenceDocs(userId),
+        listTaskOrderRefs(userId),
+        listCuesheetSamplesForGeneration(userId),
+        listScenarioRefs(userId),
+        hasDatabase()
+          ? kvGet<EngineConfigOverlay | null>('engine_config', null).catch(() => null as EngineConfigOverlay | null)
+          : Promise.resolve(null as EngineConfigOverlay | null),
+      ])
 
     let cuesheetSampleContext = ''
-    if (cuesheetList.length > 0) {
-      const latest = cuesheetList[0]
-      const file = await getCuesheetFile(latest.id)
+    let appliedSampleId = ''
+    let appliedSampleFilename = ''
+    const first = cuesheetCandidates[0]
+    if (first) {
+      appliedSampleId = first.id
+      appliedSampleFilename = first.filename
+      const file = await getCuesheetFile(first.id)
       if (file?.content?.length) {
         try {
           cuesheetSampleContext = await extractTextFromBuffer(file.content, file.ext, file.filename)
-          if (!cuesheetSampleContext.trim()) cuesheetSampleContext = `[파일: ${latest.filename} — 텍스트 추출 없음]`
+          if (!cuesheetSampleContext.trim())
+            cuesheetSampleContext = `[파일: ${first.filename} — 텍스트 추출 없음]`
         } catch (e) {
-          cuesheetSampleContext = `[큐시트 파일 ${latest.filename} 추출 오류: ${e instanceof Error ? e.message : String(e)}]`
+          cuesheetSampleContext = `[큐시트 파일 ${first.filename} 추출 오류: ${e instanceof Error ? e.message : String(e)}]`
         }
       }
+    }
+    const cuesheetApplied = !!cuesheetSampleContext.trim()
+    const engineSnapshot: Record<string, unknown> = {
+      provider: engineOverlay?.provider,
+      model: engineOverlay?.model,
+      maxTokens: engineOverlay?.maxTokens,
+      structureFirst: engineOverlay?.structureFirst,
+      toneFirst: engineOverlay?.toneFirst,
+      outputFormatTemplate: engineOverlay?.outputFormatTemplate,
+      sampleWeightNote: engineOverlay?.sampleWeightNote,
+      qualityBoost: engineOverlay?.qualityBoost,
+    }
+    const engineQuality = {
+      structureFirst: engineOverlay?.structureFirst,
+      toneFirst: engineOverlay?.toneFirst,
+      outputFormatTemplate: engineOverlay?.outputFormatTemplate,
+      sampleWeightNote: engineOverlay?.sampleWeightNote,
+      qualityBoost: engineOverlay?.qualityBoost,
     }
 
     const pptxPlaceholder = /PPT\/PPTX 파일입니다|슬라이드 내용은 업로드된 원본/
@@ -121,9 +156,26 @@ export async function POST(req: NextRequest) {
       taskOrderRefs,
       cuesheetSampleContext: cuesheetSampleContext || undefined,
       scenarioRefs: scenarioRefs.length ? scenarioRefs : undefined,
+      engineQuality,
     }
 
-    let doc = await generateQuote(input)
+    const quoteId = uid()
+    let doc: QuoteDoc
+    try {
+      doc = await generateQuote(input)
+    } catch (genErr) {
+      await insertGenerationRun({
+        userId,
+        quoteId: null,
+        success: false,
+        errorMessage: genErr instanceof Error ? genErr.message : String(genErr),
+        sampleId: appliedSampleId,
+        sampleFilename: appliedSampleFilename,
+        cuesheetApplied,
+        engineSnapshot,
+      }).catch(() => {})
+      throw genErr
+    }
     ;(doc as QuoteDoc).quoteTemplate = normalizeTemplateForPlan(plan, (doc as QuoteDoc).quoteTemplate as any)
 
     if (!doc.program?.concept?.trim() && (!doc.program?.programRows?.length)) {
@@ -169,7 +221,7 @@ export async function POST(req: NextRequest) {
 
     await quotesDbAppend(
       {
-        id: uid(),
+        id: quoteId,
         eventName: doc.eventName,
         clientName: doc.clientName,
         quoteDate: doc.quoteDate,
@@ -180,11 +232,27 @@ export async function POST(req: NextRequest) {
         total: totals.grand,
         savedAt: new Date().toISOString(),
         doc,
+        generationMeta: {
+          sampleId: appliedSampleId || undefined,
+          sampleFilename: appliedSampleFilename || undefined,
+          cuesheetApplied,
+          engineSnapshot,
+        },
       },
       userId,
     )
 
     await incQuoteGenerated(userId, 1)
+    if (appliedSampleId && cuesheetApplied) await bumpSampleGenerationUse(appliedSampleId).catch(() => {})
+    await insertGenerationRun({
+      userId,
+      quoteId,
+      success: true,
+      sampleId: appliedSampleId,
+      sampleFilename: appliedSampleFilename,
+      cuesheetApplied,
+      engineSnapshot,
+    }).catch(() => {})
 
     return okResponse({ doc, totals })
   } catch (e) {

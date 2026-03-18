@@ -142,6 +142,13 @@ export interface HistoryRecord {
   total: number
   savedAt: string
   doc?: QuoteDoc
+  /** 생성 시 샘플·엔진 스냅샷(관리자 추적) */
+  generationMeta?: {
+    sampleId?: string
+    sampleFilename?: string
+    cuesheetApplied?: boolean
+    engineSnapshot?: Record<string, unknown>
+  }
 }
 
 // ─── 회사 설정 ───────────────────────────────

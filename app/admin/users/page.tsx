@@ -7,11 +7,20 @@ type UserRow = {
   userId: string
   email: string | null
   name: string | null
+  signupAt: string
+  lastLoginAt: string | null
+  currentPlan: string
+  subscriptionStatus: string
+  expiresAt: string | null
+  startedAt: string | null
+  usageStatus: string
+  quotaExceeded: boolean
+  loginMethod: string
   isAdmin: boolean
-  planId: string | null
-  status: string
+  isActive: boolean
   quoteCount: number
-  lastActivityAt: string
+  lastPaymentAt: string | null
+  paidConversion: boolean
 }
 
 export default function AdminUsersPage() {
@@ -37,31 +46,55 @@ export default function AdminUsersPage() {
     <div className="space-y-4">
       <div className="flex items-center justify-between">
         <h1 className="text-lg font-semibold text-gray-900">사용자 관리</h1>
-        <Link href="/admin" className="text-sm text-primary-600 hover:text-primary-700">← 대시보드</Link>
+        <Link href="/admin" className="text-sm text-primary-600">← 대시보드</Link>
       </div>
-      <p className="text-xs text-gray-500">quotes 테이블 기준 사용자(생성 이력이 있는 user_id) 목록입니다. 이메일/이름은 NextAuth 세션에만 있으며 DB에는 저장되지 않습니다.</p>
-      <div className="overflow-x-auto border border-slate-200 rounded-lg bg-white">
-        <table className="w-full text-sm">
+      <p className="text-xs text-gray-500">
+        DB users + 활성 구독 + 이번 달 사용량. 로그인 시 Google 등으로 upsert·최근 로그인 갱신.
+      </p>
+      <div className="overflow-x-auto border border-slate-200 rounded-lg bg-white text-xs">
+        <table className="w-full min-w-[1400px]">
           <thead>
-            <tr className="bg-slate-50 border-b border-slate-200">
-              <th className="px-4 py-2 text-left font-medium text-gray-700">user_id</th>
-              <th className="px-4 py-2 text-left font-medium text-gray-700">생성 건수</th>
-              <th className="px-4 py-2 text-left font-medium text-gray-700">최근 활동</th>
-              <th className="px-4 py-2 text-left font-medium text-gray-700">플랜</th>
-              <th className="px-4 py-2 text-left font-medium text-gray-700">상태</th>
+            <tr className="bg-slate-50 border-b">
+              <th className="px-2 py-2 text-left">user_id</th>
+              <th className="px-2 py-2 text-left">이메일</th>
+              <th className="px-2 py-2 text-left">가입일</th>
+              <th className="px-2 py-2 text-left">최근 로그인</th>
+              <th className="px-2 py-2 text-left">플랜</th>
+              <th className="px-2 py-2 text-left">구독</th>
+              <th className="px-2 py-2 text-left">사용량</th>
+              <th className="px-2 py-2 text-center">초과</th>
+              <th className="px-2 py-2 text-left">로그인</th>
+              <th className="px-2 py-2 text-center">관리자</th>
+              <th className="px-2 py-2 text-center">활성</th>
+              <th className="px-2 py-2 text-left">최근 결제</th>
+              <th className="px-2 py-2 text-center">유료</th>
+              <th className="px-2 py-2 text-right">견적 수</th>
             </tr>
           </thead>
           <tbody>
             {list.length === 0 ? (
-              <tr><td colSpan={5} className="px-4 py-6 text-center text-gray-500">데이터 없음</td></tr>
+              <tr>
+                <td colSpan={14} className="px-4 py-6 text-center text-gray-500">
+                  users 테이블에 행이 없습니다. 서비스 로그인 후 집계됩니다.
+                </td>
+              </tr>
             ) : (
               list.map((u) => (
-                <tr key={u.userId} className="border-b border-slate-100 hover:bg-slate-50">
-                  <td className="px-4 py-2 font-mono text-xs truncate max-w-[180px]" title={u.userId}>{u.userId}</td>
-                  <td className="px-4 py-2 tabular-nums">{u.quoteCount}</td>
-                  <td className="px-4 py-2 text-gray-600">{u.lastActivityAt ? new Date(u.lastActivityAt).toLocaleString('ko-KR') : '—'}</td>
-                  <td className="px-4 py-2">{u.planId ?? '—'}</td>
-                  <td className="px-4 py-2">{u.status}</td>
+                <tr key={u.userId} className="border-b hover:bg-slate-50">
+                  <td className="px-2 py-1.5 font-mono truncate max-w-[100px]" title={u.userId}>{u.userId.slice(0, 14)}…</td>
+                  <td className="px-2 py-1.5 truncate max-w-[120px]">{u.email ?? '—'}</td>
+                  <td className="px-2 py-1.5 whitespace-nowrap">{new Date(u.signupAt).toLocaleDateString('ko-KR')}</td>
+                  <td className="px-2 py-1.5 whitespace-nowrap">{u.lastLoginAt ? new Date(u.lastLoginAt).toLocaleString('ko-KR') : '—'}</td>
+                  <td className="px-2 py-1.5">{u.currentPlan}</td>
+                  <td className="px-2 py-1.5">{u.subscriptionStatus}</td>
+                  <td className="px-2 py-1.5">{u.usageStatus}</td>
+                  <td className="px-2 py-1.5 text-center">{u.quotaExceeded ? '⚠' : '—'}</td>
+                  <td className="px-2 py-1.5">{u.loginMethod}</td>
+                  <td className="px-2 py-1.5 text-center">{u.isAdmin ? 'Y' : ''}</td>
+                  <td className="px-2 py-1.5 text-center">{u.isActive ? 'Y' : 'N'}</td>
+                  <td className="px-2 py-1.5 whitespace-nowrap text-[10px]">{u.lastPaymentAt ? new Date(u.lastPaymentAt).toLocaleString('ko-KR') : '—'}</td>
+                  <td className="px-2 py-1.5 text-center">{u.paidConversion ? 'Y' : ''}</td>
+                  <td className="px-2 py-1.5 text-right tabular-nums">{u.quoteCount}</td>
                 </tr>
               ))
             )}

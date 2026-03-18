@@ -38,6 +38,18 @@ export async function initDb(): Promise<void> {
     )
   `
   await sql`CREATE INDEX IF NOT EXISTS idx_users_email ON users (email)`
+  for (const q of [
+    sql`ALTER TABLE users ADD COLUMN IF NOT EXISTS last_login_at timestamptz`,
+    sql`ALTER TABLE users ADD COLUMN IF NOT EXISTS auth_provider text NOT NULL DEFAULT 'google'`,
+    sql`ALTER TABLE users ADD COLUMN IF NOT EXISTS is_admin boolean NOT NULL DEFAULT false`,
+    sql`ALTER TABLE users ADD COLUMN IF NOT EXISTS is_active boolean NOT NULL DEFAULT true`,
+  ]) {
+    try {
+      await q
+    } catch {
+      /* */
+    }
+  }
 
   await sql`
     CREATE TABLE IF NOT EXISTS subscriptions (

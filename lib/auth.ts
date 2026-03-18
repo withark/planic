@@ -43,24 +43,19 @@ export const authOptions: NextAuthOptions = {
       }
     : {}),
   callbacks: {
-    async signIn({ user }) {
+    async signIn({ user, account }) {
       try {
-        // JWT 세션 전략에서 user.id는 기본적으로 provider별 값이므로,
-        // 아래 session 콜백(token.sub)과 일치하도록 token.sub 기반으로 최종 user.id가 세팅된다.
-        // 여기서는 가능한 정보(email/name/image)를 DB에 저장해 둔다.
         if (hasDatabase()) {
-          // NextAuth는 DB 없이도 sub를 생성하므로, user.id가 비어 있을 수 있다.
-          // 실제 userId는 session 콜백에서 token.sub로 채워진다.
-          // signIn 시점에는 user.id가 존재하는 케이스가 많아 우선 사용하고,
-          // 없으면 저장을 스킵(후속 API 요청 시 보완 가능).
-          const id = (user as any)?.id
+          const id = (user as { id?: string })?.id
           if (typeof id === 'string' && id.trim()) {
             await upsertUser({ id, email: user.email, name: user.name, image: user.image })
             await ensureFreeSubscription(id)
+            const { recordUserLogin } = await import('@/lib/db/users-db')
+            await recordUserLogin(id, account?.provider ?? 'oauth')
           }
         }
       } catch {
-        // 로그인 자체는 막지 않는다. (단, 운영에서는 DB 필수 권장)
+        /* ignore */
       }
       return true
     },
