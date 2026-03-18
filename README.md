@@ -15,7 +15,7 @@ npm install
 ```bash
 cp .env.local.example .env.local
 ```
-- **로그인 (Google):** `NEXTAUTH_URL`, `NEXTAUTH_SECRET`, `GOOGLE_CLIENT_ID`, `GOOGLE_CLIENT_SECRET` — 상세는 [docs/AUTH_ENV.md](docs/AUTH_ENV.md) 참고.
+- **로그인 (Google):** `NEXTAUTH_URL`, `NEXTAUTH_SECRET`, `GOOGLE_CLIENT_ID`, `GOOGLE_CLIENT_SECRET` — 상세는 [docs/AUTH_ENV.md](docs/AUTH_ENV.md). 구글 동의 화면에 **플래닉** 이름이 나오게 하려면 [docs/GOOGLE_OAUTH_PLANIC.md](docs/GOOGLE_OAUTH_PLANIC.md) (쿼닥 등 구 OAuth 클라이언트 분리 포함).
 - **AI:** `.env.local`에 Anthropic 또는 OpenAI API 키 입력:
 ```
 ANTHROPIC_API_KEY=sk-ant-여기에_키_입력

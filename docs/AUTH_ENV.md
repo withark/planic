@@ -6,8 +6,12 @@
 |--------|------|---------|
 | `NEXTAUTH_URL` | 앱의 canonical URL (운영 도메인 기준 고정). **코드에서 변경 금지.** | `https://www.planic.cloud` |
 | `NEXTAUTH_SECRET` | 세션 암호화용 시크릿. 32자 이상 권장. | `openssl rand -base64 32` 로 생성 |
-| `GOOGLE_CLIENT_ID` | Google Cloud Console > 사용자 인증 정보 > OAuth 2.0 클라이언트 ID | `123456-xxx.apps.googleusercontent.com` |
+| `GOOGLE_CLIENT_ID` | Google Cloud Console > 사용자 인증 정보 > OAuth 2.0 클라이언트 ID (플래닉 전용 권장) | `123456-xxx.apps.googleusercontent.com` |
 | `GOOGLE_CLIENT_SECRET` | 위 클라이언트의 비밀번호 | `GOCSPX-xxxxxxxx` |
+
+### 구글 로그인 화면에 예전 서비스명(예: 쿼닥)이 뜰 때
+
+- 표시 이름은 **OAuth 동의 화면의 앱 이름**에서 옵니다. [GOOGLE_OAUTH_PLANIC.md](./GOOGLE_OAUTH_PLANIC.md)에서 프로젝트 확인·플래닉 브랜딩·전용 Client ID 재발급 절차를 참고하세요.
 
 ## 로컬 개발
 
