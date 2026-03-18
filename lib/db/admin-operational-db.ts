@@ -33,6 +33,7 @@ export type AdminDashboardStats = {
   planPaymentShare: { planType: string; count: number; revenueKrw: number }[]
   recentPayments: { orderId: string; userId: string; planType: string; amount: number; approvedAt: string | null }[]
   recentPaymentFailures: { orderId: string; userId: string; status: string; updatedAt: string }[]
+  recentCanceledOrders: { orderId: string; userId: string; amount: number; updatedAt: string }[]
   recentWebhookCancels: number
   subscriptionsPaidCount: number
   subscriptionsActivePaid: number
@@ -69,6 +70,7 @@ export async function getAdminDashboardStats(): Promise<AdminDashboardStats> {
     planPaymentShare: [],
     recentPayments: [],
     recentPaymentFailures: [],
+    recentCanceledOrders: [],
     recentWebhookCancels: 0,
     subscriptionsPaidCount: 0,
     subscriptionsActivePaid: 0,
@@ -181,6 +183,13 @@ export async function getAdminDashboardStats(): Promise<AdminDashboardStats> {
     ORDER BY updated_at DESC
     LIMIT 15
   `
+  const recentCanceled = await sql`
+    SELECT order_id, user_id, amount, updated_at
+    FROM billing_orders
+    WHERE status = 'canceled'
+    ORDER BY updated_at DESC
+    LIMIT 15
+  `
   const planSubRows = await sql`
     SELECT plan_type, COUNT(*)::int AS c
     FROM subscriptions
@@ -252,6 +261,12 @@ export async function getAdminDashboardStats(): Promise<AdminDashboardStats> {
       orderId: String(r.order_id),
       userId: String(r.user_id),
       status: String(r.status),
+      updatedAt: new Date(r.updated_at as string).toISOString(),
+    })),
+    recentCanceledOrders: (recentCanceled as Record<string, unknown>[]).map((r) => ({
+      orderId: String(r.order_id),
+      userId: String(r.user_id),
+      amount: Number(r.amount),
       updatedAt: new Date(r.updated_at as string).toISOString(),
     })),
     recentWebhookCancels: (canceled30R[0] as { c: number })?.c ?? 0,

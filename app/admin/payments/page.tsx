@@ -20,6 +20,9 @@ type BillingStats = {
   revenueMonthKrw?: number
   paymentSuccessRateMonth?: number
   recentFailures?: { orderId: string; status: string; updatedAt: string }[]
+  refundsCount30d?: number
+  refundAmount30dKrw?: number
+  recentCanceledOrders?: { orderId: string; userId: string; amount: number; updatedAt: string }[]
 }
 
 export default function AdminPaymentsPage() {
@@ -64,6 +67,39 @@ export default function AdminPaymentsPage() {
             <p className="text-xs text-gray-500">실패 최근</p>
             <p className="font-mono text-[10px]">{(billing.recentFailures ?? []).slice(0, 2).map((f) => f.orderId).join(', ') || '—'}</p>
           </div>
+          <div className="p-3 rounded border bg-white">
+            <p className="text-xs text-gray-500">30일 환불/취소 건</p>
+            <p className="font-semibold">{billing.refundsCount30d ?? 0}</p>
+          </div>
+          <div className="p-3 rounded border bg-white">
+            <p className="text-xs text-gray-500">30일 환불 금액</p>
+            <p className="font-semibold">₩{(billing.refundAmount30dKrw ?? 0).toLocaleString()}</p>
+          </div>
+        </div>
+      )}
+      {billing?.recentCanceledOrders && billing.recentCanceledOrders.length > 0 && (
+        <div className="p-3 rounded-lg border border-amber-200 bg-amber-50/50 text-sm">
+          <p className="font-medium text-amber-900 mb-2">최근 환불/취소 내역</p>
+          <table className="w-full text-xs">
+            <thead>
+              <tr className="text-left text-gray-500">
+                <th className="p-1">주문번호</th>
+                <th className="p-1">사용자</th>
+                <th className="p-1 text-right">금액</th>
+                <th className="p-1">취소 시각</th>
+              </tr>
+            </thead>
+            <tbody>
+              {billing.recentCanceledOrders.slice(0, 10).map((c) => (
+                <tr key={c.orderId} className="border-t border-amber-100">
+                  <td className="p-1 font-mono">{c.orderId.slice(0, 20)}…</td>
+                  <td className="p-1 font-mono">{c.userId.slice(0, 12)}…</td>
+                  <td className="p-1 text-right tabular-nums">₩{c.amount.toLocaleString()}</td>
+                  <td className="p-1 text-gray-600">{new Date(c.updatedAt).toLocaleString('ko-KR')}</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
         </div>
       )}
       <p className="text-sm text-gray-600">

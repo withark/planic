@@ -26,6 +26,7 @@ export const ADMIN_NAV_GROUPS: {
     label: '비즈니스·정산',
     items: [
       { href: '/admin/payments', label: '결제 관리', desc: '토스 주문·웹훅' },
+      { href: '/admin/payment-test', label: '결제 테스트', desc: '체크리스트·연동 확인' },
       { href: '/admin/settlement', label: '정산 관리', desc: '기간별 매출' },
       { href: '/admin/ops-stats', label: '운영 통계', desc: '매출·전환' },
       { href: '/admin/usage', label: '사용통계', desc: '생성·탭·업로드' },

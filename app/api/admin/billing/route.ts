@@ -30,6 +30,7 @@ export async function GET(_req: NextRequest) {
       planPaymentShare: s.planPaymentShare,
       recentPayments: s.recentPayments,
       recentFailures: s.recentPaymentFailures,
+      recentCanceledOrders: s.recentCanceledOrders,
       recentCancels: s.recentWebhookCancels,
     })
   } catch {
