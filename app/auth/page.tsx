@@ -1,9 +1,7 @@
 import Link from 'next/link'
 import { redirect } from 'next/navigation'
 import { getServerSession } from 'next-auth/next'
-import { EvQuoteLogo } from '@/components/EvQuoteLogo'
-import { GoogleSignInButton } from '@/components/auth/GoogleSignInButton'
-import { AuthErrorAlert } from '@/components/auth/AuthErrorAlert'
+import { AuthLoginCard } from '@/components/auth/AuthLoginCard'
 import { isDevAuthEnabled } from '@/lib/auth-dev'
 import { sanitizeCallbackUrl } from '@/lib/auth-callback'
 import { authOptions } from '@/lib/auth'
@@ -36,154 +34,31 @@ export default async function AuthPage({
   }
 
   return (
-    <div
-      className={`min-h-screen flex flex-col ${
-        isSignupInduction
-          ? 'bg-gradient-to-b from-primary-50/80 via-white to-slate-50'
-          : 'bg-gradient-to-b from-slate-50 via-white to-primary-50/30'
-      }`}
-    >
-      <header className="flex-shrink-0 flex items-center justify-between px-6 py-4 border-b border-slate-100/80 bg-white/60 backdrop-blur-sm">
-        <Link href="/" className="flex items-center gap-2 text-gray-800 hover:text-primary-600 transition-colors">
-          <EvQuoteLogo showText size="md" />
+    <div className="min-h-screen flex flex-col bg-sky-50/90">
+      <header className="flex-shrink-0 flex justify-end px-4 py-3">
+        <Link href="/" className="text-xs text-slate-500 hover:text-primary-600 transition-colors">
+          홈
         </Link>
       </header>
 
-      <main className="flex-1 flex flex-col items-center justify-center px-6 py-12 sm:py-16">
-        {isSignupInduction ? (
-          <div className="w-full max-w-md space-y-6">
-            <div className="text-center space-y-1">
-              <p className="text-xs font-semibold uppercase tracking-wider text-primary-600">바로 시작하기</p>
-              <h1 className="text-2xl font-bold text-gray-900 tracking-tight">로그인하고 이어서 진행할게요</h1>
-              <p className="text-sm text-slate-500 pt-1">방금 누르신 기능은 계정이 있어야 이용할 수 있어요.</p>
-            </div>
-
-            <div className="rounded-2xl border-2 border-primary-200 bg-white p-5 shadow-sm shadow-primary-900/5 space-y-4">
-              <div className="flex gap-3">
-                <div
-                  className="flex-shrink-0 w-10 h-10 rounded-xl bg-primary-100 text-primary-700 flex items-center justify-center text-lg font-semibold"
-                  aria-hidden
-                >
-                  !
-                </div>
-                <div className="space-y-3 min-w-0">
-                  <p className="text-sm font-medium text-gray-900 leading-relaxed">
-                    바로 시작하기를 이용하려면 회원가입(로그인)이 필요해요. 가입/로그인 후 원래 가려던 페이지로
-                    이어서 이동합니다.
-                  </p>
-                  <ul className="text-xs text-slate-600 space-y-2 border-t border-slate-100 pt-3">
-                    <li className="flex gap-2">
-                      <span className="text-primary-500 font-bold">·</span>
-                      <span>견적·문서 만들기 등은 작업 내역을 저장하려면 로그인이 필요합니다.</span>
-                    </li>
-                    <li className="flex gap-2">
-                      <span className="text-primary-500 font-bold">·</span>
-                      <span>
-                        로그인(또는 가입)이 끝나면 <strong className="text-gray-800">견적 만들기 화면</strong>으로
-                        바로 돌아갑니다.
-                      </span>
-                    </li>
-                  </ul>
-                </div>
-              </div>
-            </div>
-
-            <AuthErrorAlert error={searchParams?.error} errorDescription={searchParams?.errorDescription} />
-
-            <div className="space-y-4">
-              <p className="text-center text-sm text-slate-600 leading-relaxed px-0.5">
-                같은 <strong className="text-gray-900">Google 계정</strong>으로 로그인과 회원가입이 이뤄져요.
-                <span className="block mt-1 text-slate-500 text-xs">
-                  버튼만 다를 뿐, 연결되는 화면은 동일하며 가입·로그인 후 바로 이어서 이용할 수 있어요.
-                </span>
-              </p>
-              <div className="flex flex-col gap-3">
-                <GoogleSignInButton
-                  intent="signup"
-                  callbackUrl={callbackUrl}
-                  aria-label="Google 계정으로 회원가입하기"
-                  className="btn-primary w-full min-h-[52px] py-4 rounded-xl text-base font-semibold shadow-sm"
-                >
-                  회원가입하기
-                </GoogleSignInButton>
-                <GoogleSignInButton
-                  intent="login"
-                  callbackUrl={callbackUrl}
-                  aria-label="Google 계정으로 로그인하기"
-                  className="w-full min-h-[52px] py-4 rounded-xl text-base font-semibold border-2 border-slate-300 bg-white text-gray-800 hover:bg-slate-50 hover:border-slate-400 transition-colors"
-                >
-                  로그인하기
-                </GoogleSignInButton>
-              </div>
-              {devEnabled && (
-                <Link
-                  href={`/api/auth/signin?callbackUrl=${encodeURIComponent(callbackUrl)}`}
-                  className="w-full inline-flex items-center justify-center min-h-[48px] py-3 rounded-xl text-sm font-semibold border border-slate-200 text-gray-700 hover:bg-slate-50"
-                >
-                  개발용 로그인(자격 증명)
-                </Link>
-              )}
-            </div>
-
-            <p className="text-center text-xs text-slate-400">
-              로그인하면 서비스 이용약관 및 개인정보 처리방침에 동의한 것으로 봅니다.
-            </p>
-          </div>
-        ) : (
-          <div className="w-full max-w-sm space-y-8">
-            <div className="text-center space-y-2">
-              <h1 className="text-xl font-semibold text-gray-900">로그인</h1>
-              <p className="text-sm text-gray-500">소셜 계정으로 계속하기</p>
-            </div>
-
-            {reason === 'login_required' && (
-              <div className="rounded-xl border border-amber-200 bg-amber-50 px-3 py-2 text-xs text-amber-800">
-                해당 기능은 로그인 후 이용할 수 있어요. 로그인하면 원래 가려던 페이지로 이어서 이동합니다.
-              </div>
-            )}
-
-            <AuthErrorAlert error={searchParams?.error} errorDescription={searchParams?.errorDescription} />
-
-            <div className="space-y-4">
-              <p className="text-center text-sm text-slate-600 leading-relaxed">
-                <strong className="text-gray-900">Google 계정</strong>으로 간편하게 로그인·가입할 수 있어요.
-                <span className="block mt-1 text-slate-500 text-xs">
-                  처음이시면 회원가입, 기존 회원이시면 로그인을 눌러 주세요. (둘 다 Google로 연결됩니다)
-                </span>
-              </p>
-              <div className="flex flex-col gap-3">
-                <GoogleSignInButton
-                  intent="signup"
-                  callbackUrl={callbackUrl}
-                  aria-label="Google 계정으로 회원가입하기"
-                  className="btn-primary w-full min-h-[52px] py-4 rounded-xl text-base font-semibold"
-                >
-                  회원가입하기
-                </GoogleSignInButton>
-                <GoogleSignInButton
-                  intent="login"
-                  callbackUrl={callbackUrl}
-                  aria-label="Google 계정으로 로그인하기"
-                  className="w-full min-h-[52px] py-4 rounded-xl text-base font-semibold border-2 border-slate-300 bg-white text-gray-800 hover:bg-slate-50 hover:border-slate-400 transition-colors"
-                >
-                  로그인하기
-                </GoogleSignInButton>
-              </div>
-              {devEnabled && (
-                <Link
-                  href={`/api/auth/signin?callbackUrl=${encodeURIComponent(callbackUrl)}`}
-                  className="w-full inline-flex items-center justify-center min-h-[48px] py-3 rounded-xl text-sm font-semibold border border-slate-200 text-gray-700 hover:bg-slate-50"
-                >
-                  개발용 로그인(자격 증명)
-                </Link>
-              )}
-            </div>
-
-            <p className="text-center text-xs text-gray-400">
-              로그인하면 서비스 이용약관 및 개인정보 처리방침에 동의한 것으로 봅니다.
-            </p>
-          </div>
-        )}
+      <main className="flex-1 flex flex-col items-center justify-center px-5 pb-16 pt-4">
+        <AuthLoginCard
+          callbackUrl={callbackUrl}
+          defaultTab={isSignupInduction ? 'signup' : 'login'}
+          error={searchParams?.error}
+          errorDescription={searchParams?.errorDescription}
+          devEnabled={devEnabled}
+          hint={
+            isSignupInduction
+              ? '바로 시작하기 — 가입·로그인 후 견적 만들기 화면으로 돌아가요.'
+              : undefined
+          }
+          loginRequiredNote={
+            reason === 'login_required'
+              ? '이 페이지는 로그인 후 이용할 수 있어요. 로그인하면 원래 화면으로 이동합니다.'
+              : undefined
+          }
+        />
       </main>
     </div>
   )
