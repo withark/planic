@@ -379,7 +379,7 @@ export default function InputForm({ onGenerated, onLoadingChange, onStatusChange
             <div className="min-w-0">
               <p className="text-xs font-semibold text-gray-800">과업지시서 기반 기본 견적서(빠른 생성)</p>
               <p className="text-[11px] text-gray-500 mt-1">
-                업로드된 과업지시서 요약을 우선 반영해서 견적서와 타임테이블만 빠르게 생성합니다.
+                참고 자료에서 만든 과업지시서 요약을 자동 반영해서, 견적서와 타임테이블만 빠르게 생성합니다.
               </p>
             </div>
           </label>
