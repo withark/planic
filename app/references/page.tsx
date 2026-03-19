@@ -45,9 +45,16 @@ export default function ReferencesPage() {
 
   // 서버리스 요청 body 한계(예: Vercel 4.5MB) 이하로 제한
   const MAX_UPLOAD_BYTES = 4 * 1024 * 1024 // 4MB
+  const ALLOWED_REFERENCE_EXTENSIONS = new Set(['txt', 'csv', 'md', 'pdf', 'xlsx', 'xls', 'ppt', 'pptx', 'doc', 'docx'])
   function checkFileSize(file: File): boolean {
     if (file.size <= MAX_UPLOAD_BYTES) return true
     showToast('파일이 너무 큽니다. 4MB 이하로 압축하거나, 불필요한 이미지를 줄인 뒤 다시 올려 주세요.', 'err')
+    return false
+  }
+  function checkReferenceFileType(file: File): boolean {
+    const ext = (file.name.split('.').pop() || '').toLowerCase()
+    if (ext && ALLOWED_REFERENCE_EXTENSIONS.has(ext)) return true
+    showToast('지원하지 않는 파일 형식입니다. 확장자를 확인해 주세요.', 'err')
     return false
   }
 
@@ -80,6 +87,7 @@ export default function ReferencesPage() {
   async function upload(file: File) {
     if (!file) return
     if (!checkFileSize(file)) return
+    if (!checkReferenceFileType(file)) return
     setUploading(true)
     const fd = new FormData(); fd.append('file', file)
     try {
@@ -111,6 +119,7 @@ export default function ReferencesPage() {
   async function uploadScenario(file: File) {
     if (!file) return
     if (!checkFileSize(file)) return
+    if (!checkReferenceFileType(file)) return
     setScenarioUploading(true)
     const fd = new FormData(); fd.append('file', file)
     try {
@@ -137,6 +146,7 @@ export default function ReferencesPage() {
   async function uploadTaskOrder(file: File) {
     if (!file) return
     if (!checkFileSize(file)) return
+    if (!checkReferenceFileType(file)) return
     setTaskOrderUploading(true)
     const fd = new FormData(); fd.append('file', file)
     try {
