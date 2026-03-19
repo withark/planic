@@ -16,11 +16,13 @@ import { normalizeTemplateForPlan } from '@/lib/plan-entitlements'
 import { getUserPrices } from '@/lib/db/prices-db'
 import { listReferenceDocs } from '@/lib/db/reference-docs-db'
 import { listTaskOrderRefs } from '@/lib/db/task-order-refs-db'
+import { insertGeneratedDoc } from '@/lib/db/generated-docs-db'
 import { insertGenerationRun } from '@/lib/db/generation-runs-db'
 import { kvGet } from '@/lib/db/kv'
 import type { EngineConfigOverlay } from '@/lib/admin-types'
 import { normalizeQuoteDoc } from '@/lib/ai/parsers'
 import type { QuoteDoc } from '@/lib/types'
+import { listScenarioRefs } from '@/lib/db/scenario-refs-db'
 import { hasDatabase } from '@/lib/db/client'
 import { getEffectiveEngineConfig } from '@/lib/ai/client'
 
@@ -43,11 +45,13 @@ const GenerateRequestSchema = z.object({
   generationMode: z.enum(['normal', 'taskOrderBase']).optional().default('normal'),
   taskOrderBaseId: z.string().optional().default(''),
   documentTarget: z
-    .enum(['estimate', 'program', 'timetable', 'planning', 'scenario'])
+    .enum(['estimate', 'program', 'timetable', 'planning', 'scenario', 'cuesheet'])
     .optional()
     .default('estimate'),
   styleMode: z.enum(['userStyle', 'aiTemplate']).optional().default('userStyle'),
   existingDoc: z.any().optional(),
+  /** scenario 생성 시 참고할 시나리오 샘플 ID */
+  scenarioRefIds: z.array(z.string()).optional().default([]),
 })
 
 export async function POST(req: NextRequest) {
@@ -72,6 +76,7 @@ export async function POST(req: NextRequest) {
       )
     }
     const body = parsed.data
+    const scenarioRefIds = (body.scenarioRefIds || []).filter(Boolean)
 
     const env = getEnv()
     const isMockAi = (process.env.AI_MODE || '').trim().toLowerCase() === 'mock'
@@ -95,7 +100,7 @@ export async function POST(req: NextRequest) {
     const styleMode = body.styleMode
     const existingDoc = body.existingDoc as QuoteDoc | undefined
     const taskOrderBaseId = (body.taskOrderBaseId || '').trim() || undefined
-    const [prices, settings, references, taskOrderRefs, engineOverlay] =
+    const [prices, settings, references, taskOrderRefs, scenarioRefs, engineOverlay] =
       await Promise.all([
         getUserPrices(userId),
         (async () => {
@@ -104,6 +109,9 @@ export async function POST(req: NextRequest) {
         })(),
         styleMode === 'userStyle' ? listReferenceDocs(userId) : Promise.resolve([]),
         listTaskOrderRefs(userId),
+        documentTarget === 'scenario' && scenarioRefIds.length
+          ? listScenarioRefs(userId).then(list => list.filter(r => scenarioRefIds.includes(r.id)))
+          : Promise.resolve([]),
         hasDatabase()
           ? kvGet<EngineConfigOverlay | null>('engine_config', null).catch(() => null as EngineConfigOverlay | null)
           : Promise.resolve(null as EngineConfigOverlay | null),
@@ -152,12 +160,16 @@ export async function POST(req: NextRequest) {
       return errorResponse(400, 'INVALID_EXISTING_DOC', '문서 타깃이 estimate가 아니면 existingDoc이 필요합니다.')
     }
 
+    const bodyWithoutScenarioRefIds = { ...body } as any
+    delete bodyWithoutScenarioRefIds.scenarioRefIds
+
     const input: GenerateInput = {
-      ...body,
+      ...bodyWithoutScenarioRefIds,
       prices,
       settings,
       references,
       taskOrderRefs: filteredTaskOrderRefs,
+      scenarioRefs,
       engineQuality,
       documentTarget,
       styleMode,
@@ -169,23 +181,29 @@ export async function POST(req: NextRequest) {
     try {
       doc = await generateQuote(input)
     } catch (genErr) {
-      if (documentTarget === 'estimate') {
-        await insertGenerationRun({
-          userId,
-          quoteId: null,
-          success: false,
-          errorMessage: genErr instanceof Error ? genErr.message : String(genErr),
-          sampleId: appliedSampleId,
-          sampleFilename: appliedSampleFilename,
-          cuesheetApplied,
-          engineSnapshot,
-        }).catch(() => {})
-      }
+      await insertGenerationRun({
+        userId,
+        quoteId: null,
+        success: false,
+        errorMessage: genErr instanceof Error ? genErr.message : String(genErr),
+        sampleId: appliedSampleId,
+        sampleFilename: appliedSampleFilename,
+        cuesheetApplied,
+        engineSnapshot,
+      }).catch(() => {})
       throw genErr
     }
     ;(doc as QuoteDoc).quoteTemplate = normalizeTemplateForPlan(plan, (doc as QuoteDoc).quoteTemplate as any)
 
     const totals = calcTotals(doc)
+
+    // 문서별 생성 결과를 각각 저장(재사용 컨텍스트 제공)
+    await insertGeneratedDoc({
+      userId,
+      id: quoteId,
+      docType: documentTarget as any,
+      doc,
+    }).catch(() => {})
 
     if (documentTarget === 'estimate') {
       await quotesDbAppend(
@@ -212,16 +230,17 @@ export async function POST(req: NextRequest) {
       )
 
       await incQuoteGenerated(userId, 1)
-      await insertGenerationRun({
-        userId,
-        quoteId,
-        success: true,
-        sampleId: appliedSampleId,
-        sampleFilename: appliedSampleFilename,
-        cuesheetApplied,
-        engineSnapshot,
-      }).catch(() => {})
     }
+
+    await insertGenerationRun({
+      userId,
+      quoteId,
+      success: true,
+      sampleId: appliedSampleId,
+      sampleFilename: appliedSampleFilename,
+      cuesheetApplied,
+      engineSnapshot,
+    }).catch(() => {})
 
     return okResponse({ doc, totals })
   } catch (e) {

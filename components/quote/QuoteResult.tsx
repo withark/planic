@@ -44,6 +44,16 @@ interface Props {
   onLoadPrevious?: () => void
   onGenerateTab?: (tab: DocTab) => void | Promise<void>
   generatingTabs?: Partial<Record<DocTab, boolean>>
+  /** 문서별 페이지에서 특정 탭만 보여주기 (예: estimate 페이지는 estimate만) */
+  visibleTabs?: DocTab[]
+  /** 탭 초기값 (visibleTabs에 없으면 'estimate'로 폴백) */
+  initialTab?: DocTab
+  /** 탭 버튼 자체를 숨기기 (문서별 페이지 UX) */
+  showTabButtons?: boolean
+  /** 탭 변경 시 자동 생성(useEffect) 비활성화 */
+  disableAutoGenerate?: boolean
+  /** 현재 문서 흐름 UX에 맞지 않는 "on demand 생성 버튼"을 숨김 */
+  hideOnDemandGenerate?: boolean
 }
 
 function isProgramProposalReady(doc: QuoteDoc) {
@@ -75,8 +85,14 @@ export function QuoteResult({
   onLoadPrevious,
   onGenerateTab,
   generatingTabs = {},
+  visibleTabs = ['estimate', 'program', 'timetable', 'planning', 'scenario'],
+  initialTab = 'estimate',
+  showTabButtons = true,
+  disableAutoGenerate = false,
+  hideOnDemandGenerate = false,
 }: Props) {
-  const [tab, setTab] = useState<DocTab>('estimate')
+  const initial = visibleTabs.includes(initialTab) ? initialTab : 'estimate'
+  const [tab, setTab] = useState<DocTab>(initial)
   const [openPriceForKind, setOpenPriceForKind] = useState<QuoteItemKind | null>(null)
   const priceDropdownRef = useRef<HTMLDivElement>(null)
   const totals = calcTotals(doc)
@@ -85,6 +101,7 @@ export function QuoteResult({
   const requestedTabsRef = useRef<Set<DocTab>>(new Set())
 
   useEffect(() => {
+    if (disableAutoGenerate) return
     if (!onGenerateTab) return
     if (requestedTabsRef.current.has(tab)) return
     if (generatingTabs[tab]) return
@@ -99,7 +116,7 @@ export function QuoteResult({
       requestedTabsRef.current.add(tab)
       void onGenerateTab(tab)
     }
-  }, [tab, doc, onGenerateTab, generatingTabs])
+  }, [tab, doc, onGenerateTab, generatingTabs, disableAutoGenerate])
 
   useEffect(() => {
     if (!openPriceForKind) return
@@ -177,26 +194,30 @@ export function QuoteResult({
   return (
     <div className="flex flex-col h-full overflow-hidden">
       <div className="flex items-center justify-between border-b border-slate-200/80 px-4 flex-shrink-0 bg-white shadow-sm">
-        <div className="flex gap-1 py-2 flex-wrap">
-          {[
-            { id: 'estimate' as DocTab, label: '견적서' },
-            { id: 'program' as DocTab, label: '프로그램 제안' },
-            { id: 'timetable' as DocTab, label: '타임테이블' },
-            { id: 'planning' as DocTab, label: '기획 문서' },
-            { id: 'scenario' as DocTab, label: '시나리오' },
-          ].map(({ id, label }) => (
-            <button
-              key={id}
-              onClick={() => setTab(id)}
-              className={clsx(
-                'px-4 py-2 text-sm font-medium rounded-lg transition-all',
-                id === tab ? 'bg-primary-100 text-primary-700 shadow-sm' : 'text-slate-500 hover:bg-slate-100 hover:text-slate-700',
-              )}
-            >
-              {label}
-            </button>
-          ))}
-        </div>
+        {showTabButtons && (
+          <div className="flex gap-1 py-2 flex-wrap">
+            {visibleTabs.map((id) => {
+              const label =
+                id === 'estimate' ? '견적서' :
+                id === 'program' ? '프로그램 제안' :
+                id === 'timetable' ? '타임테이블' :
+                id === 'planning' ? '기획 문서' :
+                '시나리오'
+              return (
+                <button
+                  key={id}
+                  onClick={() => setTab(id)}
+                  className={clsx(
+                    'px-4 py-2 text-sm font-medium rounded-lg transition-all',
+                    id === tab ? 'bg-primary-100 text-primary-700 shadow-sm' : 'text-slate-500 hover:bg-slate-100 hover:text-slate-700',
+                  )}
+                >
+                  {label}
+                </button>
+              )
+            })}
+          </div>
+        )}
         <div className="flex gap-2 py-2 flex-wrap items-center">
           {tab === 'estimate' && (
             <span className="flex items-center gap-1.5">
@@ -464,9 +485,11 @@ export function QuoteResult({
             {!isProgramProposalReady(doc) ? (
               <div className="bg-gray-50 border border-gray-200 rounded-2xl p-4 text-sm text-gray-600 space-y-2">
                 <p className="text-xs text-gray-500">아직 생성되지 않았습니다.</p>
-                <Button size="sm" variant="primary" onClick={() => onGenerateTab?.('program')} disabled={!!generatingTabs.program}>
-                  {generatingTabs.program ? '프로그램 생성 중...' : 'Generate Program Proposal'}
-                </Button>
+                {!hideOnDemandGenerate && (
+                  <Button size="sm" variant="primary" onClick={() => onGenerateTab?.('program')} disabled={!!generatingTabs.program}>
+                    {generatingTabs.program ? '프로그램 생성 중...' : 'Generate Program Proposal'}
+                  </Button>
+                )}
               </div>
             ) : (
               <>
@@ -522,6 +545,122 @@ export function QuoteResult({
                 </div>
               </>
             )}
+
+            {/* 큐시트(운영표) — 프로그램 내부의 cueRows/cueSummary를 화면에 표시 */}
+            <div className="bg-gray-50 rounded-xl p-3">
+              <div className="text-[10px] text-gray-500 font-semibold mb-2">큐시트 요약</div>
+              <textarea
+                value={d.program.cueSummary || ''}
+                rows={2}
+                onChange={e => patchDoc(base => { base.program.cueSummary = e.target.value; return base })}
+                className="w-full bg-white border border-gray-200 rounded-lg p-2 text-xs resize-none"
+                placeholder="큐시트가 생성되면 자동으로 채워집니다."
+              />
+
+              <div className="mt-3">
+                <div className="text-[10px] text-gray-500 font-semibold mb-2">큐시트 행</div>
+                {Array.isArray(d.program.cueRows) && d.program.cueRows.length > 0 ? (
+                  <div className="overflow-x-auto">
+                    <table className="w-full text-xs border-collapse border border-gray-200">
+                      <thead>
+                        <tr className="bg-gray-100">
+                          {['시간', '순서', '내용', '담당', '준비', '스크립트', '특이사항', ''].map(h => (
+                            <th key={h} className="border border-gray-200 px-2 py-2 text-left">{h}</th>
+                          ))}
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {d.program.cueRows.map((row, i) => (
+                          <tr key={`cr-${i}-${row.content}`} className="border-b border-gray-100">
+                            <td className="border border-gray-100 p-1">
+                              <input
+                                value={row.time}
+                                onChange={e => patchDoc(base => { base.program.cueRows[i].time = e.target.value; return base })}
+                                className="w-20 font-mono tabular-nums bg-amber-50/50 rounded px-1"
+                                placeholder="19:00"
+                              />
+                            </td>
+                            <td className="border border-gray-100 p-1">
+                              <span className="inline-block w-10 text-center text-gray-500">{row.order || String(i + 1)}</span>
+                            </td>
+                            <td className="border border-gray-100 p-1 min-w-[180px]">
+                              <input
+                                value={row.content}
+                                onChange={e => patchDoc(base => { base.program.cueRows[i].content = e.target.value; return base })}
+                                className="w-full bg-white border border-gray-200 rounded px-1"
+                              />
+                            </td>
+                            <td className="border border-gray-100 p-1 min-w-[120px]">
+                              <input
+                                value={row.staff}
+                                onChange={e => patchDoc(base => { base.program.cueRows[i].staff = e.target.value; return base })}
+                                className="w-full bg-white border border-gray-200 rounded px-1"
+                              />
+                            </td>
+                            <td className="border border-gray-100 p-1 min-w-[120px]">
+                              <input
+                                value={row.prep}
+                                onChange={e => patchDoc(base => { base.program.cueRows[i].prep = e.target.value; return base })}
+                                className="w-full bg-white border border-gray-200 rounded px-1"
+                              />
+                            </td>
+                            <td className="border border-gray-100 p-1 min-w-[180px]">
+                              <input
+                                value={row.script}
+                                onChange={e => patchDoc(base => { base.program.cueRows[i].script = e.target.value; return base })}
+                                className="w-full bg-white border border-gray-200 rounded px-1"
+                              />
+                            </td>
+                            <td className="border border-gray-100 p-1 min-w-[160px]">
+                              <input
+                                value={row.special}
+                                onChange={e => patchDoc(base => { base.program.cueRows[i].special = e.target.value; return base })}
+                                className="w-full bg-white border border-gray-200 rounded px-1"
+                              />
+                            </td>
+                            <td className="border border-gray-100 p-1 w-7">
+                              <button
+                                type="button"
+                                className="text-red-400"
+                                onClick={() => patchDoc(base => { base.program.cueRows.splice(i, 1); return base })}
+                              >
+                                ✕
+                              </button>
+                            </td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  </div>
+                ) : (
+                  <div className="bg-white border border-dashed border-gray-200 rounded-xl p-4 text-sm text-gray-600">
+                    아직 큐시트가 생성되지 않았습니다.
+                  </div>
+                )}
+
+                <div className="flex justify-end mt-3">
+                  <Button
+                    size="sm"
+                    onClick={() =>
+                      patchDoc(base => {
+                        base.program.cueRows.push({
+                          time: '',
+                          order: String(base.program.cueRows.length + 1),
+                          content: '',
+                          staff: '',
+                          prep: '',
+                          script: '',
+                          special: '',
+                        })
+                        return base
+                      })
+                    }
+                  >
+                    + 큐시트 행 추가
+                  </Button>
+                </div>
+              </div>
+            </div>
           </div>
         )}
 
@@ -532,9 +671,11 @@ export function QuoteResult({
             {!isTimetableReady(doc) ? (
               <div className="bg-gray-50 border border-gray-200 rounded-2xl p-4 text-sm text-gray-600 space-y-2">
                 <p className="text-xs text-gray-500">아직 생성되지 않았습니다.</p>
-                <Button size="sm" variant="primary" onClick={() => onGenerateTab?.('timetable')} disabled={!!generatingTabs.timetable}>
-                  {generatingTabs.timetable ? '타임테이블 생성 중...' : 'Generate Timetable'}
-                </Button>
+                {!hideOnDemandGenerate && (
+                  <Button size="sm" variant="primary" onClick={() => onGenerateTab?.('timetable')} disabled={!!generatingTabs.timetable}>
+                    {generatingTabs.timetable ? '타임테이블 생성 중...' : 'Generate Timetable'}
+                  </Button>
+                )}
               </div>
             ) : (
               <>
@@ -587,9 +728,11 @@ export function QuoteResult({
             {!isPlanningReady(doc) ? (
               <div className="bg-gray-50 border border-gray-200 rounded-2xl p-4 text-sm text-gray-600 space-y-2">
                 <p className="text-xs text-gray-500">아직 생성되지 않았습니다.</p>
-                <Button size="sm" variant="primary" onClick={() => onGenerateTab?.('planning')} disabled={!!generatingTabs.planning}>
-                  {generatingTabs.planning ? '기획 문서 생성 중...' : 'Generate Planning Document'}
-                </Button>
+                {!hideOnDemandGenerate && (
+                  <Button size="sm" variant="primary" onClick={() => onGenerateTab?.('planning')} disabled={!!generatingTabs.planning}>
+                    {generatingTabs.planning ? '기획 문서 생성 중...' : 'Generate Planning Document'}
+                  </Button>
+                )}
               </div>
             ) : (
               (() => {
@@ -634,9 +777,11 @@ export function QuoteResult({
             {!isScenarioReady(doc) ? (
               <div className="bg-gray-50 border border-gray-200 rounded-2xl p-4 text-sm text-gray-600 space-y-2">
                 <p className="text-xs text-gray-500">아직 생성되지 않았습니다.</p>
-                <Button size="sm" variant="primary" onClick={() => onGenerateTab?.('scenario')} disabled={!!generatingTabs.scenario}>
-                  {generatingTabs.scenario ? '시나리오 생성 중...' : 'Generate Scenario'}
-                </Button>
+                {!hideOnDemandGenerate && (
+                  <Button size="sm" variant="primary" onClick={() => onGenerateTab?.('scenario')} disabled={!!generatingTabs.scenario}>
+                    {generatingTabs.scenario ? '시나리오 생성 중...' : 'Generate Scenario'}
+                  </Button>
+                )}
               </div>
             ) : (
               (() => {

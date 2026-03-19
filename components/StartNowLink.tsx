@@ -4,7 +4,7 @@ import Link from 'next/link'
 import { useSession } from 'next-auth/react'
 import { buildStartHref } from '@/lib/auth-redirect'
 
-const TARGET = '/generate'
+const TARGET = '/estimate-generator'
 
 type Props = {
   className?: string
@@ -13,7 +13,7 @@ type Props = {
   initialHref?: string
 }
 
-/** 비로그인: /auth?callbackUrl=/generate&reason=signup_required · 로그인됨: /generate */
+/** 비로그인: /auth?callbackUrl=/estimate-generator&reason=signup_required · 로그인됨: /estimate-generator */
 export function StartNowLink({ className, children, variant = 'cta', initialHref }: Props) {
   const { data: session, status } = useSession()
   const isAuth = !!session?.user

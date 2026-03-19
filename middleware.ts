@@ -5,7 +5,23 @@ import { resolveNextAuthSecret } from '@/lib/nextauth-secret'
 import { planicProductionSharedCookie, PLANIC_SESSION_COOKIE_NAME } from '@/lib/planic-auth-env'
 
 const ADMIN_COOKIE_NAME = 'planic_admin'
-const PROTECTED_PREFIXES = ['/generate', '/settings', '/history', '/references', '/prices', '/dashboard', '/billing']
+const PROTECTED_PREFIXES = [
+  '/estimate-generator',
+  '/planning-generator',
+  '/program-proposal-generator',
+  '/scenario-generator',
+  '/cue-sheet-generator',
+  '/task-order-summary',
+  '/reference-estimate',
+  '/settings',
+  '/history',
+  '/prices',
+  // legacy routes (direct access 보호)
+  '/generate',
+  '/references',
+  '/dashboard',
+  '/billing',
+]
 
 /**
  * /admin 이하 경로는 관리자 쿠키가 있을 때만 접근 허용.
@@ -60,8 +76,10 @@ export function middleware(request: NextRequest) {
     const callbackUrl = request.nextUrl.pathname + request.nextUrl.search
     url.pathname = '/auth'
     url.searchParams.set('callbackUrl', callbackUrl)
-    // /generate 접근은 "회원가입(로그인) 필요"로 안내, 그 외는 일반 로그인 안내
-    const reason = pathname === '/generate' || pathname.startsWith('/generate/')
+    // estimate-generator 접근은 "회원가입(로그인) 필요"로 안내, 그 외는 일반 로그인 안내
+    const reason =
+      pathname === '/estimate-generator' || pathname.startsWith('/estimate-generator/')
+      || pathname === '/generate' || pathname.startsWith('/generate/')
       ? 'signup_required'
       : 'login_required'
     url.searchParams.set('reason', reason)

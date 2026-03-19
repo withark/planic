@@ -4,6 +4,7 @@ const KV_KEYS = {
   settings: 'settings',
   prices: 'prices',
   references: 'references',
+  estimateStyleMode: 'estimate_style_mode',
   scenarioRefs: 'scenario_refs',
   taskOrderRefs: 'task_order_refs',
   cuesheetSamples: 'cuesheet_samples',

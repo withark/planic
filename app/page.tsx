@@ -9,7 +9,7 @@ export const dynamic = 'force-dynamic'
 
 export default async function IntroPage() {
   const session = await getServerSession(authOptions)
-  const initialStartHref = buildStartHref({ isAuthenticated: !!session, targetPath: '/generate' })
+  const initialStartHref = buildStartHref({ isAuthenticated: !!session, targetPath: '/estimate-generator' })
 
   return (
     <div className="min-h-screen flex flex-col bg-gradient-to-b from-slate-50 via-white to-primary-50/30">
@@ -33,7 +33,7 @@ export default async function IntroPage() {
         <div className="max-w-2xl mx-auto space-y-8">
           <EvQuoteLogo showText size="lg" className="justify-center mx-auto" />
           <p className="text-slate-500 text-lg">
-            행사 견적서, 제안 프로그램, 타임테이블, 큐시트를 한 번에.
+            이벤트 문서를 문서별 도구에서 독립 생성합니다.
             <br />
             <span className="text-gray-700 font-medium">AI가 만들어 드립니다.</span>
           </p>
@@ -69,7 +69,7 @@ export default async function IntroPage() {
       </main>
 
       <footer className="flex-shrink-0 py-6 text-center text-xs text-slate-400">
-        플래닉 Planic · 행사 문서 올인원
+        플래닉 Planic · 이벤트 문서 생성 도구
       </footer>
     </div>
   )

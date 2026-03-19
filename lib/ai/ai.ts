@@ -34,6 +34,11 @@ function buildRetrySuffix(target: GenerateInput['documentTarget']): string {
 
 [재시도 지시] markdown·설명 없이 완전한 단일 JSON 객체만 출력하세요. planning.overview와 checklist는 비어 있으면 안 됩니다(빈 배열/빈 문자열 허용 X).`
   }
+  if (t === 'cuesheet') {
+    return `
+
+[재시도 지시] markdown·설명 없이 완전한 단일 JSON 객체만 출력하세요. program.cueSummary는 비어 있으면 안 됩니다. program.cueRows는 비어 있으면 안 됩니다.`
+  }
   return `
 
 [재시도 지시] markdown·설명 없이 완전한 단일 JSON 객체만 출력하세요. scenario.summaryTop은 비어 있으면 안 됩니다.`

@@ -45,6 +45,15 @@ export function buildReferenceContext(refs: GenerateInput['references']): string
   return lines.join('\n')
 }
 
+export function buildScenarioRefContext(refs: GenerateInput['scenarioRefs']): string {
+  if (!refs || refs.length === 0) return ''
+  const lines = ['\n[시나리오 참고 샘플 — 톤/연출 흐름/구성 포인트]']
+  refs.slice(0, 3).forEach(r => {
+    lines.push(`\n▸ ${r.filename}\n- 요약: ${r.summary || ''}`)
+  })
+  return lines.join('\n')
+}
+
 export function buildTaskOrderContext(refs: NonNullable<GenerateInput['taskOrderRefs']>): string {
   if (!refs.length) return ''
   const lines = ['\n[과업지시서 요약 컨텍스트 — 견적서/범위/운영 조건 반영]']
@@ -80,6 +89,7 @@ export function buildTaskOrderContext(refs: NonNullable<GenerateInput['taskOrder
 export function buildGeneratePrompt(input: GenerateInput): string {
   const priceCtx = buildPriceContext(input.prices)
   const refCtx = input.styleMode === 'userStyle' ? buildReferenceContext(input.references) : ''
+  const scenarioRefCtx = input.documentTarget === 'scenario' ? buildScenarioRefContext(input.scenarioRefs) : ''
   const taskOrderCtx = input.taskOrderRefs?.length ? buildTaskOrderContext(input.taskOrderRefs) : ''
   const { expenseRate, profitRate, validDays, paymentTerms } = input.settings
 
@@ -91,10 +101,12 @@ export function buildGeneratePrompt(input: GenerateInput): string {
       ? `\n[타임테이블 절대 규칙] start=${start}, end=${end} (24시간 표기). program.timeline의 time은 반드시 start~end 범위의 현실적인 HH:mm만 사용. 첫 일정은 start 근처, 마지막 일정은 end 근처.`
       : `\n[타임테이블] eventDuration(${input.eventDuration})에 맞춰 현실적인 HH:mm 흐름으로 구성.`
 
-  const styleRule =
+  const styleRuleBase =
     input.styleMode === 'aiTemplate'
       ? `\n[스타일 모드] AI 추천 템플릿 모드: 사용자 참고 견적서 스타일을 참조하지 말고 Planic 표준 스타일(명확한 섹션/문장 톤/실무형)을 따르세요.`
       : `\n[스타일 모드] 사용자 학습 스타일 모드: 참고 견적서 학습 자료의 네이밍/카테고리 순서/문체를 그대로 따르세요.`
+  // scenarioRefCtx는 scenario 생성 시에만 의미가 있습니다.
+  const styleRule = `${scenarioRefCtx}${styleRuleBase}`
 
   const existingDocJson = input.existingDoc ? JSON.stringify(input.existingDoc).slice(0, 12000) : null
 
@@ -108,6 +120,9 @@ export function buildGeneratePrompt(input: GenerateInput): string {
           : target === 'planning'
             ? `\n[생성 목표] 기획 문서(Planning Document)만 생성/수정하세요.\n- existingDoc의 견적/프로그램/타임테이블/시나리오는 그대로 유지.\n- planning(overview/scope/approach/operationPlan/deliverablesPlan/staffingConditions/risksAndCautions/checklist)만 촘촘하게 작성.`
               + `\n- 반환 JSON에서 planning은 반드시 객체로 채워야 하며 null이 아니어야 합니다.`
+              : target === 'cuesheet'
+                ? `\n[생성 목표] 큐시트(Cue Sheet)만 생성/수정하세요.\n- existingDoc의 견적/프로그램/타임테이블/시나리오는 그대로 유지.\n- program.cueSummary와 program.cueRows만 생성하세요.\n- program.cueRows의 각 row(time/order/content/staff/script/special/staff/prep)는 반드시 채우세요.\n- program.timeline이 있으면 cueRows의 time과 구간 순서는 timeline을 기준으로 현실적으로 맞추세요.`
+                + `\n- 반환 JSON에서 program.cueRows는 반드시 배열로 채워야 하며 비어 있으면 안 됩니다.`
             : `\n[생성 목표] 시나리오(Scenario)만 생성/수정하세요.\n- existingDoc의 견적/프로그램/타임테이블/기획 문서는 그대로 유지.\n- scenario(summaryTop/opening/development/mainPoints/closing/directionNotes)를 현실적인 문장으로 작성하세요.`
               + `\n- 반환 JSON에서 scenario는 반드시 객체로 채워야 하며 null이 아니어야 합니다.`
 

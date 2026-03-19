@@ -89,7 +89,7 @@ function DashboardContent() {
                 지금 바로 첫 견적을 만들거나, 기업정보를 저장해 두면 PDF/Excel 출력이 훨씬 빨라져요.
               </p>
               <div className="mt-3 flex flex-wrap gap-2">
-                <Link href="/generate" className="btn-primary px-4 py-2 text-xs font-semibold rounded-xl">첫 견적 만들기</Link>
+                <Link href="/estimate-generator" className="btn-primary px-4 py-2 text-xs font-semibold rounded-xl">첫 견적 만들기</Link>
                 <Link href="/settings" className="px-4 py-2 text-xs font-semibold rounded-xl border border-gray-200 bg-white hover:bg-gray-50">
                   기업정보 등록하기
                 </Link>
@@ -121,9 +121,9 @@ function DashboardContent() {
           <section className="bg-white border border-gray-100 rounded-2xl p-5 shadow-card">
             <h2 className="text-sm font-semibold text-gray-900">다음 단계</h2>
             <div className="mt-3 grid grid-cols-1 sm:grid-cols-3 gap-2">
-              <Link href="/generate" className="rounded-xl border border-gray-100 bg-gray-50 hover:bg-gray-100 px-3 py-3">
+              <Link href="/estimate-generator" className="rounded-xl border border-gray-100 bg-gray-50 hover:bg-gray-100 px-3 py-3">
                 <p className="text-sm font-semibold text-gray-900">견적 생성</p>
-                <p className="text-xs text-gray-500 mt-0.5">AI로 초안을 만들고 바로 수정</p>
+                <p className="text-xs text-gray-500 mt-0.5">문서별로 생성하고 수정</p>
               </Link>
               <Link href="/history" className="rounded-xl border border-gray-100 bg-gray-50 hover:bg-gray-100 px-3 py-3">
                 <p className="text-sm font-semibold text-gray-900">이력 확인</p>

@@ -51,7 +51,7 @@ export default function AdminReviewPage() {
               </p>
             </div>
             <a
-              href={`/generate`}
+              href={`/estimate-generator`}
               className="text-xs text-primary-600 shrink-0"
               title="사용자 계정으로 해당 견적은 히스토리에서 확인"
             >

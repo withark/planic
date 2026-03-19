@@ -157,7 +157,7 @@ export default function TaskOrderSummaryPage() {
                             size="sm"
                             variant="primary"
                             onClick={() => {
-                              const url = `/generate?taskOrderBaseId=${encodeURIComponent(r.id)}`
+                              const url = `/estimate-generator?taskOrderBaseId=${encodeURIComponent(r.id)}`
                               window.location.href = url
                             }}
                           >

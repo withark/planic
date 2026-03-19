@@ -139,6 +139,8 @@ interface Props {
     restrictionsCautions?: string
     oneLineSummary?: string
   } | null
+  /** UI 진입 시 기본 스타일 모드 (Reference Estimate에서 선택한 값) */
+  initialStyleMode?: 'userStyle' | 'aiTemplate'
 }
 
 export default function InputForm({
@@ -148,6 +150,7 @@ export default function InputForm({
   taskOrderRefsCount = 0,
   taskOrderBaseId,
   taskOrderSummary,
+  initialStyleMode,
 }: Props) {
   const [loading, setLoading]   = useState(false)
   const [error, setError]       = useState('')
@@ -170,7 +173,7 @@ export default function InputForm({
   const [budgetCustom,   setBudgetCustom]  = useState('')
   const [requirements,  setRequirements]  = useState('')
   const [generationMode, setGenerationMode] = useState<'normal' | 'taskOrderBase'>('normal')
-  const [styleMode, setStyleMode] = useState<'userStyle' | 'aiTemplate'>('userStyle')
+  const [styleMode, setStyleMode] = useState<'userStyle' | 'aiTemplate'>(initialStyleMode ?? 'userStyle')
   const autoFilledRef = useRef(false)
 
   useEffect(() => {
@@ -323,7 +326,7 @@ export default function InputForm({
       onGenerated(data.doc, data.totals, requestBody)
     } catch (e) {
       if (e instanceof ApiError && e.status === 401) {
-        window.location.href = buildAuthHref({ callbackUrl: '/generate', reason: 'login_required' })
+        window.location.href = buildAuthHref({ callbackUrl: '/estimate-generator', reason: 'login_required' })
         return
       }
       setError(toUserMessage(e, '견적서 생성에 실패했습니다.'))
