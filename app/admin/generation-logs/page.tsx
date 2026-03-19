@@ -96,7 +96,12 @@ export default function AdminGenerationLogsPage() {
                     </td>
                     <td className="px-3 py-2 max-w-[180px]">
                       <span className="text-xs text-slate-600">
-                        {r.engineSnapshot?.model ? `model: ${String(r.engineSnapshot.model)}` : '—'}
+                        {r.engineSnapshot?.mockAi ? (
+                          <span className="text-amber-600 font-semibold text-[11px] mr-2">mock</span>
+                        ) : null}
+                        {r.engineSnapshot?.provider ? `provider: ${String(r.engineSnapshot.provider)}` : 'provider: —'}
+                        {r.engineSnapshot?.model ? ` · model: ${String(r.engineSnapshot.model)}` : ''}
+                        {r.engineSnapshot?.maxTokens != null ? ` · maxTokens:${String(r.engineSnapshot.maxTokens)}` : ''}
                         {r.engineSnapshot?.structureFirst != null && ` · 구조:${String(r.engineSnapshot.structureFirst)}`}
                         {r.engineSnapshot?.toneFirst != null && ` · 문체:${String(r.engineSnapshot.toneFirst)}`}
                       </span>

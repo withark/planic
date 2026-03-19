@@ -22,6 +22,7 @@ import type { EngineConfigOverlay } from '@/lib/admin-types'
 import { normalizeQuoteDoc } from '@/lib/ai/parsers'
 import type { QuoteDoc } from '@/lib/types'
 import { hasDatabase } from '@/lib/db/client'
+import { getEffectiveEngineConfig } from '@/lib/ai/client'
 
 const GenerateRequestSchema = z.object({
   eventName: z.string().min(1, '행사명을 입력해주세요.'),
@@ -98,22 +99,31 @@ export async function POST(req: NextRequest) {
     const appliedSampleId = ''
     const appliedSampleFilename = ''
     const cuesheetApplied = false
+
+    // 실제 호출 대상(provider/model)은 env + DB engine_config 오버레이의 결합 결과
+    const effective = await getEffectiveEngineConfig()
+    const overlayForPrompt = effective.overlay
+
     const engineSnapshot: Record<string, unknown> = {
-      provider: engineOverlay?.provider,
-      model: engineOverlay?.model,
-      maxTokens: engineOverlay?.maxTokens,
-      structureFirst: engineOverlay?.structureFirst,
-      toneFirst: engineOverlay?.toneFirst,
-      outputFormatTemplate: engineOverlay?.outputFormatTemplate,
-      sampleWeightNote: engineOverlay?.sampleWeightNote,
-      qualityBoost: engineOverlay?.qualityBoost,
+      provider: effective.provider,
+      model: effective.model,
+      maxTokens: effective.maxTokens,
+      mockAi: isMockAi,
+
+      // 프롬프트 말미/템플릿 주입에 사용되는 오버레이 값(있을 때만)
+      structureFirst: overlayForPrompt?.structureFirst,
+      toneFirst: overlayForPrompt?.toneFirst,
+      outputFormatTemplate: overlayForPrompt?.outputFormatTemplate,
+      sampleWeightNote: overlayForPrompt?.sampleWeightNote,
+      qualityBoost: overlayForPrompt?.qualityBoost,
     }
+
     const engineQuality = {
-      structureFirst: engineOverlay?.structureFirst,
-      toneFirst: engineOverlay?.toneFirst,
-      outputFormatTemplate: engineOverlay?.outputFormatTemplate,
-      sampleWeightNote: engineOverlay?.sampleWeightNote,
-      qualityBoost: engineOverlay?.qualityBoost,
+      structureFirst: overlayForPrompt?.structureFirst,
+      toneFirst: overlayForPrompt?.toneFirst,
+      outputFormatTemplate: overlayForPrompt?.outputFormatTemplate,
+      sampleWeightNote: overlayForPrompt?.sampleWeightNote,
+      qualityBoost: overlayForPrompt?.qualityBoost,
     }
 
     const input: GenerateInput = {
