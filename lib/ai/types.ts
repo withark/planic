@@ -3,6 +3,13 @@ import type { QuoteDoc, PriceCategory, CompanySettings, ReferenceDoc, TaskOrderD
 export type { QuoteDoc, PriceCategory, CompanySettings, ReferenceDoc, TaskOrderDoc, ScenarioRefDoc }
 
 export interface GenerateInput {
+  /**
+   * 생성 모드
+   * - lite: 안정성/속도 우선(핵심 문서만, 샘플·참고 최소)
+   * - balanced: 안정화 유지 + 품질 복원(구조 샘플/선별 참고자료만 제한적으로 주입)
+   * - full: 최대 품질(모든 참고자료/샘플 주입; 느리거나 잘림 위험↑)
+   */
+  generationMode?: 'lite' | 'balanced' | 'full'
   eventName: string
   clientName: string
   clientManager: string

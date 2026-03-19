@@ -6,7 +6,7 @@ import { okResponse, errorResponse } from '@/lib/api/response'
 import { getEnv } from '@/lib/env'
 import { logError } from '@/lib/utils/logger'
 import { getUserIdFromSession } from '@/lib/auth-server'
-import { ensureFreeSubscription, getActiveSubscription } from '@/lib/db/subscriptions-db'
+import { ensureFreeSubscription } from '@/lib/db/subscriptions-db'
 import { getOrCreateUsage, incQuoteGenerated } from '@/lib/db/usage-db'
 import { assertQuoteGenerateAllowed } from '@/lib/entitlements'
 import { getDefaultCompanyProfile, profileToCompanySettings } from '@/lib/db/company-profiles-db'
@@ -49,38 +49,81 @@ export async function POST(req: NextRequest) {
   try {
     const t0 = Date.now()
     const requestId = uid()
-    let lastMarkAt = t0
-    const timing: { step: string; ms: number }[] = []
-    const mark = (step: string, meta?: Record<string, unknown>) => {
-      const now = Date.now()
-      const ms = now - lastMarkAt
-      lastMarkAt = now
-      timing.push({ step, ms })
-      logInfo('generate.timing', { requestId, step, ms, ...(meta ?? {}) })
+    type StageName =
+      | 'auth/session'
+      | 'subscription/quota'
+      | 'sample/reference load'
+      | 'file parse'
+      | 'prompt build'
+      | 'ai.call'
+      | 'parse/normalize'
+      | 'db save'
+      | 'generation log save'
+    type StageTiming = {
+      stage: StageName
+      startedAt: string
+      endedAt: string
+      elapsedMs: number
+      meta?: Record<string, unknown>
     }
+    const stageTimings: StageTiming[] = []
+    const runStage = async <T>(
+      stage: StageName,
+      fn: () => Promise<T> | T,
+      meta?: Record<string, unknown>,
+    ): Promise<T> => {
+      const startedMs = Date.now()
+      const startedAt = new Date(startedMs).toISOString()
+      const result = await fn()
+      const endedMs = Date.now()
+      const endedAt = new Date(endedMs).toISOString()
+      const elapsedMs = endedMs - startedMs
+      const row: StageTiming = { stage, startedAt, endedAt, elapsedMs, meta }
+      stageTimings.push(row)
+      logInfo('generate.stage', { requestId, stage, startedAt, endedAt, durationMs: elapsedMs, elapsedMs, meta })
+      return result
+    }
+
+    if (hasDatabase()) await initDb()
 
     const env = getEnv()
     const isMockAi = (process.env.AI_MODE || '').trim().toLowerCase() === 'mock'
     const forceProvider = (process.env.AI_FORCE_PROVIDER || '').trim() === '1'
     const isDevMock = isMockAi && process.env.NODE_ENV !== 'production'
 
-    let userId = await getUserIdFromSession()
-    if (!userId) {
-      // 개발/테스트: mock 모드에서는 로그인 없이 end-to-end 생성 검증이 가능해야 함(운영에는 영향 없음)
-      if (isDevMock) {
-        userId = 'dev_mock_user'
-        logInfo('generate.auth.dev_bypass', { requestId, userId })
-      } else {
-        return errorResponse(401, 'UNAUTHORIZED', '로그인이 필요합니다.')
+    let userId = ''
+    const authUserId = await runStage('auth/session', async () => {
+      let resolved = await getUserIdFromSession()
+      if (!resolved) {
+        // 개발/테스트: mock 모드에서는 로그인 없이 end-to-end 생성 검증이 가능해야 함(운영에는 영향 없음)
+        if (isDevMock) {
+          resolved = 'dev_mock_user'
+          logInfo('generate.auth.dev_bypass', { requestId, userId: resolved })
+        } else {
+          return ''
+        }
       }
+      return resolved
+    })
+    if (!authUserId) {
+      return errorResponse(401, 'UNAUTHORIZED', '로그인이 필요합니다.')
     }
-    mark('auth/session')
+    userId = authUserId
     // 개발/테스트: mock 모드에서는 DB 사용량/구독 제한 없이 반복 생성 검증
     const plan = 'FREE' as const
-    await ensureFreeSubscription(userId)
+    await runStage(
+      'subscription/quota',
+      async () => {
+        await ensureFreeSubscription(userId)
+        if (!isDevMock) {
+          const usage = await getOrCreateUsage(userId)
+          assertQuoteGenerateAllowed(plan, usage.quoteGeneratedCount)
+        }
+      },
+      { devMock: isDevMock },
+    )
     // eslint-disable-next-line @typescript-eslint/no-unused-vars
     const _plan = plan
-    mark('subscription 조회/보장', { devMock: isDevMock })
 
     const json = await req.json()
     const parsed = GenerateRequestSchema.safeParse(json)
@@ -94,7 +137,6 @@ export async function POST(req: NextRequest) {
       )
     }
     const body = parsed.data
-    mark('parse.body')
 
     const hasAnthropic = !!env.ANTHROPIC_API_KEY
     const hasOpenAI = !!env.OPENAI_API_KEY
@@ -105,19 +147,18 @@ export async function POST(req: NextRequest) {
         'AI API 키가 없습니다. .env.local에 ANTHROPIC_API_KEY 또는 OPENAI_API_KEY 중 하나를 넣으세요.',
       )
     }
-    mark('ai.keycheck')
-
-    if (!isDevMock) {
-      const usage = await getOrCreateUsage(userId)
-      assertQuoteGenerateAllowed(plan, usage.quoteGeneratedCount)
-    }
-    mark('entitlements')
-
     // 기본 generate 요청은 "견적서 + 기획안(최소)"만 생성:
     // 무거운 샘플 로딩/파일 파싱/참고자료 주입은 제외(=기본 구간 로그에서는 skipped으로 기록)
-    mark('샘플 로딩', { skipped: true })
-    mark('참고자료 로딩', { skipped: true })
-    mark('파일 파싱', { skipped: true })
+    await runStage(
+      'sample/reference load',
+      async () => undefined,
+      { skipped: true, reason: 'lite_mode_heavy_context_disabled' },
+    )
+    await runStage(
+      'file parse',
+      async () => undefined,
+      { skipped: true, reason: 'lite_mode_no_uploaded_files' },
+    )
     const [prices, settings, engineOverlay] = await Promise.all([
       getUserPrices(userId),
       (async () => {
@@ -128,7 +169,6 @@ export async function POST(req: NextRequest) {
         ? kvGet<EngineConfigOverlay | null>('engine_config', null).catch(() => null as EngineConfigOverlay | null)
         : Promise.resolve(null as EngineConfigOverlay | null),
     ])
-    mark('load.prices_settings_engine')
 
     const appliedSampleId = ''
     const appliedSampleFilename = ''
@@ -145,13 +185,12 @@ export async function POST(req: NextRequest) {
       sampleUsage: { mode: 'lite' },
     }
 
-    // 운영/관리자에서 "실제로 어느 분기/모델/키 로드 상태"였는지 추적 가능한 스냅샷
-    const aiRuntime = await getAIRuntimeSnapshot().catch((e) => ({
+    // 운영/관리자에서 "실제로 어느 분기/모델/키 로드 상태"였는지 추적 가능한 스냅샷 (캐시된 overlay로 kv 중복 조회 제거)
+    const aiRuntime = await getAIRuntimeSnapshot(engineOverlay).catch((e) => ({
       error: e instanceof Error ? e.message : String(e),
     }))
     engineSnapshot.ai = aiRuntime
     logInfo('generate.ai.snapshot', { userId, isMockAi, aiRuntime })
-    mark('ai.snapshot')
     const engineQuality = {
       structureFirst: engineOverlay?.structureFirst,
       toneFirst: engineOverlay?.toneFirst,
@@ -169,10 +208,9 @@ export async function POST(req: NextRequest) {
       references: [],
       engineQuality,
     }
-    mark('input.compose')
 
     // 생성 프롬프트/컨텍스트 로깅(길이/클립/샘플 매핑) — 전체 프롬프트 본문은 저장하지 않음
-    const promptForLog = buildGeneratePrompt(input)
+    const promptForLog = await runStage('prompt build', async () => buildGeneratePrompt(input))
     const approxPromptTokens = Math.ceil(promptForLog.length / 4)
     engineSnapshot.prompt = {
       chars: promptForLog.length,
@@ -188,13 +226,18 @@ export async function POST(req: NextRequest) {
       },
       issues: ['lite_mode:heavy_context_disabled'],
     }
-    mark('prompt 생성', { promptChars: promptForLog.length, approxPromptTokens })
-
     const quoteId = uid()
     let doc: QuoteDoc
     try {
-      doc = await generateQuote(input, { requestId, quoteId })
+      doc = await runStage('ai.call', async () =>
+        generateQuote(input, { requestId, quoteId, engineOverlay }),
+      )
     } catch (genErr) {
+      const errSnapshot = {
+        ...engineSnapshot,
+        stageTimings: stageTimings.map((s) => ({ stage: s.stage, durationMs: s.elapsedMs })),
+        totalGenerateMs: Date.now() - t0,
+      }
       await insertGenerationRun({
         userId,
         quoteId: null,
@@ -203,45 +246,36 @@ export async function POST(req: NextRequest) {
         sampleId: appliedSampleId,
         sampleFilename: appliedSampleFilename,
         cuesheetApplied,
-        engineSnapshot,
+        engineSnapshot: errSnapshot,
       }).catch(() => {})
       throw genErr
     }
-    mark('generateQuote.done')
     ;(doc as QuoteDoc).quoteTemplate = normalizeTemplateForPlan(plan, (doc as QuoteDoc).quoteTemplate as any)
 
     let didNormalizeQuoteDoc = false
-    if (!doc.program?.concept?.trim() && (!doc.program?.programRows?.length)) {
-      doc = normalizeQuoteDoc(
-        {
-          ...doc,
-          program: {
-            concept: `${doc.eventName} 제안·타임라인은 각 탭에서 수정하세요.`,
-            programRows: doc.program?.programRows || [],
-            timeline: doc.program?.timeline || [
-              { time: body.eventStartHHmm || '', content: '개회', detail: '', manager: '' },
-              { time: '', content: '본 프로그램', detail: '', manager: '' },
-              { time: body.eventEndHHmm || '', content: '마무리', detail: '', manager: '' },
-            ],
-            staffing: doc.program?.staffing || [{ role: '진행요원', count: 1, note: '' }],
-            tips: doc.program?.tips || ['사전 점검'],
-            cueRows: doc.program?.cueRows || [],
-            cueSummary: doc.program?.cueSummary || '',
-          },
-          scenario: doc.scenario,
-        } as QuoteDoc,
-        {
-          eventStartHHmm: body.eventStartHHmm,
-          eventEndHHmm: body.eventEndHHmm,
-          eventName: doc.eventName,
-          eventType: doc.eventType,
-          headcount: doc.headcount,
-          eventDuration: doc.eventDuration,
-        },
-      )
+    doc = await runStage('parse/normalize', async () => {
+      const toNormalize =
+        !doc.program?.concept?.trim() && !doc.program?.programRows?.length
+          ? ({
+              ...doc,
+              program: {
+                concept: `${doc.eventName} 제안·타임라인은 각 탭에서 수정하세요.`,
+                programRows: doc.program?.programRows || [],
+                timeline: doc.program?.timeline || [
+                  { time: body.eventStartHHmm || '', content: '개회', detail: '', manager: '' },
+                  { time: '', content: '본 프로그램', detail: '', manager: '' },
+                  { time: body.eventEndHHmm || '', content: '마무리', detail: '', manager: '' },
+                ],
+                staffing: doc.program?.staffing || [{ role: '진행요원', count: 1, note: '' }],
+                tips: doc.program?.tips || ['사전 점검'],
+                cueRows: doc.program?.cueRows || [],
+                cueSummary: doc.program?.cueSummary || '',
+              },
+              scenario: doc.scenario,
+            } as QuoteDoc)
+          : doc
       didNormalizeQuoteDoc = true
-    } else {
-      doc = normalizeQuoteDoc(doc, {
+      return normalizeQuoteDoc(toNormalize, {
         eventStartHHmm: body.eventStartHHmm,
         eventEndHHmm: body.eventEndHHmm,
         eventName: doc.eventName,
@@ -249,50 +283,75 @@ export async function POST(req: NextRequest) {
         headcount: doc.headcount,
         eventDuration: doc.eventDuration,
       })
-      didNormalizeQuoteDoc = true
-    }
-    mark('결과 파싱', { didNormalizeQuoteDoc })
+    })
+    logInfo('generate.parse.normalize', { requestId, didNormalizeQuoteDoc })
 
     const totals = calcTotals(doc)
 
-    await quotesDbAppend(
-      {
-        id: quoteId,
-        eventName: doc.eventName,
-        clientName: doc.clientName,
-        quoteDate: doc.quoteDate,
-        eventDate: doc.eventDate,
-        duration: doc.eventDuration,
-        type: doc.eventType,
-        headcount: doc.headcount,
-        total: totals.grand,
-        savedAt: new Date().toISOString(),
-        doc,
-        generationMeta: {
-          sampleId: appliedSampleId || undefined,
-          sampleFilename: appliedSampleFilename || undefined,
-          cuesheetApplied,
-          engineSnapshot,
+    await runStage('db save', async () =>
+      quotesDbAppend(
+        {
+          id: quoteId,
+          eventName: doc.eventName,
+          clientName: doc.clientName,
+          quoteDate: doc.quoteDate,
+          eventDate: doc.eventDate,
+          duration: doc.eventDuration,
+          type: doc.eventType,
+          headcount: doc.headcount,
+          total: totals.grand,
+          savedAt: new Date().toISOString(),
+          doc,
+          generationMeta: {
+            sampleId: appliedSampleId || undefined,
+            sampleFilename: appliedSampleFilename || undefined,
+            cuesheetApplied,
+            engineSnapshot,
+          },
         },
-      },
-      userId,
+        userId,
+      ),
     )
-    mark('DB 저장', { phase: 'quotesDbAppend' })
 
-    if (!isDevMock) {
-      await incQuoteGenerated(userId, 1)
+    const logSnapshot = {
+      ...engineSnapshot,
+      stageTimings: stageTimings.map((s) => ({ stage: s.stage, durationMs: s.elapsedMs })),
+      totalGenerateMs: Date.now() - t0,
     }
-    // lite/balanced 모드에서는 샘플 사용 카운트 반영 없음
-    await insertGenerationRun({
-      userId,
+    await runStage('generation log save', async () => {
+      if (!isDevMock) {
+        await incQuoteGenerated(userId, 1)
+      }
+      await insertGenerationRun({
+        userId,
+        quoteId,
+        success: true,
+        sampleId: appliedSampleId,
+        sampleFilename: appliedSampleFilename,
+        cuesheetApplied,
+        engineSnapshot: logSnapshot,
+      }).catch(() => {})
+    })
+
+    const totalGenerateMs = Date.now() - t0
+    const slowest = stageTimings.length
+      ? stageTimings.reduce((a, b) => (a.elapsedMs >= b.elapsedMs ? a : b))
+      : null
+    logInfo('generate.slowest', {
+      requestId,
       quoteId,
-      success: true,
-      sampleId: appliedSampleId,
-      sampleFilename: appliedSampleFilename,
-      cuesheetApplied,
-      engineSnapshot,
-    }).catch(() => {})
-    mark('DB 저장', { phase: 'insertGenerationRun/incQuoteGenerated' })
+      slowestStage: slowest?.stage ?? null,
+      slowestMs: slowest?.elapsedMs ?? null,
+      totalGenerateMs,
+    })
+    logInfo('generate.total', {
+      requestId,
+      quoteId,
+      totalGenerateMs,
+      slowestStage: slowest?.stage ?? null,
+      slowestMs: slowest?.elapsedMs ?? null,
+      stageTimings: stageTimings.map((s) => ({ stage: s.stage, durationMs: s.elapsedMs })),
+    })
 
     return okResponse({
       doc,
@@ -300,7 +359,8 @@ export async function POST(req: NextRequest) {
       debug: isDevMock
         ? {
             generationMode: input.generationMode || 'balanced',
-            timing,
+            stageTimings,
+            totalGenerateMs,
             prompt: engineSnapshot.prompt,
           }
         : undefined,

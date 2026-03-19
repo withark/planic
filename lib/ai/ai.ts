@@ -1,4 +1,5 @@
 import type { GenerateInput, QuoteDoc, PriceCategory } from './types'
+import type { EngineConfigOverlay } from '@/lib/admin-types'
 import { callLLM, getEffectiveEngineConfig } from './client'
 import { buildGeneratePrompt, GENERATION_SYSTEM_PROMPT } from './prompts'
 import {
@@ -27,6 +28,7 @@ export async function generateQuote(
   opts?: {
     requestId?: string
     quoteId?: string
+    engineOverlay?: EngineConfigOverlay | null
   },
 ): Promise<QuoteDoc> {
   const requestId = opts?.requestId
@@ -253,7 +255,7 @@ export async function generateQuote(
     return out
   }
 
-  const eff = await getEffectiveEngineConfig()
+  const eff = await getEffectiveEngineConfig(opts?.engineOverlay)
   const maxOutResolved = resolveGenerateMaxTokens(eff.maxTokens, eff.provider)
   let maxOut = maxOutResolved
   const promptStartAt = Date.now()
@@ -287,7 +289,11 @@ export async function generateQuote(
     aiAttempts += 1
     if (extra.trim().length > 0) retrySuffixUsedAttempts += 1
     const startAt = Date.now()
-    const text = await callLLM(prompt + extra, { maxTokens: maxOut, system: GENERATION_SYSTEM_PROMPT })
+    const text = await callLLM(prompt + extra, {
+      maxTokens: maxOut,
+      system: GENERATION_SYSTEM_PROMPT,
+      cachedOverlay: opts?.engineOverlay,
+    })
     aiCallMs += Date.now() - startAt
     return text
   }

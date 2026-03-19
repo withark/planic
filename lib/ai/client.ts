@@ -14,6 +14,8 @@ export interface CallLLMOptions {
   model?: string
   /** 시스템 프롬프트(가능한 provider에서는 system으로 전달) */
   system?: string
+  /** 캐시된 engine_config 오버레이(전달 시 kv 조회 생략) */
+  cachedOverlay?: EngineConfigOverlay | null
 }
 
 export function getAIProvider(): AIProvider {
@@ -49,13 +51,17 @@ export type AIRuntimeSnapshot = {
   }
 }
 
-export async function getAIRuntimeSnapshot(): Promise<AIRuntimeSnapshot> {
+export async function getAIRuntimeSnapshot(
+  cachedOverlay?: EngineConfigOverlay | null,
+): Promise<AIRuntimeSnapshot> {
   const env = getEnv()
   const aiModeRaw = String(process.env.AI_MODE || '').trim()
   const aiModeIsMock = aiModeRaw.toLowerCase() === 'mock'
 
   let overlay: EngineConfigOverlay | null = null
-  if (hasDatabase()) {
+  if (cachedOverlay !== undefined) {
+    overlay = cachedOverlay ?? null
+  } else if (hasDatabase()) {
     try {
       overlay = await kvGet<EngineConfigOverlay | null>('engine_config', null)
       if (overlay && typeof overlay !== 'object') overlay = null
@@ -113,8 +119,10 @@ export async function getAIRuntimeSnapshot(): Promise<AIRuntimeSnapshot> {
   }
 }
 
-/** env + DB engine_config 오버레이. LLM 호출·프롬프트·관리자 스냅샷 공통. */
-export async function getEffectiveEngineConfig(): Promise<{
+/** env + DB engine_config 오버레이. LLM 호출·프롬프트·관리자 스냅샷 공통. cachedOverlay 있으면 kv 조회 생략. */
+export async function getEffectiveEngineConfig(
+  cachedOverlay?: EngineConfigOverlay | null,
+): Promise<{
   provider: AIProvider
   model: string
   maxTokens: number
@@ -122,7 +130,9 @@ export async function getEffectiveEngineConfig(): Promise<{
 }> {
   const env = getEnv()
   let overlay: EngineConfigOverlay | null = null
-  if (hasDatabase()) {
+  if (cachedOverlay !== undefined) {
+    overlay = cachedOverlay ?? null
+  } else if (hasDatabase()) {
     try {
       overlay = await kvGet<EngineConfigOverlay | null>('engine_config', null)
       if (overlay && typeof overlay !== 'object') overlay = null
@@ -160,7 +170,7 @@ function getOpenAIClient(): OpenAI {
 }
 
 export async function callLLM(prompt: string, opts: CallLLMOptions = {}): Promise<string> {
-  const effective = await getEffectiveEngineConfig()
+  const effective = await getEffectiveEngineConfig(opts.cachedOverlay)
   const provider = effective.provider
   const maxTokens = opts.maxTokens ?? effective.maxTokens
   const model = opts.model ?? effective.model

@@ -151,10 +151,9 @@ export default function InputForm({ onGenerated, onLoadingChange, onStatusChange
 
   const STEPS = [
     '행사 기본 정보 분석 중...',
-    '단가표·참고 자료 반영 중...',
     '견적 항목 구성 중...',
-    '제안 프로그램·타임테이블 작성 중...',
-    '마무리 검토 중...',
+    '기획안(프로그램·타임테이블) 작성 중...',
+    '마무리 정리 중...',
   ]
 
   async function handleSubmit(e: React.FormEvent) {
@@ -233,7 +232,7 @@ export default function InputForm({ onGenerated, onLoadingChange, onStatusChange
     <form ref={formRef} onSubmit={handleSubmit} className="flex flex-col gap-3 p-4 overflow-y-auto overflow-x-hidden h-full min-w-0">
       <SectionLabel>행사 기본 정보</SectionLabel>
       <p className="text-[11px] text-gray-500 mb-1">
-        입력한 정보와 참고 자료(과업지시서, 시나리오)를 바탕으로 AI가 견적서와 제안 프로그램 초안을 한 번에 만들어 줍니다.
+        입력한 정보를 바탕으로 AI가 견적서와 기획안(프로그램·타임테이블) 초안을 만들어 줍니다.
       </p>
 
       <Select label="행사 유형" value={eventType} onChange={e => setEventType(e.target.value)}>

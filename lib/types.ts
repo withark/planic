@@ -210,3 +210,17 @@ export interface TaskOrderDoc {
   summary: string
   rawText: string
 }
+
+export type TaskOrderStructuredSummary = {
+  projectName: string
+  purpose: string
+  mainTasks: string[]
+  scope: string
+  schedule: string
+  deliverables: string[]
+  conditions: string
+  requiredStaffing: string
+  evaluationPoints: string[]
+  cautions: string[]
+  oneLine: string
+}
