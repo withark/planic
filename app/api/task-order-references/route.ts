@@ -52,6 +52,12 @@ export async function POST(req: NextRequest) {
     }
 
     const summary = await summarizeTaskOrderRef(rawText, file.name)
+    // 모델이 JSON만 반환하도록 지시하지만, 실제로는 실패할 수 있으므로 최소 검증합니다.
+    try {
+      JSON.parse(summary)
+    } catch {
+      return errorResponse(500, 'INVALID_SUMMARY_FORMAT', '과업지시서 요약 포맷(JSON)이 올바르지 않습니다. 잠시 후 다시 시도해 주세요.')
+    }
     await insertTaskOrderRef(userId, {
       filename: file.name,
       uploadedAt: new Date().toISOString(),

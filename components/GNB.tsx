@@ -39,8 +39,20 @@ const NAVS: NavItem[] = [
     ),
   },
   {
+    href: '/task-order-summary',
+    text: '과업지시서 요약',
+    label: '과업지시서 요약',
+    icon: ({ className }) => (
+      <svg viewBox="0 0 24 24" fill="none" className={className} aria-hidden>
+        <path d="M7 3.5h7l3 3V20.5A1.5 1.5 0 0 1 15.5 22h-8A1.5 1.5 0 0 1 6 20.5v-15A2 2 0 0 1 7 3.5Z" stroke="currentColor" strokeWidth="1.8" strokeLinejoin="round" />
+        <path d="M14 3.5v3A1 1 0 0 0 15 7.5h3" stroke="currentColor" strokeWidth="1.8" strokeLinejoin="round" />
+        <path d="M9 11h6M9 14.5h5M9 18h4" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" />
+      </svg>
+    ),
+  },
+  {
     href: '/references',
-    text: '참고',
+    text: '참고 견적서',
     label: '참고 견적서',
     icon: ({ className }) => (
       <svg viewBox="0 0 24 24" fill="none" className={className} aria-hidden>

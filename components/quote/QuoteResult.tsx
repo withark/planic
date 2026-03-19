@@ -8,21 +8,27 @@ import { Button } from '@/components/ui'
 import clsx from 'clsx'
 import type { PlanType } from '@/lib/plans'
 import { allowedQuoteTemplates } from '@/lib/plan-entitlements'
-import { normalizeQuoteDoc } from '@/lib/ai/parsers'
 
-type Tab = 'quote' | 'timeline'
+type DocTab = 'estimate' | 'program' | 'timetable' | 'planning' | 'scenario'
 
 function emptyRow(): ProgramTableRow {
   return { kind: '', content: '', tone: '', image: '(이미지 슬롯)', time: '', audience: '', notes: '' }
 }
 
-function ensureProgram(doc: QuoteDoc): QuoteDoc {
-  return normalizeQuoteDoc(doc, {
-    eventName: doc.eventName,
-    eventType: doc.eventType,
-    headcount: doc.headcount,
-    eventDuration: doc.eventDuration,
-  })
+function ensureProgramShape(doc: QuoteDoc): QuoteDoc {
+  const p = doc.program
+  return {
+    ...doc,
+    program: {
+      concept: typeof p.concept === 'string' ? p.concept : '',
+      programRows: Array.isArray(p.programRows) ? p.programRows : [],
+      timeline: Array.isArray(p.timeline) ? p.timeline : [],
+      staffing: Array.isArray(p.staffing) ? p.staffing : [],
+      tips: Array.isArray(p.tips) ? p.tips : [],
+      cueRows: Array.isArray(p.cueRows) ? p.cueRows : [],
+      cueSummary: typeof p.cueSummary === 'string' ? p.cueSummary : '',
+    },
+  }
 }
 
 interface Props {
@@ -33,18 +39,67 @@ interface Props {
   onChange: (doc: QuoteDoc) => void
   onRegenerate?: () => void
   regenerating?: boolean
-  onExcel: (tab: Tab) => void
+  onExcel: (view: 'quote' | 'timeline') => void
   onPdf: () => void
   onLoadPrevious?: () => void
+  onGenerateTab?: (tab: DocTab) => void | Promise<void>
+  generatingTabs?: Partial<Record<DocTab, boolean>>
 }
 
-export function QuoteResult({ doc, companySettings, prices = [], planType = 'FREE', onChange, onRegenerate, regenerating, onExcel, onPdf, onLoadPrevious }: Props) {
-  const [tab, setTab] = useState<Tab>('quote')
+function isProgramProposalReady(doc: QuoteDoc) {
+  return !!doc.program?.concept?.trim() && Array.isArray(doc.program?.programRows) && doc.program.programRows.length > 0
+}
+
+function isTimetableReady(doc: QuoteDoc) {
+  return Array.isArray(doc.program?.timeline) && doc.program.timeline.length > 0
+}
+
+function isPlanningReady(doc: QuoteDoc) {
+  return !!doc.planning && !!doc.planning.overview?.trim()
+}
+
+function isScenarioReady(doc: QuoteDoc) {
+  return !!doc.scenario && !!doc.scenario.summaryTop?.trim()
+}
+
+export function QuoteResult({
+  doc,
+  companySettings,
+  prices = [],
+  planType = 'FREE',
+  onChange,
+  onRegenerate,
+  regenerating,
+  onExcel,
+  onPdf,
+  onLoadPrevious,
+  onGenerateTab,
+  generatingTabs = {},
+}: Props) {
+  const [tab, setTab] = useState<DocTab>('estimate')
   const [openPriceForKind, setOpenPriceForKind] = useState<QuoteItemKind | null>(null)
   const priceDropdownRef = useRef<HTMLDivElement>(null)
   const totals = calcTotals(doc)
-  const d = ensureProgram(doc)
+  const d = ensureProgramShape(doc)
   const supplierSignName = companySettings?.name?.trim() || '—'
+  const requestedTabsRef = useRef<Set<DocTab>>(new Set())
+
+  useEffect(() => {
+    if (!onGenerateTab) return
+    if (requestedTabsRef.current.has(tab)) return
+    if (generatingTabs[tab]) return
+
+    const shouldGenerate =
+      (tab === 'program' && !isProgramProposalReady(doc)) ||
+      (tab === 'timetable' && !isTimetableReady(doc)) ||
+      (tab === 'planning' && !isPlanningReady(doc)) ||
+      (tab === 'scenario' && !isScenarioReady(doc))
+
+    if (shouldGenerate) {
+      requestedTabsRef.current.add(tab)
+      void onGenerateTab(tab)
+    }
+  }, [tab, doc, onGenerateTab, generatingTabs])
 
   useEffect(() => {
     if (!openPriceForKind) return
@@ -63,11 +118,11 @@ export function QuoteResult({ doc, companySettings, prices = [], planType = 'FRE
   )
 
   function patchDoc(updater: (base: QuoteDoc) => QuoteDoc) {
-    onChange(updater(ensureProgram(structuredClone(doc))))
+    onChange(updater(ensureProgramShape(structuredClone(doc))))
   }
 
   function updLine(ci: number, ii: number, k: string, v: string | number) {
-    const d2 = ensureProgram(structuredClone(doc))
+    const d2 = ensureProgramShape(structuredClone(doc))
     ;(d2.quoteItems[ci].items[ii] as unknown as Record<string, string | number>)[k] = v
     onChange(d2)
   }
@@ -87,7 +142,7 @@ export function QuoteResult({ doc, companySettings, prices = [], planType = 'FRE
   }
 
   function addItemToKind(kind: QuoteItemKind) {
-    const d2 = ensureProgram(structuredClone(doc))
+    const d2 = ensureProgramShape(structuredClone(doc))
     const newItem = { name: '새 항목', spec: '', qty: 1, unit: '식', unitPrice: 0, total: 0, note: '', kind }
     const norm = (k: string | undefined) => (k === '선택' ? '선택1' : k) || '필수'
     const catIdx = d2.quoteItems.findIndex(c => c.items.some(it => norm(it.kind) === kind))
@@ -97,7 +152,7 @@ export function QuoteResult({ doc, companySettings, prices = [], planType = 'FRE
   }
 
   function addItemFromPrice(kind: QuoteItemKind, item: PriceItem) {
-    const d2 = ensureProgram(structuredClone(doc))
+    const d2 = ensureProgramShape(structuredClone(doc))
     const newItem = {
       name: item.name,
       spec: item.spec || '',
@@ -124,8 +179,11 @@ export function QuoteResult({ doc, companySettings, prices = [], planType = 'FRE
       <div className="flex items-center justify-between border-b border-slate-200/80 px-4 flex-shrink-0 bg-white shadow-sm">
         <div className="flex gap-1 py-2 flex-wrap">
           {[
-            { id: 'quote' as Tab, label: '견적서' },
-            { id: 'timeline' as Tab, label: '타임테이블' },
+            { id: 'estimate' as DocTab, label: '견적서' },
+            { id: 'program' as DocTab, label: '프로그램 제안' },
+            { id: 'timetable' as DocTab, label: '타임테이블' },
+            { id: 'planning' as DocTab, label: '기획 문서' },
+            { id: 'scenario' as DocTab, label: '시나리오' },
           ].map(({ id, label }) => (
             <button
               key={id}
@@ -140,7 +198,7 @@ export function QuoteResult({ doc, companySettings, prices = [], planType = 'FRE
           ))}
         </div>
         <div className="flex gap-2 py-2 flex-wrap items-center">
-          {tab === 'quote' && (
+          {tab === 'estimate' && (
             <span className="flex items-center gap-1.5">
               <span className="text-xs text-gray-500">스타일</span>
               <select
@@ -160,7 +218,13 @@ export function QuoteResult({ doc, companySettings, prices = [], planType = 'FRE
           {onRegenerate && (
             <Button size="sm" onClick={onRegenerate} disabled={regenerating}>{regenerating ? '재작성 중...' : '재 작성'}</Button>
           )}
-          <Button size="sm" onClick={() => onExcel(tab)}>Excel 다운로드</Button>
+          {tab === 'estimate' ? (
+            <Button size="sm" onClick={() => onExcel('quote')}>Excel 다운로드</Button>
+          ) : tab === 'timetable' ? (
+            <Button size="sm" onClick={() => onExcel('timeline')}>Excel 다운로드</Button>
+          ) : (
+            <Button size="sm" disabled>Excel 다운로드</Button>
+          )}
           <Button size="sm" variant="primary" onClick={onPdf}>PDF 저장</Button>
           {planType !== 'FREE' && (
             <Button size="sm" variant="secondary" onClick={() => alert('이메일 공유 기능은 준비 중입니다.')}>이메일 공유</Button>
@@ -168,12 +232,15 @@ export function QuoteResult({ doc, companySettings, prices = [], planType = 'FRE
         </div>
       </div>
       <p className="text-[10px] text-slate-500 px-4 pb-1.5 flex-shrink-0">
-        {tab === 'quote' && '개당 단가·수량·항목명 등 표에서 바로 수정 가능'}
-        {tab === 'timeline' && '생성 시 입력한 시작·종료 시각에 맞춰 배치됩니다. 수정 시 즉시 반영됩니다.'}
+        {tab === 'estimate' && '개당 단가·수량·항목명 등 견적 표에서 바로 수정 가능'}
+        {tab === 'program' && 'AI가 생성한 프로그램 제안을 기반으로 내용/구성을 편집하세요.'}
+        {tab === 'timetable' && '생성 시 입력한 시작·종료 시각에 맞춰 배치됩니다. 수정 시 즉시 반영됩니다.'}
+        {tab === 'planning' && '기획/운영/산출물 계획을 섹션별로 편집할 수 있습니다.'}
+        {tab === 'scenario' && '연출/진행 흐름을 문장 형태로 확인하고 편집할 수 있습니다.'}
       </p>
 
       <div className="flex-1 overflow-y-auto p-4 pb-20">
-        {tab === 'quote' && (() => {
+        {tab === 'estimate' && (() => {
           const templateId = (doc.quoteTemplate || 'default') as QuoteTemplateId
           return (
             <div className="quote-wrapper max-w-3xl mx-auto space-y-5 pb-8" data-quote-template={templateId}>
@@ -317,7 +384,7 @@ export function QuoteResult({ doc, companySettings, prices = [], planType = 'FRE
                                   >
                                     {KIND_ORDER.map(k => <option key={k} value={k}>{k}</option>)}
                                   </select>
-                                  <button type="button" onClick={() => { const d2 = ensureProgram(structuredClone(doc)); d2.quoteItems[ci].items.splice(ii, 1); onChange(d2) }} className="opacity-0 group-hover:opacity-100 text-red-400 text-xs">✕</button>
+                                  <button type="button" onClick={() => { const d2 = ensureProgramShape(structuredClone(doc)); d2.quoteItems[ci].items.splice(ii, 1); onChange(d2) }} className="opacity-0 group-hover:opacity-100 text-red-400 text-xs">✕</button>
                                 </span>
                               </td>
                             </tr>
@@ -390,47 +457,225 @@ export function QuoteResult({ doc, companySettings, prices = [], planType = 'FRE
           )
         })()}
 
-        {/* 타임테이블 — controlled, 폼 시간과 동기화된 생성 결과 */}
-        {tab === 'timeline' && (
+        {/* 프로그램 제안 — on demand */}
+        {tab === 'program' && (
+          <div className="quote-wrapper max-w-3xl mx-auto space-y-3 pt-2">
+            <h3 className="text-base font-semibold">{doc.eventName} — 프로그램 제안</h3>
+            {!isProgramProposalReady(doc) ? (
+              <div className="bg-gray-50 border border-gray-200 rounded-2xl p-4 text-sm text-gray-600 space-y-2">
+                <p className="text-xs text-gray-500">아직 생성되지 않았습니다.</p>
+                <Button size="sm" variant="primary" onClick={() => onGenerateTab?.('program')} disabled={!!generatingTabs.program}>
+                  {generatingTabs.program ? '프로그램 생성 중...' : 'Generate Program Proposal'}
+                </Button>
+              </div>
+            ) : (
+              <>
+                <div className="bg-gray-50 rounded-xl p-3">
+                  <div className="text-[10px] text-gray-500 font-semibold mb-1">컨셉</div>
+                  <textarea
+                    value={doc.program.concept}
+                    onChange={e => patchDoc(base => { base.program.concept = e.target.value; return base })}
+                    rows={4}
+                    className="w-full bg-white border border-gray-200 rounded-lg p-2 text-xs resize-none"
+                  />
+                </div>
+                <div className="overflow-x-auto">
+                  <table className="w-full text-xs border-collapse border border-gray-200">
+                    <thead>
+                      <tr className="bg-gray-100">
+                        {['구분', '내용', '성격', '시간', '대상/인원', '비고', ''].map(h => (
+                          <th key={h} className="border border-gray-200 px-2 py-2 text-left">{h}</th>
+                        ))}
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {doc.program.programRows.map((row, i) => (
+                        <tr key={`pr-${i}-${row.content}`} className="border-b border-gray-100">
+                          <td className="border border-gray-100 p-1">
+                            <input value={row.kind} onChange={e => patchDoc(base => { base.program.programRows[i].kind = e.target.value; return base })} className="w-full bg-white border border-gray-200 rounded px-1" />
+                          </td>
+                          <td className="border border-gray-100 p-1">
+                            <input value={row.content} onChange={e => patchDoc(base => { base.program.programRows[i].content = e.target.value; return base })} className="w-full min-w-[160px] bg-white border border-gray-200 rounded px-1" />
+                          </td>
+                          <td className="border border-gray-100 p-1">
+                            <input value={row.tone} onChange={e => patchDoc(base => { base.program.programRows[i].tone = e.target.value; return base })} className="w-full bg-white border border-gray-200 rounded px-1" />
+                          </td>
+                          <td className="border border-gray-100 p-1">
+                            <input value={row.time} onChange={e => patchDoc(base => { base.program.programRows[i].time = e.target.value; return base })} className="w-24 bg-white border border-gray-200 rounded px-1" />
+                          </td>
+                          <td className="border border-gray-100 p-1">
+                            <input value={row.audience} onChange={e => patchDoc(base => { base.program.programRows[i].audience = e.target.value; return base })} className="w-full bg-white border border-gray-200 rounded px-1" />
+                          </td>
+                          <td className="border border-gray-100 p-1">
+                            <input value={row.notes} onChange={e => patchDoc(base => { base.program.programRows[i].notes = e.target.value; return base })} className="w-full bg-white border border-gray-200 rounded px-1" />
+                          </td>
+                          <td className="border border-gray-100 p-1">
+                            <button type="button" className="text-red-400" onClick={() => patchDoc(base => { base.program.programRows.splice(i, 1); return base })}>✕</button>
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+                <div className="flex justify-end">
+                  <Button size="sm" onClick={() => patchDoc(base => { base.program.programRows.push({ kind: '', content: '', tone: '', image: '', time: '', audience: '', notes: '' }); return base })}>+ 프로그램 항목 추가</Button>
+                </div>
+              </>
+            )}
+          </div>
+        )}
+
+        {/* 타임테이블 — controlled, on demand */}
+        {tab === 'timetable' && (
           <div className="quote-wrapper max-w-3xl mx-auto space-y-3 pt-2">
             <h3 className="text-base font-semibold">{doc.eventName} — 타임테이블</h3>
-            <p className="text-xs text-gray-500">시간 열은 생성 시 입력한 시작·종료 시각 사이로 맞춰졌습니다. 수정하면 즉시 반영됩니다.</p>
-            <table className="w-full text-xs border-collapse border border-gray-200">
-              <thead>
-                <tr className="bg-gray-100">
-                  {['시간 (HH:mm)', '내용', '세부', '담당', ''].map(h => (
-                    <th key={h} className="border border-gray-200 px-2 py-2 text-left">{h}</th>
-                  ))}
-                </tr>
-              </thead>
-              <tbody>
-                {(program.timeline || []).map((row: TimelineRow, i: number) => (
-                  <tr key={`tl-${i}-${row.content}`} className="border-b border-gray-100">
-                    <td className="border border-gray-100 p-1">
-                      <input
-                        value={row.time}
-                        onChange={e => patchDoc(base => { base.program.timeline[i].time = e.target.value; return base })}
-                        className="w-20 font-mono tabular-nums bg-amber-50/50 rounded px-1"
-                        placeholder="19:00"
+            {!isTimetableReady(doc) ? (
+              <div className="bg-gray-50 border border-gray-200 rounded-2xl p-4 text-sm text-gray-600 space-y-2">
+                <p className="text-xs text-gray-500">아직 생성되지 않았습니다.</p>
+                <Button size="sm" variant="primary" onClick={() => onGenerateTab?.('timetable')} disabled={!!generatingTabs.timetable}>
+                  {generatingTabs.timetable ? '타임테이블 생성 중...' : 'Generate Timetable'}
+                </Button>
+              </div>
+            ) : (
+              <>
+                <p className="text-xs text-gray-500">시간 열은 생성 시 입력한 시작·종료 시각 사이로 맞춰졌습니다. 수정하면 즉시 반영됩니다.</p>
+                <table className="w-full text-xs border-collapse border border-gray-200">
+                  <thead>
+                    <tr className="bg-gray-100">
+                      {['시간 (HH:mm)', '내용', '세부', '담당', ''].map(h => (
+                        <th key={h} className="border border-gray-200 px-2 py-2 text-left">{h}</th>
+                      ))}
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {(program.timeline || []).map((row: TimelineRow, i: number) => (
+                      <tr key={`tl-${i}-${row.content}`} className="border-b border-gray-100">
+                        <td className="border border-gray-100 p-1">
+                          <input
+                            value={row.time}
+                            onChange={e => patchDoc(base => { base.program.timeline[i].time = e.target.value; return base })}
+                            className="w-20 font-mono tabular-nums bg-amber-50/50 rounded px-1"
+                            placeholder="19:00"
+                          />
+                        </td>
+                        <td className="border border-gray-100 p-1">
+                          <input value={row.content} onChange={e => patchDoc(base => { base.program.timeline[i].content = e.target.value; return base })} className="w-full min-w-[120px]" />
+                        </td>
+                        <td className="border border-gray-100 p-1">
+                          <input value={row.detail} onChange={e => patchDoc(base => { base.program.timeline[i].detail = e.target.value; return base })} className="w-full text-gray-600" />
+                        </td>
+                        <td className="border border-gray-100 p-1">
+                          <input value={row.manager} onChange={e => patchDoc(base => { base.program.timeline[i].manager = e.target.value; return base })} className="w-20" />
+                        </td>
+                        <td className="border border-gray-100 p-1">
+                          <button type="button" className="text-red-400" onClick={() => patchDoc(base => { base.program.timeline.splice(i, 1); return base })}>✕</button>
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+                <Button size="sm" onClick={() => patchDoc(base => { base.program.timeline.push({ time: '', content: '', detail: '', manager: '' }); return base })}>+ 일정 추가</Button>
+              </>
+            )}
+          </div>
+        )}
+
+        {/* 기획 문서 */}
+        {tab === 'planning' && (
+          <div className="quote-wrapper max-w-3xl mx-auto space-y-3 pt-2">
+            <h3 className="text-base font-semibold">{doc.eventName} — 기획 문서</h3>
+            {!isPlanningReady(doc) ? (
+              <div className="bg-gray-50 border border-gray-200 rounded-2xl p-4 text-sm text-gray-600 space-y-2">
+                <p className="text-xs text-gray-500">아직 생성되지 않았습니다.</p>
+                <Button size="sm" variant="primary" onClick={() => onGenerateTab?.('planning')} disabled={!!generatingTabs.planning}>
+                  {generatingTabs.planning ? '기획 문서 생성 중...' : 'Generate Planning Document'}
+                </Button>
+              </div>
+            ) : (
+              (() => {
+                const p = doc.planning!
+                const update = (patch: Partial<typeof p>) => patchDoc(base => ({ ...base, planning: { ...(base.planning || p), ...patch } as any }))
+                return (
+                  <>
+                    {[
+                      { key: 'overview', label: '개요', rows: 4, val: p.overview },
+                      { key: 'scope', label: '범위', rows: 5, val: p.scope },
+                      { key: 'approach', label: '접근/전략', rows: 5, val: p.approach },
+                      { key: 'operationPlan', label: '운영 계획', rows: 5, val: p.operationPlan },
+                      { key: 'deliverablesPlan', label: '산출물 계획', rows: 5, val: p.deliverablesPlan },
+                      { key: 'staffingConditions', label: '인력/운영 조건', rows: 5, val: p.staffingConditions },
+                      { key: 'risksAndCautions', label: '리스크/주의사항', rows: 5, val: p.risksAndCautions },
+                    ].map(sec => (
+                      <div key={sec.key} className="bg-gray-50 rounded-xl p-3">
+                        <div className="text-[10px] text-gray-500 font-semibold mb-1">{sec.label}</div>
+                        <textarea value={sec.val} rows={sec.rows} onChange={e => update({ [sec.key]: e.target.value } as any)} className="w-full bg-white border border-gray-200 rounded-lg p-2 text-xs resize-none" />
+                      </div>
+                    ))}
+                    <div className="bg-gray-50 rounded-xl p-3">
+                      <div className="text-[10px] text-gray-500 font-semibold mb-1">체크리스트</div>
+                      <textarea
+                        value={(p.checklist || []).join('\n')}
+                        rows={6}
+                        onChange={e => update({ checklist: e.target.value.split('\n').map(x => x.trim()).filter(Boolean) })}
+                        className="w-full bg-white border border-gray-200 rounded-lg p-2 text-xs resize-none"
                       />
-                    </td>
-                    <td className="border border-gray-100 p-1">
-                      <input value={row.content} onChange={e => patchDoc(base => { base.program.timeline[i].content = e.target.value; return base })} className="w-full min-w-[120px]" />
-                    </td>
-                    <td className="border border-gray-100 p-1">
-                      <input value={row.detail} onChange={e => patchDoc(base => { base.program.timeline[i].detail = e.target.value; return base })} className="w-full text-gray-600" />
-                    </td>
-                    <td className="border border-gray-100 p-1">
-                      <input value={row.manager} onChange={e => patchDoc(base => { base.program.timeline[i].manager = e.target.value; return base })} className="w-20" />
-                    </td>
-                    <td className="border border-gray-100 p-1">
-                      <button type="button" className="text-red-400" onClick={() => patchDoc(base => { base.program.timeline.splice(i, 1); return base })}>✕</button>
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-            <Button size="sm" onClick={() => patchDoc(base => { base.program.timeline.push({ time: '', content: '', detail: '', manager: '' }); return base })}>+ 일정 추가</Button>
+                    </div>
+                  </>
+                )
+              })()
+            )}
+          </div>
+        )}
+
+        {/* 시나리오 */}
+        {tab === 'scenario' && (
+          <div className="quote-wrapper max-w-3xl mx-auto space-y-3 pt-2">
+            <h3 className="text-base font-semibold">{doc.eventName} — 시나리오</h3>
+            {!isScenarioReady(doc) ? (
+              <div className="bg-gray-50 border border-gray-200 rounded-2xl p-4 text-sm text-gray-600 space-y-2">
+                <p className="text-xs text-gray-500">아직 생성되지 않았습니다.</p>
+                <Button size="sm" variant="primary" onClick={() => onGenerateTab?.('scenario')} disabled={!!generatingTabs.scenario}>
+                  {generatingTabs.scenario ? '시나리오 생성 중...' : 'Generate Scenario'}
+                </Button>
+              </div>
+            ) : (
+              (() => {
+                const s = doc.scenario!
+                const update = (patch: Partial<typeof s>) => patchDoc(base => ({ ...base, scenario: { ...(base.scenario || s), ...patch } as any }))
+                return (
+                  <>
+                    <div className="bg-gray-50 rounded-xl p-3">
+                      <div className="text-[10px] text-gray-500 font-semibold mb-1">한 줄 요약</div>
+                      <textarea value={s.summaryTop} rows={2} onChange={e => update({ summaryTop: e.target.value })} className="w-full bg-white border border-gray-200 rounded-lg p-2 text-xs resize-none" />
+                    </div>
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                      <div className="bg-gray-50 rounded-xl p-3">
+                        <div className="text-[10px] text-gray-500 font-semibold mb-1">오프닝</div>
+                        <textarea value={s.opening} rows={4} onChange={e => update({ opening: e.target.value })} className="w-full bg-white border border-gray-200 rounded-lg p-2 text-xs resize-none" />
+                      </div>
+                      <div className="bg-gray-50 rounded-xl p-3">
+                        <div className="text-[10px] text-gray-500 font-semibold mb-1">전개</div>
+                        <textarea value={s.development} rows={4} onChange={e => update({ development: e.target.value })} className="w-full bg-white border border-gray-200 rounded-lg p-2 text-xs resize-none" />
+                      </div>
+                    </div>
+                    <div className="bg-gray-50 rounded-xl p-3">
+                      <div className="text-[10px] text-gray-500 font-semibold mb-1">핵심 포인트</div>
+                      <textarea value={(s.mainPoints || []).join('\n')} rows={5} onChange={e => update({ mainPoints: e.target.value.split('\n').map(x => x.trim()).filter(Boolean) })} className="w-full bg-white border border-gray-200 rounded-lg p-2 text-xs resize-none" />
+                    </div>
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                      <div className="bg-gray-50 rounded-xl p-3">
+                        <div className="text-[10px] text-gray-500 font-semibold mb-1">클로징</div>
+                        <textarea value={s.closing} rows={4} onChange={e => update({ closing: e.target.value })} className="w-full bg-white border border-gray-200 rounded-lg p-2 text-xs resize-none" />
+                      </div>
+                      <div className="bg-gray-50 rounded-xl p-3">
+                        <div className="text-[10px] text-gray-500 font-semibold mb-1">진행 메모/방향성</div>
+                        <textarea value={s.directionNotes} rows={4} onChange={e => update({ directionNotes: e.target.value })} className="w-full bg-white border border-gray-200 rounded-lg p-2 text-xs resize-none" />
+                      </div>
+                    </div>
+                  </>
+                )
+              })()
+            )}
           </div>
         )}
 

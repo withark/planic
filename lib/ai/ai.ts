@@ -12,9 +12,32 @@ import { resolveGenerateMaxTokens } from './generate-config'
 
 export type { GenerateInput, QuoteDoc, PriceCategory }
 
-const RETRY_SUFFIX = `
+function buildRetrySuffix(target: GenerateInput['documentTarget']): string {
+  const t = target ?? 'estimate'
+  if (t === 'estimate') {
+    return `
 
-[재시도 지시] 방금 응답이 잘리거나 JSON이 아니었을 수 있습니다. markdown·설명 없이 반드시 완전한 단일 JSON 객체만 출력하세요. { 로 시작해 } 로 끝나야 합니다. program.programRows·timeline을 반드시 채우세요.`
+[재시도 지시] 방금 응답이 잘리거나 JSON이 아니었을 수 있습니다. markdown·설명 없이 반드시 완전한 단일 JSON 객체만 출력하세요. { 로 시작해 } 로 끝나야 합니다. quoteItems가 비어 있으면 안 됩니다.`
+  }
+  if (t === 'program') {
+    return `
+
+[재시도 지시] markdown·설명 없이 완전한 단일 JSON 객체만 출력하세요. program.concept과 program.programRows는 비어 있으면 안 됩니다.`
+  }
+  if (t === 'timetable') {
+    return `
+
+[재시도 지시] markdown·설명 없이 완전한 단일 JSON 객체만 출력하세요. program.timeline은 비어 있으면 안 됩니다.`
+  }
+  if (t === 'planning') {
+    return `
+
+[재시도 지시] markdown·설명 없이 완전한 단일 JSON 객체만 출력하세요. planning.overview와 checklist는 비어 있으면 안 됩니다(빈 배열/빈 문자열 허용 X).`
+  }
+  return `
+
+[재시도 지시] markdown·설명 없이 완전한 단일 JSON 객체만 출력하세요. scenario.summaryTop은 비어 있으면 안 됩니다.`
+}
 
 export async function generateQuote(input: GenerateInput): Promise<QuoteDoc> {
   const mock = (process.env.AI_MODE || '').trim().toLowerCase() === 'mock'
@@ -98,19 +121,20 @@ export async function generateQuote(input: GenerateInput): Promise<QuoteDoc> {
   }
 
   const eff = await getEffectiveEngineConfig()
-  const maxOut = Math.min(resolveGenerateMaxTokens(eff.maxTokens, eff.provider), 7000)
+  const maxOut = resolveGenerateMaxTokens(eff.maxTokens, eff.provider)
   const prompt = buildGeneratePrompt(input)
 
   async function runOnce(extra = ''): Promise<string> {
     return callLLM(prompt + extra, { maxTokens: maxOut })
   }
 
+  const target = input.documentTarget
   let text = await runOnce()
   let jsonText: string
   try {
     jsonText = extractQuoteJson(text)
   } catch {
-    text = await runOnce(RETRY_SUFFIX)
+    text = await runOnce(buildRetrySuffix(target))
     try {
       jsonText = extractQuoteJson(text)
     } catch {
@@ -122,7 +146,7 @@ export async function generateQuote(input: GenerateInput): Promise<QuoteDoc> {
   try {
     doc = safeParseQuoteJson(jsonText)
   } catch {
-    text = await runOnce(RETRY_SUFFIX)
+    text = await runOnce(buildRetrySuffix(target))
     try {
       jsonText = extractQuoteJson(text)
       doc = safeParseQuoteJson(jsonText)
@@ -138,6 +162,9 @@ export async function generateQuote(input: GenerateInput): Promise<QuoteDoc> {
     eventType: input.eventType,
     headcount: input.headcount,
     eventDuration: input.eventDuration,
+    fillProgramDefaults: false,
+    fillScenarioDefaults: false,
+    fillCueRows: false,
   })
   return doc
 }
@@ -220,11 +247,31 @@ ${rawText.slice(0, 6000)}
 }
 
 export async function summarizeReference(rawText: string, filename: string): Promise<string> {
-  const prompt = `아래 견적서 텍스트를 분석해서 구성 방식, 주요 항목, 단가 수준을 200자 이내로 요약하세요. 파일명: ${filename}\n\n${rawText.slice(
-    0,
-    3000,
-  )}`
-  return callLLM(prompt, { maxTokens: 1000 })
+  const prompt = `아래 사용자 견적서 텍스트를 분석해서 "사용자 학습 스타일"을 구조화해 JSON으로만 출력하세요.
+
+학습해야 할 것(필수):
+1) 항목명 명명 규칙(예: '기획/운영', '진행요원' 같은 표현 스타일)
+2) 카테고리 구조(어떤 카테고리를 어떤 순서로 나누는지)
+3) 단가/수량/단위 표현 방식(예: '식/명/회', 소계/합계 표기 경향)
+4) 견적서 문체(짧은 문장 vs 문단, 톤, 반복되는 표현)
+5) 제안 문구 톤(있다면 '주의사항/계약조건' 같은 섹션의 작성 경향)
+
+출력 형식(반드시 그대로):
+{
+  "namingRules": "string",
+  "categoryOrder": ["string"],
+  "unitPricingStyle": "string",
+  "toneStyle": "string",
+  "proposalPhraseStyle": "string",
+  "oneLineSummary": "string"
+}
+
+정보를 찾지 못하면 빈 문자열 ""로 처리하세요.
+파일명: ${filename}
+텍스트(일부):
+${rawText.slice(0, 6000)}`
+
+  return callLLM(prompt, { maxTokens: 1400 })
 }
 
 export async function summarizeScenarioRef(rawText: string, filename: string): Promise<string> {
@@ -236,11 +283,44 @@ export async function summarizeScenarioRef(rawText: string, filename: string): P
 }
 
 export async function summarizeTaskOrderRef(rawText: string, filename: string): Promise<string> {
-  const prompt = `아래 과업지시서/기획 관련 문서를 분석해서 과업 범위, 일정, 주요 요구사항을 200자 이내로 요약하세요. 파일명: ${filename}\n\n${rawText.slice(
-    0,
-    3000,
-  )}`
-  return callLLM(prompt, { maxTokens: 1000 })
+  const prompt = `아래 과업지시서/기획안 텍스트를 분석해서 "Task Order Summary"를 구조화해 JSON으로만 출력하세요.
+
+요구 필드(필수, 총 11개):
+1. projectTitle: 프로젝트/서비스 제목(추정 포함)
+2. orderingOrganization: 발주/주최/의뢰 조직(기관명/회사명)
+3. purpose: 목적
+4. mainScope: 메인 스코프(핵심 범위)
+5. eventRange: 이벤트/서비스 범위(대상/형태/규모, 장소가 있다면 포함)
+6. timelineDuration: 타임라인/기간(날짜가 있으면 기간으로, 없으면 대략 일정/기간)
+7. deliverables: 산출물(요구 산출물/제공물)
+8. requiredStaffing: 필요 인력/운영 조건(필수 운영 요건, 상시/팀 구성 힌트)
+9. evaluationSelection: 평가/선정 포인트(선정 기준/우선 고려사항)
+10. restrictionsCautions: 제한/주의사항(불가 조건, 제약, 유의점)
+11. oneLineSummary: 한 줄 요약(짧고 실무형)
+
+각 필드는 1~5문장 한국어로 작성하세요. 정보가 없으면 ""로 처리하세요.
+추론이 필요한 경우에도 원문과 모순되지 않게 보수적으로 작성하세요.
+
+파일명: ${filename}
+텍스트(일부):
+${rawText.slice(0, 6000)}
+
+출력 형식(반드시 그대로):
+{
+  "projectTitle": "",
+  "orderingOrganization": "",
+  "purpose": "",
+  "mainScope": "",
+  "eventRange": "",
+  "timelineDuration": "",
+  "deliverables": "",
+  "requiredStaffing": "",
+  "evaluationSelection": "",
+  "restrictionsCautions": "",
+  "oneLineSummary": ""
+}`
+
+  return callLLM(prompt, { maxTokens: 1600 })
 }
 
 export async function organizeTaskOrderRef(rawText: string, filename: string, summary: string): Promise<string> {

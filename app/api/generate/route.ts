@@ -42,6 +42,12 @@ const GenerateRequestSchema = z.object({
   requirements: z.string().optional().default(''),
   generationMode: z.enum(['normal', 'taskOrderBase']).optional().default('normal'),
   taskOrderBaseId: z.string().optional().default(''),
+  documentTarget: z
+    .enum(['estimate', 'program', 'timetable', 'planning', 'scenario'])
+    .optional()
+    .default('estimate'),
+  styleMode: z.enum(['userStyle', 'aiTemplate']).optional().default('userStyle'),
+  existingDoc: z.any().optional(),
 })
 
 export async function POST(req: NextRequest) {
@@ -79,10 +85,15 @@ export async function POST(req: NextRequest) {
       )
     }
 
-    const usage = await getOrCreateUsage(userId)
-    assertQuoteGenerateAllowed(plan, usage.quoteGeneratedCount)
+    if (body.documentTarget === 'estimate') {
+      const usage = await getOrCreateUsage(userId)
+      assertQuoteGenerateAllowed(plan, usage.quoteGeneratedCount)
+    }
 
     const generationMode = body.generationMode
+    const documentTarget = body.documentTarget
+    const styleMode = body.styleMode
+    const existingDoc = body.existingDoc as QuoteDoc | undefined
     const taskOrderBaseId = (body.taskOrderBaseId || '').trim() || undefined
     const [prices, settings, references, taskOrderRefs, engineOverlay] =
       await Promise.all([
@@ -91,7 +102,7 @@ export async function POST(req: NextRequest) {
           const p = await getDefaultCompanyProfile(userId)
           return p ? profileToCompanySettings(p) : DEFAULT_SETTINGS
         })(),
-        generationMode === 'taskOrderBase' ? Promise.resolve([]) : listReferenceDocs(userId),
+        styleMode === 'userStyle' ? listReferenceDocs(userId) : Promise.resolve([]),
         listTaskOrderRefs(userId),
         hasDatabase()
           ? kvGet<EngineConfigOverlay | null>('engine_config', null).catch(() => null as EngineConfigOverlay | null)
@@ -137,6 +148,10 @@ export async function POST(req: NextRequest) {
       qualityBoost: overlayForPrompt?.qualityBoost,
     }
 
+    if (documentTarget !== 'estimate' && !existingDoc) {
+      return errorResponse(400, 'INVALID_EXISTING_DOC', '문서 타깃이 estimate가 아니면 existingDoc이 필요합니다.')
+    }
+
     const input: GenerateInput = {
       ...body,
       prices,
@@ -144,6 +159,9 @@ export async function POST(req: NextRequest) {
       references,
       taskOrderRefs: filteredTaskOrderRefs,
       engineQuality,
+      documentTarget,
+      styleMode,
+      existingDoc,
     }
 
     const quoteId = uid()
@@ -151,94 +169,59 @@ export async function POST(req: NextRequest) {
     try {
       doc = await generateQuote(input)
     } catch (genErr) {
+      if (documentTarget === 'estimate') {
+        await insertGenerationRun({
+          userId,
+          quoteId: null,
+          success: false,
+          errorMessage: genErr instanceof Error ? genErr.message : String(genErr),
+          sampleId: appliedSampleId,
+          sampleFilename: appliedSampleFilename,
+          cuesheetApplied,
+          engineSnapshot,
+        }).catch(() => {})
+      }
+      throw genErr
+    }
+    ;(doc as QuoteDoc).quoteTemplate = normalizeTemplateForPlan(plan, (doc as QuoteDoc).quoteTemplate as any)
+
+    const totals = calcTotals(doc)
+
+    if (documentTarget === 'estimate') {
+      await quotesDbAppend(
+        {
+          id: quoteId,
+          eventName: doc.eventName,
+          clientName: doc.clientName,
+          quoteDate: doc.quoteDate,
+          eventDate: doc.eventDate,
+          duration: doc.eventDuration,
+          type: doc.eventType,
+          headcount: doc.headcount,
+          total: totals.grand,
+          savedAt: new Date().toISOString(),
+          doc,
+          generationMeta: {
+            sampleId: appliedSampleId || undefined,
+            sampleFilename: appliedSampleFilename || undefined,
+            cuesheetApplied,
+            engineSnapshot,
+          },
+        },
+        userId,
+      )
+
+      await incQuoteGenerated(userId, 1)
       await insertGenerationRun({
         userId,
-        quoteId: null,
-        success: false,
-        errorMessage: genErr instanceof Error ? genErr.message : String(genErr),
+        quoteId,
+        success: true,
         sampleId: appliedSampleId,
         sampleFilename: appliedSampleFilename,
         cuesheetApplied,
         engineSnapshot,
       }).catch(() => {})
-      throw genErr
     }
-    ;(doc as QuoteDoc).quoteTemplate = normalizeTemplateForPlan(plan, (doc as QuoteDoc).quoteTemplate as any)
-
-    if (!doc.program?.concept?.trim() && (!doc.program?.programRows?.length)) {
-      doc = normalizeQuoteDoc(
-        {
-          ...doc,
-          program: {
-            concept: `${doc.eventName} 제안·타임라인은 각 탭에서 수정하세요.`,
-            programRows: doc.program?.programRows || [],
-            timeline: doc.program?.timeline || [
-              { time: body.eventStartHHmm || '', content: '개회', detail: '', manager: '' },
-              { time: '', content: '본 프로그램', detail: '', manager: '' },
-              { time: body.eventEndHHmm || '', content: '마무리', detail: '', manager: '' },
-            ],
-            staffing: doc.program?.staffing || [{ role: '진행요원', count: 1, note: '' }],
-            tips: doc.program?.tips || ['사전 점검'],
-            cueRows: doc.program?.cueRows || [],
-            cueSummary: doc.program?.cueSummary || '',
-          },
-          scenario: doc.scenario,
-        } as QuoteDoc,
-        {
-          eventStartHHmm: body.eventStartHHmm,
-          eventEndHHmm: body.eventEndHHmm,
-          eventName: doc.eventName,
-          eventType: doc.eventType,
-          headcount: doc.headcount,
-          eventDuration: doc.eventDuration,
-        },
-      )
-    } else {
-      doc = normalizeQuoteDoc(doc, {
-        eventStartHHmm: body.eventStartHHmm,
-        eventEndHHmm: body.eventEndHHmm,
-        eventName: doc.eventName,
-        eventType: doc.eventType,
-        headcount: doc.headcount,
-        eventDuration: doc.eventDuration,
-      })
-    }
-
-    const totals = calcTotals(doc)
-
-    await quotesDbAppend(
-      {
-        id: quoteId,
-        eventName: doc.eventName,
-        clientName: doc.clientName,
-        quoteDate: doc.quoteDate,
-        eventDate: doc.eventDate,
-        duration: doc.eventDuration,
-        type: doc.eventType,
-        headcount: doc.headcount,
-        total: totals.grand,
-        savedAt: new Date().toISOString(),
-        doc,
-        generationMeta: {
-          sampleId: appliedSampleId || undefined,
-          sampleFilename: appliedSampleFilename || undefined,
-          cuesheetApplied,
-          engineSnapshot,
-        },
-      },
-      userId,
-    )
-
-    await incQuoteGenerated(userId, 1)
-    await insertGenerationRun({
-      userId,
-      quoteId,
-      success: true,
-      sampleId: appliedSampleId,
-      sampleFilename: appliedSampleFilename,
-      cuesheetApplied,
-      engineSnapshot,
-    }).catch(() => {})
 
     return okResponse({ doc, totals })
   } catch (e) {

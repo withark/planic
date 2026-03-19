@@ -7,6 +7,12 @@ export interface GenerateInput {
   generationMode?: 'normal' | 'taskOrderBase'
   /** 과업지시서 기반 모드일 때 적용할 특정 업로드 ID */
   taskOrderBaseId?: string
+  /** 문서 타깃: 견적/프로그램/타임테이블/기획/시나리오 */
+  documentTarget?: 'estimate' | 'program' | 'timetable' | 'planning' | 'scenario'
+  /** 스타일 전략: 사용자 학습 스타일 vs AI 템플릿 모드 */
+  styleMode?: 'userStyle' | 'aiTemplate'
+  /** 문서 타깃이 estimate가 아닐 때, 이미 생성된 상태를 프롬프트에 제공 */
+  existingDoc?: QuoteDoc
   eventName: string
   clientName: string
   clientManager: string

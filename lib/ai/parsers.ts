@@ -57,16 +57,33 @@ function defaultProgramPlan(eventName: string, eventType: string, headcount: str
 /** 파싱 직후·마이그레이션: 누락 필드 보강 + 타임라인 시각 정합 */
 export function normalizeQuoteDoc(
   doc: QuoteDoc,
-  opts: { eventStartHHmm?: string; eventEndHHmm?: string; eventName?: string; eventType?: string; headcount?: string; eventDuration?: string },
+  opts: {
+    eventStartHHmm?: string
+    eventEndHHmm?: string
+    eventName?: string
+    eventType?: string
+    headcount?: string
+    eventDuration?: string
+    /** 기본값으로 프로그램/시나리오를 '채우는' 동작 여부 */
+    fillProgramDefaults?: boolean
+    fillScenarioDefaults?: boolean
+    fillCueRows?: boolean
+  },
 ): QuoteDoc {
   const eventName = doc.eventName || opts.eventName || '행사'
   const eventType = doc.eventType || opts.eventType || ''
   const headcount = doc.headcount || opts.headcount || ''
   const eventDuration = doc.eventDuration || opts.eventDuration || ''
 
+  const fillProgramDefaults = opts.fillProgramDefaults ?? true
+  const fillScenarioDefaults = opts.fillScenarioDefaults ?? true
+  const fillCueRows = opts.fillCueRows ?? true
+
   let program = doc.program as ProgramPlan | undefined
   if (!program || typeof program !== 'object') {
-    program = defaultProgramPlan(eventName, eventType, headcount, eventDuration)
+    program = fillProgramDefaults
+      ? defaultProgramPlan(eventName, eventType, headcount, eventDuration)
+      : { concept: '', programRows: [], timeline: [], staffing: [], tips: [], cueRows: [], cueSummary: '' }
   } else {
     program = {
       concept: typeof program.concept === 'string' ? program.concept : '',
@@ -80,44 +97,48 @@ export function normalizeQuoteDoc(
   }
 
   const timeline = program.timeline as TimelineRow[]
-  if (!program.concept?.trim() || program.concept.length < 10) {
-    program.concept = `${eventName} ${eventType} 행사 프로그램·운영 개요 (표·타임테이블·큐시트·시나리오 탭 참고).`
+  if (fillProgramDefaults) {
+    if (!program.concept?.trim() || program.concept.length < 10) {
+      program.concept = `${eventName} ${eventType} 행사 프로그램·운영 개요 (표·타임테이블·큐시트·시나리오 탭 참고).`
+    }
+    if (!program.programRows.length && timeline.length) {
+      program.programRows = timeline.map((t, i) => ({
+        kind: i === 0 ? '오프닝' : i === timeline.length - 1 ? '클로징' : '진행',
+        content: t.content || '',
+        tone: '',
+        image: '',
+        time: t.time || '',
+        audience: '',
+        notes: t.detail || '',
+      }))
+    }
+    if (!program.programRows.length) {
+      program.programRows = defaultProgramPlan(eventName, eventType, headcount, eventDuration).programRows
+    }
+    if (!program.timeline.length) {
+      program.timeline = defaultProgramPlan(eventName, eventType, headcount, eventDuration).timeline
+    }
+    if (!program.staffing.length) {
+      program.staffing = [{ role: '진행요원', count: 1, note: '' }]
+    }
+    if (!program.tips.length) program.tips = ['사전 리허설·연락망 확보']
   }
-  if (!program.programRows.length && timeline.length) {
-    program.programRows = timeline.map((t, i) => ({
-      kind: i === 0 ? '오프닝' : i === timeline.length - 1 ? '클로징' : '진행',
-      content: t.content || '',
-      tone: '',
-      image: '',
-      time: t.time || '',
-      audience: '',
-      notes: t.detail || '',
-    }))
-  }
-  if (!program.programRows.length) {
-    program.programRows = defaultProgramPlan(eventName, eventType, headcount, eventDuration).programRows
-  }
-  if (!program.timeline.length) {
-    program.timeline = defaultProgramPlan(eventName, eventType, headcount, eventDuration).timeline
-  }
-  if (!program.staffing.length) {
-    program.staffing = [{ role: '진행요원', count: 1, note: '' }]
-  }
-  if (!program.tips.length) program.tips = ['사전 리허설·연락망 확보']
 
-  if (!program.cueRows.length && timeline.length) {
-    program.cueRows = timeline.map((t, i) => ({
-      time: t.time || '',
-      order: String(i + 1),
-      content: t.content || '',
-      staff: t.manager || '',
-      prep: t.detail || '',
-      script: '',
-      special: '',
-    }))
-  }
-  if (!program.cueSummary.trim()) {
-    program.cueSummary = `${eventName} 당일 운영 요약 · 총 ${program.cueRows.length || timeline.length}구간`
+  if (fillCueRows) {
+    if (!program.cueRows.length && timeline.length) {
+      program.cueRows = timeline.map((t, i) => ({
+        time: t.time || '',
+        order: String(i + 1),
+        content: t.content || '',
+        staff: t.manager || '',
+        prep: t.detail || '',
+        script: '',
+        special: '',
+      }))
+    }
+    if (!program.cueSummary.trim()) {
+      program.cueSummary = `${eventName} 당일 운영 요약 · 총 ${program.cueRows.length || timeline.length}구간`
+    }
   }
 
   const start = opts.eventStartHHmm?.trim()
@@ -126,55 +147,59 @@ export function normalizeQuoteDoc(
     program.timeline = redistributeTimelineTimes(program.timeline, start, end)
   }
 
-  const n = program.timeline.length
-  while (program.programRows.length < n) {
-    const i = program.programRows.length
-    const t = program.timeline[i]
-    program.programRows.push({
-      kind: i === 0 ? '오프닝' : i === n - 1 ? '클로징' : '진행',
-      content: t?.content || `구간 ${i + 1}`,
-      tone: '',
-      image: '(이미지 슬롯)',
-      time: t?.time || '',
-      audience: headcount || '',
-      notes: t?.detail || '',
+  if (fillProgramDefaults || fillCueRows) {
+    const n = program.timeline.length
+    while (fillProgramDefaults && program.programRows.length < n) {
+      const i = program.programRows.length
+      const t = program.timeline[i]
+      program.programRows.push({
+        kind: i === 0 ? '오프닝' : i === n - 1 ? '클로징' : '진행',
+        content: t?.content || `구간 ${i + 1}`,
+        tone: '',
+        image: '(이미지 슬롯)',
+        time: t?.time || '',
+        audience: headcount || '',
+        notes: t?.detail || '',
+      })
+    }
+    while (fillCueRows && program.cueRows.length < n) {
+      const i = program.cueRows.length
+      const t = program.timeline[i]
+      program.cueRows.push({
+        time: t?.time || '',
+        order: String(i + 1),
+        content: t?.content || '',
+        staff: t?.manager || '',
+        prep: t?.detail || '',
+        script: '',
+        special: '',
+      })
+    }
+    program.timeline.forEach((t, i) => {
+      if (program!.programRows[i] && fillProgramDefaults) {
+        program.programRows[i].time = t.time
+        if (!program.programRows[i].content.trim()) program.programRows[i].content = t.content || `일정 ${i + 1}`
+      }
+      if (program!.cueRows[i] && fillCueRows) {
+        program.cueRows[i].time = t.time
+        if (!program.cueRows[i].content.trim()) program.cueRows[i].content = t.content || ''
+        program.cueRows[i].order = String(i + 1)
+      }
     })
   }
-  while (program.cueRows.length < n) {
-    const i = program.cueRows.length
-    const t = program.timeline[i]
-    program.cueRows.push({
-      time: t?.time || '',
-      order: String(i + 1),
-      content: t?.content || '',
-      staff: t?.manager || '',
-      prep: t?.detail || '',
-      script: '',
-      special: '',
-    })
-  }
-  program.timeline.forEach((t, i) => {
-    if (program!.programRows[i]) {
-      program.programRows[i].time = t.time
-      if (!program.programRows[i].content.trim()) program.programRows[i].content = t.content || `일정 ${i + 1}`
-    }
-    if (program!.cueRows[i]) {
-      program.cueRows[i].time = t.time
-      if (!program.cueRows[i].content.trim()) program.cueRows[i].content = t.content || ''
-      program.cueRows[i].order = String(i + 1)
-    }
-  })
 
   let scenario = doc.scenario as ScenarioDoc | undefined
   if (!scenario || typeof scenario !== 'object') {
-    scenario = {
-      summaryTop: `${eventName} 연출·진행 흐름`,
-      opening: '',
-      development: '',
-      mainPoints: [],
-      closing: '',
-      directionNotes: '',
-    }
+    scenario = fillScenarioDefaults
+      ? {
+          summaryTop: `${eventName} 연출·진행 흐름`,
+          opening: '',
+          development: '',
+          mainPoints: [],
+          closing: '',
+          directionNotes: '',
+        }
+      : undefined
   } else {
     scenario = {
       summaryTop: scenario.summaryTop || '',
@@ -186,25 +211,27 @@ export function normalizeQuoteDoc(
     }
   }
 
-  const tl = program.timeline
-  if (!scenario.summaryTop.trim()) scenario.summaryTop = `${eventName} 연출·진행 요약`
-  if (!scenario.opening.trim() && tl[0])
-    scenario.opening = `${tl[0].content}${tl[0].time ? ` (${tl[0].time})` : ''}`
-  if (!scenario.development.trim() && tl.length > 1)
-    scenario.development = tl
-      .slice(1, Math.max(1, tl.length - 1))
-      .map(t => t.content)
-      .filter(Boolean)
-      .join(' → ') || '본 행사 진행'
-  if (!scenario.mainPoints?.length) {
-    const fromRows = program.programRows.map(r => r.content).filter(c => c.trim())
-    scenario.mainPoints = (fromRows.length ? fromRows : tl.map(t => t.content)).filter(Boolean).slice(0, 6)
-    if (!scenario.mainPoints.length) scenario.mainPoints = ['일정·연출은 타임테이블·제안 프로그램 표 참고']
+  if (fillScenarioDefaults && scenario) {
+    const tl = program.timeline
+    if (!scenario.summaryTop.trim()) scenario.summaryTop = `${eventName} 연출·진행 요약`
+    if (!scenario.opening.trim() && tl[0])
+      scenario.opening = `${tl[0].content}${tl[0].time ? ` (${tl[0].time})` : ''}`
+    if (!scenario.development.trim() && tl.length > 1)
+      scenario.development = tl
+        .slice(1, Math.max(1, tl.length - 1))
+        .map(t => t.content)
+        .filter(Boolean)
+        .join(' → ') || '본 행사 진행'
+    if (!scenario.mainPoints?.length) {
+      const fromRows = program.programRows.map(r => r.content).filter(c => c.trim())
+      scenario.mainPoints = (fromRows.length ? fromRows : tl.map(t => t.content)).filter(Boolean).slice(0, 6)
+      if (!scenario.mainPoints.length) scenario.mainPoints = ['일정·연출은 타임테이블·제안 프로그램 표 참고']
+    }
+    if (!scenario.closing.trim() && tl.length)
+      scenario.closing = `${tl[tl.length - 1].content}${tl[tl.length - 1].time ? ` (${tl[tl.length - 1].time})` : ''}`
+    if (!scenario.directionNotes.trim())
+      scenario.directionNotes = `담당: ${tl.map(t => t.manager).filter(Boolean).join(', ') || '현장'} · 장비·멘트 사전 확인`
   }
-  if (!scenario.closing.trim() && tl.length)
-    scenario.closing = `${tl[tl.length - 1].content}${tl[tl.length - 1].time ? ` (${tl[tl.length - 1].time})` : ''}`
-  if (!scenario.directionNotes.trim())
-    scenario.directionNotes = `담당: ${tl.map(t => t.manager).filter(Boolean).join(', ') || '현장'} · 장비·멘트 사전 확인`
 
   return {
     ...doc,

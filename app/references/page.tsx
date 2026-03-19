@@ -253,15 +253,16 @@ export default function ReferencesPage() {
     <div className="flex h-screen overflow-hidden bg-gray-50/50">
       <GNB />
       <div className="flex-1 flex flex-col overflow-hidden">
-        <header className="flex-shrink-0 h-14 border-b border-gray-100 bg-white/90 flex items-center justify-between px-6">
+            <header className="flex-shrink-0 h-14 border-b border-gray-100 bg-white/90 flex items-center justify-between px-6">
           <div>
-            <h1 className="text-base font-semibold text-gray-900">참고 자료</h1>
-            <p className="text-xs text-gray-500 mt-0.5">견적서·시나리오·기획안(과업지시서) 참고를 올리면 AI가 학습해 품질을 높입니다</p>
+            <h1 className="text-base font-semibold text-gray-900">참고 견적서</h1>
+            <p className="text-xs text-gray-500 mt-0.5">사용자 업로드 견적서로 품질/항목 구성 스타일을 학습합니다</p>
           </div>
         </header>
         <div className="flex-1 overflow-y-auto">
           <div className="max-w-3xl mx-auto px-6 py-6 space-y-8">
-            {/* 큐시트 샘플 — 메인 자리 (상단) */}
+            {/* 큐시트 샘플 — 현재 메인 사용자 경로에서 비활성화 */}
+            {false && (
             <section>
               <div className="mb-3">
                 <h2 className="text-base font-semibold text-gray-900">큐시트 샘플</h2>
@@ -325,8 +326,10 @@ export default function ReferencesPage() {
                 </div>
               )}
             </section>
+            )}
 
             {/* 기획안·과업지시서 */}
+            {false && (
             <section>
               <div className="mb-3">
                 <h2 className="text-base font-semibold text-gray-900">기획안·과업지시서</h2>
@@ -410,8 +413,10 @@ export default function ReferencesPage() {
                 </ul>
               )}
             </section>
+            )}
 
             {/* 시나리오 참고 */}
+            {false && (
             <section>
               <div className="mb-3">
                 <h2 className="text-base font-semibold text-gray-900">시나리오 참고</h2>
@@ -468,6 +473,7 @@ export default function ReferencesPage() {
                 </ul>
               )}
             </section>
+            )}
 
             {/* 참고 견적서 */}
             <section className="pt-6 border-t border-gray-200">
@@ -522,7 +528,7 @@ export default function ReferencesPage() {
           </div>
         </div>
       </div>
-      {organizeTargetId && (
+      {false && organizeTargetId && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
           <div
             className="absolute inset-0 bg-black/40"

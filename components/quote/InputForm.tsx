@@ -1,5 +1,5 @@
 'use client'
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useRef } from 'react'
 import { Input, Select, Textarea, SectionLabel, Btn, Spinner } from '@/components/ui'
 import CalendarPicker, { formatKorDate } from '@/components/ui/CalendarPicker'
 import DurationInput, { durationToString, type DurationValue } from '@/components/ui/DurationInput'
@@ -114,6 +114,10 @@ export type GenerateRequestBody = {
   generationMode?: 'normal' | 'taskOrderBase'
   /** 과업지시서 업로드 중 어떤 문서를 기준으로 할지 */
   taskOrderBaseId?: string
+  /** 스타일 모드: 사용자 학습 스타일 vs AI 추천 템플릿 */
+  styleMode?: 'userStyle' | 'aiTemplate'
+  /** 문서 타깃(현재 UI는 견적서만 초기 생성) */
+  documentTarget?: 'estimate' | 'program' | 'timetable' | 'planning' | 'scenario'
 }
 
 interface Props {
@@ -122,6 +126,19 @@ interface Props {
   onStatusChange?: (msg: string) => void
   taskOrderRefsCount?: number
   taskOrderBaseId?: string
+  taskOrderSummary?: {
+    projectTitle?: string
+    orderingOrganization?: string
+    purpose?: string
+    mainScope?: string
+    eventRange?: string
+    timelineDuration?: string
+    deliverables?: string
+    requiredStaffing?: string
+    evaluationSelection?: string
+    restrictionsCautions?: string
+    oneLineSummary?: string
+  } | null
 }
 
 export default function InputForm({
@@ -130,6 +147,7 @@ export default function InputForm({
   onStatusChange,
   taskOrderRefsCount = 0,
   taskOrderBaseId,
+  taskOrderSummary,
 }: Props) {
   const [loading, setLoading]   = useState(false)
   const [error, setError]       = useState('')
@@ -152,6 +170,76 @@ export default function InputForm({
   const [budgetCustom,   setBudgetCustom]  = useState('')
   const [requirements,  setRequirements]  = useState('')
   const [generationMode, setGenerationMode] = useState<'normal' | 'taskOrderBase'>('normal')
+  const [styleMode, setStyleMode] = useState<'userStyle' | 'aiTemplate'>('userStyle')
+  const autoFilledRef = useRef(false)
+
+  useEffect(() => {
+    if (!taskOrderSummary) return
+    if (autoFilledRef.current) return
+
+    // 요약 기반 자동 프리필(빈 필드에만 적용)
+    if (!eventName && taskOrderSummary.projectTitle) setEventName(taskOrderSummary.projectTitle.trim())
+    if (!clientName && taskOrderSummary.orderingOrganization) setClientName(taskOrderSummary.orderingOrganization.trim())
+    if (!venue && taskOrderSummary.eventRange) setVenue(taskOrderSummary.eventRange.trim())
+
+    if (!requirements) {
+      const parts = [
+        taskOrderSummary.purpose,
+        taskOrderSummary.mainScope,
+        taskOrderSummary.deliverables,
+        taskOrderSummary.restrictionsCautions,
+      ].map(x => (x || '').trim()).filter(Boolean)
+      if (parts.length) setRequirements(parts.join('\n'))
+    }
+
+    // headcount 추출(간단 추론)
+    if (!headMin && !headMax && taskOrderSummary.requiredStaffing) {
+      const text = taskOrderSummary.requiredStaffing
+      const range = text.match(/(\d{1,3}(?:,\d{3})?)\s*명?\s*[~-]\s*(\d{1,3}(?:,\d{3})?)\s*명?/)
+      if (range) {
+        const a = Number(range[1].replace(/,/g, ''))
+        const b = Number(range[2].replace(/,/g, ''))
+        if (Number.isFinite(a) && Number.isFinite(b)) {
+          setHeadMin(String(Math.min(a, b)))
+          setHeadMax(String(Math.max(a, b)))
+        }
+      } else {
+        const one = text.match(/(\d{1,3}(?:,\d{3})?)\s*명/)
+        if (one) {
+          const a = Number(one[1].replace(/,/g, ''))
+          if (Number.isFinite(a)) setHeadMin(String(a))
+        }
+      }
+    }
+
+    // 기간/소요시간 추출(간단 추론)
+    const isDurationEmpty = duration.hours === 0 && duration.minutes === 0 && duration.nights === 0 && duration.days === 0
+    if (isDurationEmpty && taskOrderSummary.timelineDuration) {
+      const td = taskOrderSummary.timelineDuration
+      const h = td.match(/(\d{1,3})\s*시간/)
+      const m = td.match(/(\d{1,3})\s*분/)
+      let hours = 0
+      let minutes = 0
+      if (h) hours = Number(h[1])
+      if (m) minutes = Number(m[1])
+      if (h || m) {
+        if (!Number.isFinite(hours)) hours = 0
+        if (!Number.isFinite(minutes)) minutes = 0
+        setDuration({ nights: 0, days: 0, hours, minutes })
+      }
+      const date = td.match(/(20\d{2})[.\-/](\d{1,2})[.\-/](\d{1,2})/)
+      if (date) {
+        const y = Number(date[1])
+        const mo = Number(date[2]) - 1
+        const d = Number(date[3])
+        const dt = new Date(y, mo, d)
+        if (!Number.isNaN(dt.getTime())) setEventDate(dt)
+      }
+    }
+
+    // auto-fill once
+    autoFilledRef.current = true
+  }, [taskOrderSummary])
 
   useEffect(() => {
     // generate?taskOrderBaseId=... 로 진입하면 빠른 생성 모드로 자동 전환
@@ -168,10 +256,9 @@ export default function InputForm({
 
   const STEPS = [
     '행사 기본 정보 분석 중...',
-    '단가표·참고 자료 반영 중...',
+    '단가표·참고 견적 스타일 반영 중...',
     '견적 항목 구성 중...',
-    '타임테이블 작성 중...',
-    '마무리 검토 중...',
+    '견적서 구조/문체 검토 중...',
   ]
 
   async function handleSubmit(e: React.FormEvent) {
@@ -224,6 +311,8 @@ export default function InputForm({
       requirements,
       generationMode: generationMode === 'taskOrderBase' ? 'taskOrderBase' : undefined,
       taskOrderBaseId: generationMode === 'taskOrderBase' ? (taskOrderBaseId || undefined) : undefined,
+      styleMode,
+      documentTarget: 'estimate',
     }
     try {
       const data = await apiFetch<{ doc: QuoteDoc; totals: Record<string, number> }>('/api/generate', {
@@ -251,7 +340,7 @@ export default function InputForm({
     <form onSubmit={handleSubmit} className="flex flex-col gap-3 p-4 overflow-y-auto overflow-x-hidden h-full min-w-0">
       <SectionLabel>행사 기본 정보</SectionLabel>
       <p className="text-[11px] text-gray-500 mb-1">
-        입력한 정보와 참고 자료(과업지시서, 시나리오)를 바탕으로 AI가 견적서와 제안 프로그램 초안을 한 번에 만들어 줍니다.
+        입력한 정보와 참고 자료(과업지시서 요약/참고 견적서 스타일)를 바탕으로 AI가 견적서만 생성합니다. 프로그램/타임테이블/기획/시나리오는 탭에서 필요할 때 생성하세요.
       </p>
 
       <Select label="행사 유형" value={eventType} onChange={e => setEventType(e.target.value)}>
@@ -382,24 +471,15 @@ export default function InputForm({
         rows={3}
       />
 
-      {taskOrderRefsCount > 0 && (
-        <div className="rounded-xl border border-slate-200 bg-slate-50 px-3 py-2.5">
-          <label className="flex items-start gap-2 cursor-pointer">
-            <input
-              type="checkbox"
-              checked={generationMode === 'taskOrderBase'}
-              onChange={e => setGenerationMode(e.target.checked ? 'taskOrderBase' : 'normal')}
-              className="mt-0.5"
-            />
-            <div className="min-w-0">
-              <p className="text-xs font-semibold text-gray-800">과업지시서 기반 기본 견적서(빠른 생성)</p>
-              <p className="text-[11px] text-gray-500 mt-1">
-                참고 자료에서 만든 과업지시서 요약을 자동 반영해서, 견적서와 타임테이블만 빠르게 생성합니다.
-              </p>
-            </div>
-          </label>
-        </div>
-      )}
+      <div className="rounded-xl border border-slate-200 bg-slate-50 px-3 py-2.5">
+        <Select label="스타일 모드" value={styleMode} onChange={e => setStyleMode(e.target.value as 'userStyle' | 'aiTemplate')}>
+          <option value="userStyle">사용자 학습 스타일</option>
+          <option value="aiTemplate">AI 추천 템플릿 모드</option>
+        </Select>
+        <p className="text-[11px] text-gray-500 mt-1">
+          사용자 학습 스타일은 참고 견적서 업로드로 항목명/구성/문체 경향을 따라갑니다. AI 추천 템플릿 모드는 플래닉 표준 포맷을 사용합니다.
+        </p>
+      </div>
 
       {error && (
         <p className="text-xs text-red-500 bg-red-50 px-2.5 py-2 rounded-lg">{error}</p>
@@ -411,7 +491,7 @@ export default function InputForm({
         disabled={loading}
         className="w-full justify-center py-2.5 text-sm mt-1"
       >
-        {loading ? <Spinner label={statusMsg} /> : '플래닉으로 견적서 · 기획안 생성하기'}
+        {loading ? <Spinner label={statusMsg} /> : '플래닉으로 견적서 생성하기'}
       </Btn>
     </form>
   )

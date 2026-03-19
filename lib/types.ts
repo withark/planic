@@ -58,6 +58,18 @@ export interface ScenarioDoc {
   directionNotes: string
 }
 
+// ─── 기획 문서(Planning) ─────────────────────────
+export interface PlanningDoc {
+  overview: string
+  scope: string
+  approach: string
+  operationPlan: string
+  deliverablesPlan: string
+  staffingConditions: string
+  risksAndCautions: string
+  checklist: string[]
+}
+
 // ─── 견적서 ──────────────────────────────────
 export interface QuoteDoc {
   eventName: string
@@ -80,6 +92,8 @@ export interface QuoteDoc {
   program: ProgramPlan
   /** 시나리오·연출 흐름 (PPT 샘플 반영) */
   scenario?: ScenarioDoc
+  /** 기획 문서(계획/운영/산출물) */
+  planning?: PlanningDoc
   /** 견적서 스타일 템플릿 (구독/판매용) */
   quoteTemplate?: string
 }

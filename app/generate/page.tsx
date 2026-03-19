@@ -12,6 +12,8 @@ import { apiFetch } from '@/lib/api/client'
 import { toUserMessage } from '@/lib/errors/toUserMessage'
 import type { PlanType } from '@/lib/plans'
 
+type DocTab = 'estimate' | 'program' | 'timetable' | 'planning' | 'scenario'
+
 const LEFT_MIN = 240
 const LEFT_MAX = 480
 const LEFT_DEFAULT = 288
@@ -34,10 +36,12 @@ export default function GeneratePage() {
   const [prices, setPrices] = useState<PriceCategory[]>([])
   const [taskOrderRefsCount, setTaskOrderRefsCount] = useState<number>(0)
   const [taskOrderBaseId, setTaskOrderBaseId] = useState<string | undefined>(undefined)
+  const [taskOrderSummary, setTaskOrderSummary] = useState<any | null>(null)
   const [isGenerating, setIsGenerating] = useState(false)
   const [statusMsg, setStatusMsg] = useState('')
   const [me, setMe] = useState<MeLite | null>(null)
   const isDragging = useRef(false)
+  const [generatingTabs, setGeneratingTabs] = useState<Partial<Record<DocTab, boolean>>>({})
 
   const refreshMe = useCallback(() => {
     apiFetch<MeLite>('/api/me').then(setMe).catch(() => {})
@@ -53,6 +57,16 @@ export default function GeneratePage() {
     const id = params.get('taskOrderBaseId') || undefined
     setTaskOrderBaseId(id)
   }, [])
+
+  useEffect(() => {
+    if (!taskOrderBaseId) {
+      setTaskOrderSummary(null)
+      return
+    }
+    apiFetch<any>(`/api/task-order-references/${encodeURIComponent(taskOrderBaseId)}`)
+      .then(d => setTaskOrderSummary(d?.structuredSummary ?? null))
+      .catch(() => setTaskOrderSummary(null))
+  }, [taskOrderBaseId])
 
   useEffect(() => {
     apiFetch<CompanySettings>('/api/settings')
@@ -109,6 +123,47 @@ export default function GeneratePage() {
     refreshMe()
   }
 
+  const handleGenerateTab = useCallback(
+    async (tab: DocTab) => {
+      if (!doc || !lastRequest) return
+      if (tab === 'estimate') return
+
+      const documentTarget =
+        tab === 'program' ? 'program' :
+        tab === 'timetable' ? 'timetable' :
+        tab === 'planning' ? 'planning' :
+        'scenario'
+
+      setGeneratingTabs(s => ({ ...s, [tab]: true }))
+      try {
+        const data = await apiFetch<{ doc: QuoteDoc; totals: Record<string, number> }>('/api/generate', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            ...lastRequest,
+            documentTarget,
+            existingDoc: doc,
+          }),
+        })
+        setDoc(data.doc)
+        showToast(
+          tab === 'program'
+            ? '프로그램 제안 생성 완료!'
+            : tab === 'timetable'
+              ? '타임테이블 생성 완료!'
+              : tab === 'planning'
+                ? '기획 문서 생성 완료!'
+                : '시나리오 생성 완료!',
+        )
+      } catch (e) {
+        showToast(toUserMessage(e, '해당 문서 생성에 실패했습니다.'))
+      } finally {
+        setGeneratingTabs(s => ({ ...s, [tab]: false }))
+      }
+    },
+    [doc, lastRequest, showToast],
+  )
+
   const openLoadModal = useCallback(() => {
     setLoadModalOpen(true)
     apiFetch<HistoryRecord[]>('/api/history')
@@ -133,7 +188,7 @@ export default function GeneratePage() {
       const data = await apiFetch<{ doc: QuoteDoc; totals: Record<string, number> }>('/api/generate', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(lastRequest),
+        body: JSON.stringify({ ...lastRequest, existingDoc: doc }),
       })
       setDoc(data.doc)
       showToast('견적서 재작성 완료!')
@@ -158,6 +213,7 @@ export default function GeneratePage() {
           onStatusChange={setStatusMsg}
           taskOrderRefsCount={taskOrderRefsCount}
           taskOrderBaseId={taskOrderBaseId}
+          taskOrderSummary={taskOrderSummary}
         />
       </div>
 
@@ -190,7 +246,7 @@ export default function GeneratePage() {
         {isGenerating && (
           <div className="flex items-center gap-2 px-4 py-2 text-xs text-primary-800 bg-primary-50 border-b border-primary-100">
             <span className="w-2 h-2 rounded-full bg-primary-500 animate-pulse" />
-            <span>플래닉이 견적서·기획안을 생성 중입니다: {statusMsg || '분석 중...'}</span>
+            <span>플래닉이 견적서를 생성 중입니다: {statusMsg || '분석 중...'}</span>
           </div>
         )}
         {isGenerating ? (
@@ -199,10 +255,10 @@ export default function GeneratePage() {
               <span className="w-4 h-4 border-2 border-primary-200 border-t-primary-600 rounded-full animate-spin" />
             </div>
             <div className="space-y-1">
-              <p className="text-base font-medium text-gray-700">플래닉이 새 견적서·기획안을 만드는 중입니다</p>
+              <p className="text-base font-medium text-gray-700">플래닉이 새 견적서를 만드는 중입니다</p>
               <p className="text-xs text-gray-500">{statusMsg || '행사 기본 정보 분석 중...'}</p>
               <p className="text-[11px] text-gray-400">
-                참고 자료(과업지시서·견적서)를 함께 분석해서 견적 항목·타임테이블을 구성하고 있습니다.
+                참고 자료(과업지시서 요약/참고 견적서 스타일)를 분석해서 견적 항목과 단가를 구성하고 있습니다.
               </p>
               <p className="text-[11px] text-gray-400">잠시만 기다리시면 이 자리에 최신 결과가 표시됩니다.</p>
             </div>
@@ -239,6 +295,8 @@ export default function GeneratePage() {
                 showToast('PDF 저장 실패: ' + toUserMessage(e, '저장에 실패했습니다.'))
               }
             }}
+            onGenerateTab={handleGenerateTab}
+            generatingTabs={generatingTabs}
           />
         ) : (
           <div className="flex flex-col items-center justify-center h-full gap-4 text-center px-6">
@@ -246,9 +304,9 @@ export default function GeneratePage() {
               <span className="text-2xl font-light text-primary-600">플래닉 Planic</span>
             </div>
             <div className="space-y-1">
-              <p className="text-base font-medium text-gray-700">플래닉이 만든 견적서·기획안이 여기에 표시됩니다</p>
+              <p className="text-base font-medium text-gray-700">플래닉이 만든 견적서가 여기에 표시됩니다</p>
               <p className="text-sm text-gray-500">
-                왼쪽에 행사 기본 정보를 입력한 뒤 「플래닉으로 견적서 · 기획안 생성하기」를 누르거나, 비슷한 행사가 있으면 기존 견적서를
+                왼쪽에 행사 기본 정보를 입력한 뒤 「플래닉으로 견적서 생성하기」를 누르거나, 비슷한 행사가 있으면 기존 견적서를
                 불러와 수정하세요.
               </p>
             </div>
