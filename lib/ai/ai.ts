@@ -14,7 +14,7 @@ export type { GenerateInput, QuoteDoc, PriceCategory }
 
 const RETRY_SUFFIX = `
 
-[재시도 지시] 방금 응답이 잘리거나 JSON이 아니었을 수 있습니다. markdown·설명 없이 반드시 완전한 단일 JSON 객체만 출력하세요. { 로 시작해 } 로 끝나야 합니다. program.programRows·timeline·cueRows·scenario까지 모두 채우세요.`
+[재시도 지시] 방금 응답이 잘리거나 JSON이 아니었을 수 있습니다. markdown·설명 없이 반드시 완전한 단일 JSON 객체만 출력하세요. { 로 시작해 } 로 끝나야 합니다. program.programRows·timeline을 반드시 채우세요.`
 
 export async function generateQuote(input: GenerateInput): Promise<QuoteDoc> {
   const mock = (process.env.AI_MODE || '').trim().toLowerCase() === 'mock'
@@ -98,7 +98,7 @@ export async function generateQuote(input: GenerateInput): Promise<QuoteDoc> {
   }
 
   const eff = await getEffectiveEngineConfig()
-  const maxOut = resolveGenerateMaxTokens(eff.maxTokens, eff.provider)
+  const maxOut = Math.min(resolveGenerateMaxTokens(eff.maxTokens, eff.provider), 7000)
   const prompt = buildGeneratePrompt(input)
 
   async function runOnce(extra = ''): Promise<string> {

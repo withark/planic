@@ -16,16 +16,9 @@ import { normalizeTemplateForPlan } from '@/lib/plan-entitlements'
 import { getUserPrices } from '@/lib/db/prices-db'
 import { listReferenceDocs } from '@/lib/db/reference-docs-db'
 import { listTaskOrderRefs } from '@/lib/db/task-order-refs-db'
-import {
-  listCuesheetSamplesForGeneration,
-  getCuesheetFile,
-  bumpSampleGenerationUse,
-} from '@/lib/db/cuesheet-samples-db'
 import { insertGenerationRun } from '@/lib/db/generation-runs-db'
 import { kvGet } from '@/lib/db/kv'
 import type { EngineConfigOverlay } from '@/lib/admin-types'
-import { listScenarioRefs } from '@/lib/db/scenario-refs-db'
-import { extractTextFromBuffer } from '@/lib/file-utils'
 import { normalizeQuoteDoc } from '@/lib/ai/parsers'
 import type { QuoteDoc } from '@/lib/types'
 import { hasDatabase } from '@/lib/db/client'
@@ -86,7 +79,7 @@ export async function POST(req: NextRequest) {
     const usage = await getOrCreateUsage(userId)
     assertQuoteGenerateAllowed(plan, usage.quoteGeneratedCount)
 
-    const [prices, settings, references, taskOrderRefs, cuesheetCandidates, scenarioRefsList, engineOverlay] =
+    const [prices, settings, references, taskOrderRefs, engineOverlay] =
       await Promise.all([
         getUserPrices(userId),
         (async () => {
@@ -95,32 +88,14 @@ export async function POST(req: NextRequest) {
         })(),
         listReferenceDocs(userId),
         listTaskOrderRefs(userId),
-        listCuesheetSamplesForGeneration(userId),
-        listScenarioRefs(userId),
         hasDatabase()
           ? kvGet<EngineConfigOverlay | null>('engine_config', null).catch(() => null as EngineConfigOverlay | null)
           : Promise.resolve(null as EngineConfigOverlay | null),
       ])
 
-    let cuesheetSampleContext = ''
-    let appliedSampleId = ''
-    let appliedSampleFilename = ''
-    const first = cuesheetCandidates[0]
-    if (first) {
-      appliedSampleId = first.id
-      appliedSampleFilename = first.filename
-      const file = await getCuesheetFile(first.id)
-      if (file?.content?.length) {
-        try {
-          cuesheetSampleContext = await extractTextFromBuffer(file.content, file.ext, file.filename)
-          if (!cuesheetSampleContext.trim())
-            cuesheetSampleContext = `[파일: ${first.filename} — 텍스트 추출 없음]`
-        } catch (e) {
-          cuesheetSampleContext = `[큐시트 파일 ${first.filename} 추출 오류: ${e instanceof Error ? e.message : String(e)}]`
-        }
-      }
-    }
-    const cuesheetApplied = !!cuesheetSampleContext.trim()
+    const appliedSampleId = ''
+    const appliedSampleFilename = ''
+    const cuesheetApplied = false
     const engineSnapshot: Record<string, unknown> = {
       provider: engineOverlay?.provider,
       model: engineOverlay?.model,
@@ -139,23 +114,12 @@ export async function POST(req: NextRequest) {
       qualityBoost: engineOverlay?.qualityBoost,
     }
 
-    const pptxPlaceholder = /PPT\/PPTX 파일입니다|슬라이드 내용은 업로드된 원본/
-    const scenarioRefs = scenarioRefsList.slice(0, 2).map(ref => ({
-      ...ref,
-      rawText:
-        pptxPlaceholder.test(ref.rawText) && /\.pptx$/i.test(ref.filename)
-          ? '[이전 업로드는 PPT 텍스트 미추출 상태입니다. 참고 자료에서 시나리오 pptx를 한 번 더 업로드하면 슬라이드 내용이 반영됩니다.]'
-          : ref.rawText,
-    }))
-
     const input: GenerateInput = {
       ...body,
       prices,
       settings,
       references,
       taskOrderRefs,
-      cuesheetSampleContext: cuesheetSampleContext || undefined,
-      scenarioRefs: scenarioRefs.length ? scenarioRefs : undefined,
       engineQuality,
     }
 
@@ -183,7 +147,7 @@ export async function POST(req: NextRequest) {
         {
           ...doc,
           program: {
-            concept: `${doc.eventName} 제안·타임라인·큐시트는 각 탭에서 수정하세요.`,
+            concept: `${doc.eventName} 제안·타임라인은 각 탭에서 수정하세요.`,
             programRows: doc.program?.programRows || [],
             timeline: doc.program?.timeline || [
               { time: body.eventStartHHmm || '', content: '개회', detail: '', manager: '' },
@@ -243,7 +207,6 @@ export async function POST(req: NextRequest) {
     )
 
     await incQuoteGenerated(userId, 1)
-    if (appliedSampleId && cuesheetApplied) await bumpSampleGenerationUse(appliedSampleId).catch(() => {})
     await insertGenerationRun({
       userId,
       quoteId,

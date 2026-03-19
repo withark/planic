@@ -1,6 +1,6 @@
-import type { QuoteDoc, PriceCategory, CompanySettings, ReferenceDoc, TaskOrderDoc, ScenarioRefDoc } from '../types'
+import type { QuoteDoc, PriceCategory, CompanySettings, ReferenceDoc, TaskOrderDoc } from '../types'
 
-export type { QuoteDoc, PriceCategory, CompanySettings, ReferenceDoc, TaskOrderDoc, ScenarioRefDoc }
+export type { QuoteDoc, PriceCategory, CompanySettings, ReferenceDoc, TaskOrderDoc }
 
 export interface GenerateInput {
   eventName: string
@@ -23,10 +23,6 @@ export interface GenerateInput {
   settings: CompanySettings
   references: ReferenceDoc[]
   taskOrderRefs?: TaskOrderDoc[]
-  /** 큐시트 샘플에서 추출한 텍스트(레이아웃·표 흐름 참고) */
-  cuesheetSampleContext?: string
-  /** 시나리오/PPT 참고 원문 일부 */
-  scenarioRefs?: ScenarioRefDoc[]
   /** 관리자 엔진 강화(k engine_config) — 프롬프트에 반영 */
   engineQuality?: {
     structureFirst?: boolean
