@@ -566,7 +566,12 @@ export function QuoteResult({
                 ].map(b => (
                   <div key={b.title} className="bg-gray-50 rounded-xl p-3">
                     <p className="text-[10px] font-semibold text-gray-400 mb-2">{b.title}</p>
-                    <textarea defaultValue={b.val} onBlur={e => onChange({ ...doc, [b.key]: e.target.value })} rows={4} className="w-full bg-transparent border-none outline-none text-xs resize-none" />
+                    <textarea
+                      value={b.key === 'notes' ? doc.notes : doc.paymentTerms}
+                      onChange={e => patchDoc(base => ({ ...base, [b.key]: e.target.value } as any))}
+                      rows={4}
+                      className="w-full bg-white border border-gray-200 rounded-lg p-2 text-xs resize-none focus:outline-none focus:ring-1 focus:ring-primary-100"
+                    />
                   </div>
                 ))}
               </div>
