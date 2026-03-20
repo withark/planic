@@ -494,11 +494,6 @@ export function QuoteResult({
                             </tr>
                           )
                         })}
-                        <tr key={kind + '-s'} className="bg-gray-50/80 border-b border-gray-100">
-                          <td colSpan={5} className="px-2 py-1.5 text-right text-gray-500 font-medium">소계</td>
-                          <td className="px-2 py-1.5 text-right font-medium tabular-nums text-gray-700">{fmtKRW(subtotalsByKind(doc).get(kind) ?? 0)}</td>
-                          <td colSpan={2} />
-                        </tr>
                         <tr key={kind + '-a'}>
                           <td colSpan={8} className="px-2 py-1.5 align-top">
                             <div className="flex flex-wrap items-center gap-2">
@@ -525,6 +520,11 @@ export function QuoteResult({
                               )}
                             </div>
                           </td>
+                        </tr>
+                        <tr key={kind + '-s'} className="bg-gray-50/80 border-b border-gray-100">
+                          <td colSpan={5} className="px-2 py-1.5 text-right text-gray-500 font-medium">소계</td>
+                          <td className="px-2 py-1.5 text-right font-medium tabular-nums text-gray-700">{fmtKRW(subtotalsByKind(doc).get(kind) ?? 0)}</td>
+                          <td colSpan={2} />
                         </tr>
                       </>
                     )
