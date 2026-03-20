@@ -111,6 +111,20 @@ export function QuoteResult({
   const supplierSignName = companySettings?.name?.trim() || '—'
   const requestedTabsRef = useRef<Set<DocTab>>(new Set())
 
+  const programReady = isProgramProposalReady(doc)
+  const timetableReady = isTimetableReady(doc)
+  const planningReady = isPlanningReady(doc)
+  const scenarioReady = isScenarioReady(doc)
+
+  // 미생성 상태의 on-demand 생성 버튼을 카드 안쪽보다 상단의 주요 액션 영역에 모아 가시성을 높인다.
+  const showTopGenerateActions =
+    !hideOnDemandGenerate &&
+    !!onGenerateTab &&
+    ((visibleTabs.includes('program') && !programReady) ||
+      (visibleTabs.includes('timetable') && !timetableReady) ||
+      (visibleTabs.includes('planning') && !planningReady) ||
+      (visibleTabs.includes('scenario') && !scenarioReady))
+
   useEffect(() => {
     if (disableAutoGenerate) return
     if (!onGenerateTab) return
@@ -270,6 +284,63 @@ export function QuoteResult({
         {tab === 'planning' && '기획/운영/산출물 계획을 섹션별로 편집할 수 있습니다.'}
         {tab === 'scenario' && '연출/진행 흐름을 문장 형태로 확인하고 편집할 수 있습니다.'}
       </p>
+
+      {showTopGenerateActions && (
+        <div className="px-4 pb-3 flex-shrink-0">
+          <div className="flex items-center gap-3 flex-wrap">
+            <div>
+              <div className="text-xs font-semibold tracking-wide text-gray-900">문서 생성</div>
+              <div className="text-[10px] text-gray-500 mt-0.5">아직 생성되지 않은 항목만 상단에서 바로 생성하세요.</div>
+            </div>
+          </div>
+          <div className="mt-2 flex gap-2 flex-wrap items-stretch">
+            {visibleTabs.includes('planning') && !planningReady && (
+              <Button
+                size="md"
+                variant="primary"
+                className="w-full sm:w-auto justify-start"
+                onClick={() => void onGenerateTab?.('planning')}
+                disabled={!!generatingTabs.planning}
+              >
+                {generatingTabs.planning ? '기획 문서 생성 중...' : '기획 문서 생성'}
+              </Button>
+            )}
+            {visibleTabs.includes('program') && !programReady && (
+              <Button
+                size="md"
+                variant="primary"
+                className="w-full sm:w-auto justify-start"
+                onClick={() => void onGenerateTab?.('program')}
+                disabled={!!generatingTabs.program}
+              >
+                {generatingTabs.program ? '프로그램 생성 중...' : '프로그램 제안서 생성'}
+              </Button>
+            )}
+            {visibleTabs.includes('timetable') && !timetableReady && (
+              <Button
+                size="md"
+                variant="primary"
+                className="w-full sm:w-auto justify-start"
+                onClick={() => void onGenerateTab?.('timetable')}
+                disabled={!!generatingTabs.timetable}
+              >
+                {generatingTabs.timetable ? '타임테이블 생성 중...' : '타임테이블 생성'}
+              </Button>
+            )}
+            {visibleTabs.includes('scenario') && !scenarioReady && (
+              <Button
+                size="md"
+                variant="primary"
+                className="w-full sm:w-auto justify-start"
+                onClick={() => void onGenerateTab?.('scenario')}
+                disabled={!!generatingTabs.scenario}
+              >
+                {generatingTabs.scenario ? '시나리오 생성 중...' : '시나리오 생성'}
+              </Button>
+            )}
+          </div>
+        </div>
+      )}
 
       <div className="flex-1 overflow-y-auto p-4 pb-20">
         {tab === 'estimate' && (() => {
@@ -496,7 +567,7 @@ export function QuoteResult({
             {!isProgramProposalReady(doc) ? (
               <div className="bg-gray-50 border border-gray-200 rounded-2xl p-4 text-sm text-gray-600 space-y-2">
                 <p className="text-xs text-gray-500">아직 생성되지 않았습니다.</p>
-                {!hideOnDemandGenerate && (
+                {!hideOnDemandGenerate && !showTopGenerateActions && (
                   <Button size="sm" variant="primary" onClick={() => onGenerateTab?.('program')} disabled={!!generatingTabs.program}>
                     {generatingTabs.program ? '프로그램 생성 중...' : '프로그램 제안서 생성'}
                   </Button>
@@ -683,7 +754,7 @@ export function QuoteResult({
             {!isTimetableReady(doc) ? (
               <div className="bg-gray-50 border border-gray-200 rounded-2xl p-4 text-sm text-gray-600 space-y-2">
                 <p className="text-xs text-gray-500">아직 생성되지 않았습니다.</p>
-                {!hideOnDemandGenerate && (
+                {!hideOnDemandGenerate && !showTopGenerateActions && (
                   <Button size="sm" variant="primary" onClick={() => onGenerateTab?.('timetable')} disabled={!!generatingTabs.timetable}>
                     {generatingTabs.timetable ? '타임테이블 생성 중...' : '타임테이블 생성'}
                   </Button>
@@ -740,7 +811,7 @@ export function QuoteResult({
             {!isPlanningReady(doc) ? (
               <div className="bg-gray-50 border border-gray-200 rounded-2xl p-4 text-sm text-gray-600 space-y-2">
                 <p className="text-xs text-gray-500">아직 생성되지 않았습니다.</p>
-                {!hideOnDemandGenerate && (
+                {!hideOnDemandGenerate && !showTopGenerateActions && (
                   <Button size="sm" variant="primary" onClick={() => onGenerateTab?.('planning')} disabled={!!generatingTabs.planning}>
                     {generatingTabs.planning ? '기획 문서 생성 중...' : '기획 문서 생성'}
                   </Button>
@@ -789,7 +860,7 @@ export function QuoteResult({
             {!isScenarioReady(doc) ? (
               <div className="bg-gray-50 border border-gray-200 rounded-2xl p-4 text-sm text-gray-600 space-y-2">
                 <p className="text-xs text-gray-500">아직 생성되지 않았습니다.</p>
-                {!hideOnDemandGenerate && (
+                {!hideOnDemandGenerate && !showTopGenerateActions && (
                   <Button size="sm" variant="primary" onClick={() => onGenerateTab?.('scenario')} disabled={!!generatingTabs.scenario}>
                     {generatingTabs.scenario ? '시나리오 생성 중...' : '시나리오 생성'}
                   </Button>

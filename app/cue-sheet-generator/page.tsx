@@ -230,7 +230,7 @@ export default function CueSheetGeneratorPage() {
       <div className="flex-1 flex flex-col overflow-hidden">
         <header className="flex items-center justify-between px-6 h-14 border-b border-gray-100 bg-white/90 flex-shrink-0">
           <div>
-            <h1 className="text-base font-semibold text-gray-900">Cue Sheet Generator</h1>
+            <h1 className="text-base font-semibold text-gray-900">큐시트 생성</h1>
             <p className="text-xs text-gray-500 mt-0.5">큐시트(운영표)만 독립 생성합니다.</p>
           </div>
           <span className="text-xs text-gray-500">문서별 독립 생성</span>
@@ -375,7 +375,7 @@ export default function CueSheetGeneratorPage() {
                 <div className="text-xs text-gray-500 mt-1">아래 버튼으로 `큐시트`만 생성하세요.</div>
               </div>
               <Button size="sm" variant="primary" onClick={() => void handleGenerateCueSheet()} disabled={!canGenerateCueSheet || generating}>
-                {generating ? '큐시트 생성 중...' : 'Generate Cue Sheet'}
+                {generating ? '큐시트 생성 중...' : '큐시트 생성'}
               </Button>
             </div>
 

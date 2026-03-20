@@ -272,7 +272,7 @@ export default function ScenarioGeneratorPage() {
       <div className="flex-1 flex flex-col overflow-hidden">
         <header className="flex items-center justify-between px-6 h-14 border-b border-gray-100 bg-white/90 flex-shrink-0">
           <div>
-            <h1 className="text-base font-semibold text-gray-900">Scenario Generator</h1>
+            <h1 className="text-base font-semibold text-gray-900">시나리오 생성</h1>
             <p className="text-xs text-gray-500 mt-0.5">시나리오 문서만 독립 생성합니다.</p>
           </div>
           <span className="text-xs text-gray-500">문서별 독립 생성</span>
@@ -475,7 +475,7 @@ export default function ScenarioGeneratorPage() {
             <section className="rounded-2xl border border-gray-100 bg-white shadow-card overflow-hidden">
               <div className="p-4 border-b border-gray-100 bg-slate-50/50">
                 <div className="text-sm font-semibold text-gray-900">시나리오 결과</div>
-                <div className="text-xs text-gray-500 mt-1">아직 생성되지 않았다면 `Generate Scenario` 버튼으로 생성하세요. (요청은 `시나리오`만)</div>
+                <div className="text-xs text-gray-500 mt-1">아직 생성되지 않았다면 `시나리오 생성` 버튼으로 생성하세요. (요청은 `시나리오`만)</div>
               </div>
               <div className="h-[calc(100vh-280px)] min-h-[420px]">
                 <QuoteResult

@@ -145,12 +145,12 @@ export default function ProgramProposalGeneratorPage() {
       <div className="flex-1 flex flex-col overflow-hidden">
         <header className="flex items-center justify-between px-6 h-14 border-b border-gray-100 bg-white/90 flex-shrink-0">
           <div>
-            <h1 className="text-base font-semibold text-gray-900">Program Proposal Generator</h1>
-            <p className="text-xs text-gray-500 mt-0.5">견적(Estimate) 컨텍스트를 기반으로 프로그램 제안만 생성합니다.</p>
+            <h1 className="text-base font-semibold text-gray-900">프로그램 제안서 생성</h1>
+            <p className="text-xs text-gray-500 mt-0.5">견적 컨텍스트를 기반으로 프로그램 제안만 생성합니다.</p>
           </div>
           {me?.subscription?.planType === 'FREE' && (
             <span className="text-xs text-amber-700 bg-amber-50 border border-amber-200 rounded-lg px-3 py-1">
-              FREE
+              무료
             </span>
           )}
         </header>

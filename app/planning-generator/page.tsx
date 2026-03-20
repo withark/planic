@@ -180,7 +180,7 @@ export default function PlanningGeneratorPage() {
       <div className="flex-1 flex flex-col overflow-hidden">
         <header className="flex items-center justify-between px-6 h-14 border-b border-gray-100 bg-white/90 flex-shrink-0">
           <div>
-            <h1 className="text-base font-semibold text-gray-900">Planning Generator</h1>
+            <h1 className="text-base font-semibold text-gray-900">기획 문서 생성</h1>
             <p className="text-xs text-gray-500 mt-0.5">견적/주제 컨텍스트로 기획 문서만 생성합니다.</p>
           </div>
           <span className="text-xs text-gray-500">문서별 독립 생성</span>
