@@ -59,7 +59,13 @@ interface Props {
 }
 
 function isProgramProposalReady(doc: QuoteDoc) {
-  return !!doc.program?.concept?.trim() && Array.isArray(doc.program?.programRows) && doc.program.programRows.length > 0
+  const concept = doc.program?.concept
+  return (
+    typeof concept === 'string' &&
+    concept.trim().length > 0 &&
+    Array.isArray(doc.program?.programRows) &&
+    doc.program.programRows.length > 0
+  )
 }
 
 function isTimetableReady(doc: QuoteDoc) {
@@ -67,11 +73,13 @@ function isTimetableReady(doc: QuoteDoc) {
 }
 
 function isPlanningReady(doc: QuoteDoc) {
-  return !!doc.planning && !!doc.planning.overview?.trim()
+  const overview = doc.planning?.overview
+  return !!doc.planning && typeof overview === 'string' && overview.trim().length > 0
 }
 
 function isScenarioReady(doc: QuoteDoc) {
-  return !!doc.scenario && !!doc.scenario.summaryTop?.trim()
+  const summaryTop = doc.scenario?.summaryTop
+  return !!doc.scenario && typeof summaryTop === 'string' && summaryTop.trim().length > 0
 }
 
 export function QuoteResult({
