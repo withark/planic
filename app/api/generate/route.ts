@@ -27,6 +27,8 @@ import { getCuesheetFile } from '@/lib/db/cuesheet-samples-db'
 import { extractTextFromBuffer } from '@/lib/file-utils'
 import { hasDatabase } from '@/lib/db/client'
 import { getEffectiveEngineConfig } from '@/lib/ai/client'
+import { isAiModeMockRaw, isMockGenerationEnabled, isProductionRuntime } from '@/lib/ai/mode'
+import { logInfo } from '@/lib/utils/logger'
 
 const GenerateRequestSchema = z.object({
   eventName: z.string().min(1, '행사명을 입력해주세요.'),
@@ -84,7 +86,9 @@ export async function POST(req: NextRequest) {
     const cuesheetSampleIds = (body.cuesheetSampleIds || []).filter(Boolean)
 
     const env = getEnv()
-    const isMockAi = (process.env.AI_MODE || '').trim().toLowerCase() === 'mock'
+    const aiModeRawMock = isAiModeMockRaw()
+    const isMockAi = isMockGenerationEnabled()
+    const mockBlockedInProduction = aiModeRawMock && isProductionRuntime() && !isMockAi
     const hasAnthropic = !!env.ANTHROPIC_API_KEY
     const hasOpenAI = !!env.OPENAI_API_KEY
     if (!isMockAi && !hasAnthropic && !hasOpenAI) {
@@ -165,6 +169,10 @@ export async function POST(req: NextRequest) {
       model: effective.model,
       maxTokens: effective.maxTokens,
       mockAi: isMockAi,
+      aiModeRawMock,
+      branchUsed: isMockAi ? 'mock' : 'real',
+      aiModeIsMock: isMockAi,
+      mockBlockedInProduction,
 
       // 프롬프트 말미/템플릿 주입에 사용되는 오버레이 값(있을 때만)
       structureFirst: overlayForPrompt?.structureFirst,
@@ -173,6 +181,7 @@ export async function POST(req: NextRequest) {
       sampleWeightNote: overlayForPrompt?.sampleWeightNote,
       qualityBoost: overlayForPrompt?.qualityBoost,
     }
+    logInfo('generate.ai.snapshot', engineSnapshot)
 
     const engineQuality = {
       structureFirst: overlayForPrompt?.structureFirst,

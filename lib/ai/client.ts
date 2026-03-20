@@ -5,6 +5,7 @@ import { hasDatabase } from '../db/client'
 import { kvGet } from '../db/kv'
 import type { EngineConfigOverlay } from '../admin-types'
 import { clampEngineMaxTokens, ENGINE_MAX_TOKENS_DEFAULT } from './generate-config'
+import { logInfo } from '../utils/logger'
 
 export type AIProvider = 'anthropic' | 'openai'
 
@@ -72,6 +73,7 @@ export async function callLLM(prompt: string, opts: CallLLMOptions = {}): Promis
   const provider = effective.provider
   const maxTokens = opts.maxTokens ?? effective.maxTokens
   const model = opts.model ?? effective.model
+  logInfo('ai.call.start', { provider, model, maxTokens })
 
   if (provider === 'openai') {
     const client = getOpenAIClient()
@@ -82,6 +84,7 @@ export async function callLLM(prompt: string, opts: CallLLMOptions = {}): Promis
     })
     const text = res.choices[0]?.message?.content
     if (text == null) throw new Error('OpenAI 응답이 비어 있습니다.')
+    logInfo('ai.call.ok', { provider, model, id: res.id ?? null, openai: { id: res.id ?? null } })
     return text
   }
 
@@ -90,6 +93,12 @@ export async function callLLM(prompt: string, opts: CallLLMOptions = {}): Promis
     model: model as string,
     max_tokens: maxTokens,
     messages: [{ role: 'user', content: prompt }],
+  })
+  logInfo('ai.call.ok', {
+    provider,
+    model,
+    id: (message as { id?: string }).id ?? null,
+    anthropic: { id: (message as { id?: string }).id ?? null },
   })
   return message.content[0].type === 'text' ? message.content[0].text : ''
 }
