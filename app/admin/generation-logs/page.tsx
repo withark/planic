@@ -17,12 +17,30 @@ type Run = {
   createdAt: string
 }
 
+const DOC_TARGET_KO: Record<string, string> = {
+  estimate: '견적서',
+  program: '프로그램',
+  timetable: '타임테이블',
+  planning: '기획안',
+  scenario: '시나리오',
+  cuesheet: '큐시트',
+}
+
+function documentTargetLabel(s: Record<string, unknown> | undefined): string {
+  const t = s?.documentTarget
+  if (typeof t !== 'string' || !t) return '—'
+  return DOC_TARGET_KO[t] ?? t
+}
+
 export default function AdminGenerationLogsPage() {
   const [runs, setRuns] = useState<Run[]>([])
   const [persistenceEnabled, setPersistenceEnabled] = useState(true)
   const [loading, setLoading] = useState(true)
+  const [hasLoadedOnce, setHasLoadedOnce] = useState(false)
+  const [refreshKey, setRefreshKey] = useState(0)
 
   useEffect(() => {
+    setLoading(true)
     fetch('/api/admin/generation-runs')
       .then((r) => r.json())
       .then((res) => {
@@ -31,19 +49,35 @@ export default function AdminGenerationLogsPage() {
           setPersistenceEnabled(res.data?.persistenceEnabled !== false)
         }
       })
-      .finally(() => setLoading(false))
-  }, [])
+      .finally(() => {
+        setLoading(false)
+        setHasLoadedOnce(true)
+      })
+  }, [refreshKey])
 
-  if (loading) return <p className="text-sm text-slate-500">로딩 중…</p>
+  if (!hasLoadedOnce && loading) return <p className="text-sm text-slate-500">로딩 중…</p>
 
   return (
     <div className="space-y-6">
-      <header>
-        <h1 className="text-xl font-bold text-gray-900">생성 로그 / 반영 상태</h1>
-        <p className="mt-1 text-sm text-slate-600">
-          각 생성 요청별로 <strong>사용된 샘플·적용된 엔진 설정·성공/실패</strong>를 추적합니다.
-          샘플이 반영되지 않은 경우 원인(샘플 없음·비활성·우선순위 등)을 확인할 수 있습니다.
-        </p>
+      <header className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+        <div>
+          <h1 className="text-xl font-bold text-gray-900">생성 로그 / 반영 상태</h1>
+          <p className="mt-1 text-sm text-slate-600">
+            <strong>견적·기획 등 화면에서「생성」을 눌러 `/api/generate`가 호출될 때</strong> 한 줄씩 쌓입니다.
+            과업지시서만 업로드하거나 다른 API만 쓴 경우에는 여기에 나오지 않습니다.
+          </p>
+          <p className="mt-1 text-xs text-slate-500">
+            생성 직후 이 페이지를 열었다면 <strong>새로고침</strong>으로 최신 목록을 불러오세요.
+          </p>
+        </div>
+        <button
+          type="button"
+          onClick={() => setRefreshKey((k) => k + 1)}
+          disabled={loading}
+          className="shrink-0 rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm font-medium text-slate-700 shadow-sm hover:bg-slate-50 disabled:opacity-50"
+        >
+          {loading ? '불러오는 중…' : '목록 새로고침'}
+        </button>
       </header>
 
       {!persistenceEnabled && (
@@ -64,13 +98,14 @@ export default function AdminGenerationLogsPage() {
           <table className="min-w-full text-sm">
             <thead className="bg-slate-50 text-xs text-slate-600">
               <tr>
+                <th className="px-3 py-2 text-left font-medium">문서 종류</th>
                 <th className="px-3 py-2 text-left font-medium">생성 시각</th>
                 <th className="px-3 py-2 text-left font-medium">사용자</th>
                 <th className="px-3 py-2 text-center font-medium">성공</th>
                 <th className="px-3 py-2 text-left font-medium">사용된 샘플</th>
                 <th className="px-3 py-2 text-center font-medium">샘플 반영</th>
                 <th className="px-3 py-2 text-center font-medium">반영 누락</th>
-                <th className="px-3 py-2 text-left font-medium">엔진(mock/실API)</th>
+                <th className="px-3 py-2 text-left font-medium">엔진(모의/실연동)</th>
                 <th className="px-3 py-2 text-left font-medium">에러 로그</th>
                 <th className="px-3 py-2 text-left font-medium">최종 출력(quote)</th>
               </tr>
@@ -78,13 +113,16 @@ export default function AdminGenerationLogsPage() {
             <tbody>
               {runs.length === 0 ? (
                 <tr>
-                  <td colSpan={9} className="px-4 py-8 text-center text-slate-500">
+                  <td colSpan={10} className="px-4 py-8 text-center text-slate-500">
                     생성 로그가 없습니다.
                   </td>
                 </tr>
               ) : (
                 runs.map((r) => (
                   <tr key={r.id} className="border-t border-slate-100 hover:bg-slate-50/50 align-top">
+                    <td className="px-3 py-2 text-xs text-slate-700 whitespace-nowrap">
+                      {documentTargetLabel(r.engineSnapshot)}
+                    </td>
                     <td className="px-3 py-2 whitespace-nowrap text-slate-600">
                       {new Date(r.createdAt).toLocaleString('ko-KR')}
                     </td>
@@ -108,31 +146,37 @@ export default function AdminGenerationLogsPage() {
                         '—'
                       )}
                     </td>
-                    <td className="px-3 py-2 max-w-[200px]">
+                    <td className="px-3 py-2 max-w-[220px]">
                       <div className="text-xs text-slate-600 space-y-1">
                         <div>
                           {r.engineSnapshot?.branchUsed === 'mock' || r.engineSnapshot?.mockAi ? (
-                            <span className="inline-block rounded px-1.5 py-0.5 text-[11px] font-semibold bg-amber-100 text-amber-900 mr-1">
-                              목업(mock)
-                            </span>
+                            <>
+                              <span className="inline-block rounded px-1.5 py-0.5 text-[11px] font-semibold bg-amber-100 text-amber-900">
+                                모의 생성
+                              </span>
+                              <p className="text-[11px] text-amber-900/80 mt-1 leading-snug">
+                                실제 Claude·OpenAI 호출 없음 · 아래는 적용 예정 엔진 설정
+                              </p>
+                            </>
                           ) : (
-                            <span className="inline-block rounded px-1.5 py-0.5 text-[11px] font-semibold bg-emerald-100 text-emerald-900 mr-1">
-                              실API
-                            </span>
+                            <>
+                              <span className="inline-block rounded px-1.5 py-0.5 text-[11px] font-semibold bg-emerald-100 text-emerald-900">
+                                실연동
+                              </span>
+                              <p className="text-[11px] text-emerald-900/80 mt-1 leading-snug">
+                                LLM API 호출됨
+                              </p>
+                            </>
                           )}
-                          <span className="text-[11px] text-slate-500">
-                            {String(r.engineSnapshot?.branchUsed ?? '—')}
-                          </span>
                         </div>
-                        <div>
-                          {r.engineSnapshot?.provider ? `provider: ${String(r.engineSnapshot.provider)}` : 'provider: —'}
-                          {r.engineSnapshot?.provider === 'anthropic' && (
-                            <span className="text-slate-400"> (Claude)</span>
-                          )}
+                        <div className="text-[11px] text-slate-600">
+                          {r.engineSnapshot?.provider === 'anthropic' && 'Anthropic(클로드)'}
+                          {r.engineSnapshot?.provider === 'openai' && 'OpenAI'}
+                          {!r.engineSnapshot?.provider && '엔진: —'}
                           {r.engineSnapshot?.model ? ` · ${String(r.engineSnapshot.model)}` : ''}
                         </div>
                         {r.engineSnapshot?.maxTokens != null && (
-                          <div className="text-[11px]">maxTokens: {String(r.engineSnapshot.maxTokens)}</div>
+                          <div className="text-[11px]">최대 토큰: {String(r.engineSnapshot.maxTokens)}</div>
                         )}
                         {(r.engineSnapshot?.structureFirst != null || r.engineSnapshot?.toneFirst != null) && (
                           <div className="text-[11px]">
@@ -143,9 +187,13 @@ export default function AdminGenerationLogsPage() {
                       </div>
                     </td>
                     <td className="px-3 py-2 max-w-[200px]">
-                      <span className="text-xs text-red-600 truncate block" title={r.errorMessage}>
-                        {r.errorMessage || '—'}
-                      </span>
+                      {r.errorMessage ? (
+                        <span className="text-xs text-red-600 truncate block" title={r.errorMessage}>
+                          {r.errorMessage}
+                        </span>
+                      ) : (
+                        <span className="text-xs text-slate-400">없음</span>
+                      )}
                     </td>
                     <td className="px-3 py-2">
                       {r.quoteId ? (

@@ -171,6 +171,9 @@ export async function POST(req: NextRequest) {
       mockAi: isMockAi,
       aiModeRawMock,
       branchUsed: isMockAi ? 'mock' : 'real',
+      /** 실제 LLM HTTP 호출 여부(모의 생성이면 false) */
+      llmInvoked: !isMockAi,
+      documentTarget: documentTarget,
       aiModeIsMock: isMockAi,
       mockBlockedInProduction,
 
