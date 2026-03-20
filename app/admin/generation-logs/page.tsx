@@ -32,21 +32,41 @@ function documentTargetLabel(s: Record<string, unknown> | undefined): string {
   return DOC_TARGET_KO[t] ?? t
 }
 
+type AiRuntimePayload = {
+  verdict: 'mock' | 'real' | 'no_keys'
+  llmWillInvoke: boolean
+  mockGenerationEnabled: boolean
+  aiModeEnv: string | null
+  aiModeIsMockRaw: boolean
+  productionRuntime: boolean
+  mockIgnoredInProduction?: boolean
+  effectiveEngine: { provider: string; model: string; maxTokens: number }
+  apiKeys: { anthropicConfigured: boolean; openaiConfigured: boolean }
+  summaryKo: string
+}
+
 export default function AdminGenerationLogsPage() {
   const [runs, setRuns] = useState<Run[]>([])
   const [persistenceEnabled, setPersistenceEnabled] = useState(true)
+  const [aiRuntime, setAiRuntime] = useState<AiRuntimePayload | null>(null)
   const [loading, setLoading] = useState(true)
   const [hasLoadedOnce, setHasLoadedOnce] = useState(false)
   const [refreshKey, setRefreshKey] = useState(0)
 
   useEffect(() => {
     setLoading(true)
-    fetch('/api/admin/generation-runs')
-      .then((r) => r.json())
-      .then((res) => {
-        if (res?.ok) {
-          setRuns(res.data?.runs ?? [])
-          setPersistenceEnabled(res.data?.persistenceEnabled !== false)
+    Promise.all([fetch('/api/admin/generation-runs'), fetch('/api/admin/ai-runtime')])
+      .then(async ([runsRes, rtRes]) => {
+        const runsJson = await runsRes.json()
+        const rtJson = await rtRes.json()
+        if (runsJson?.ok) {
+          setRuns(runsJson.data?.runs ?? [])
+          setPersistenceEnabled(runsJson.data?.persistenceEnabled !== false)
+        }
+        if (rtJson?.ok && rtJson.data) {
+          setAiRuntime(rtJson.data as AiRuntimePayload)
+        } else {
+          setAiRuntime(null)
         }
       })
       .finally(() => {
@@ -87,6 +107,66 @@ export default function AdminGenerationLogsPage() {
             서버에 <code className="rounded bg-amber-100/80 px-1">DATABASE_URL</code>이 없으면{' '}
             <code className="rounded bg-amber-100/80 px-1">generation_runs</code> 테이블에 기록되지 않습니다. Neon 등 Postgres 연결 문자열을 설정한 뒤 다시 생성해 보세요.
           </p>
+        </div>
+      )}
+
+      {aiRuntime && (
+        <div
+          className={
+            aiRuntime.verdict === 'real'
+              ? 'rounded-xl border border-emerald-200 bg-emerald-50/90 px-4 py-4 shadow-sm'
+              : aiRuntime.verdict === 'mock'
+                ? 'rounded-xl border border-amber-200 bg-amber-50/90 px-4 py-4 shadow-sm'
+                : 'rounded-xl border border-red-200 bg-red-50/90 px-4 py-4 shadow-sm'
+          }
+        >
+          <p className="text-xs font-semibold uppercase tracking-wide text-slate-600">이 서버에서 생성 API 동작</p>
+          <p className="mt-2 text-lg font-bold text-slate-900">
+            {aiRuntime.verdict === 'real' && '실연동 — LLM API 호출'}
+            {aiRuntime.verdict === 'mock' && '모의 생성 — LLM API 미호출'}
+            {aiRuntime.verdict === 'no_keys' && '실연동 불가 — API 키 없음'}
+          </p>
+          <p className="mt-2 text-sm text-slate-700 leading-relaxed">{aiRuntime.summaryKo}</p>
+          <dl className="mt-3 grid gap-1 text-xs text-slate-600 sm:grid-cols-2">
+            <div>
+              <dt className="text-slate-500">판정 근거</dt>
+              <dd>
+                <code className="rounded bg-white/70 px-1 py-0.5">AI_MODE</code> 환경값:{' '}
+                <strong>{aiRuntime.aiModeEnv ?? '(미설정)'}</strong>
+                {aiRuntime.aiModeIsMockRaw ? ' · mock 플래그 켜짐' : ''}
+                {aiRuntime.productionRuntime ? ' · 운영(production) 런타임' : ' · 비운영 런타임'}
+              </dd>
+            </div>
+            <div>
+              <dt className="text-slate-500">적용 엔진 설정(표시·실연동 시 사용)</dt>
+              <dd>
+                {aiRuntime.effectiveEngine.provider === 'anthropic' ? 'Anthropic(클로드)' : aiRuntime.effectiveEngine.provider}
+                {' · '}
+                <code className="rounded bg-white/70 px-1">{aiRuntime.effectiveEngine.model}</code>
+                {' · '}
+                max {aiRuntime.effectiveEngine.maxTokens} tok
+              </dd>
+            </div>
+            <div>
+              <dt className="text-slate-500">API 키</dt>
+              <dd>
+                Anthropic: {aiRuntime.apiKeys.anthropicConfigured ? '설정됨' : '없음'} · OpenAI:{' '}
+                {aiRuntime.apiKeys.openaiConfigured ? '설정됨' : '없음'}
+              </dd>
+            </div>
+            <div>
+              <dt className="text-slate-500">행별 로그와의 관계</dt>
+              <dd>
+                아래 표의 <strong>모의 생성 / 실연동</strong>은 요청 시점 스냅샷입니다. 서버 설정을 바꾼 뒤에는{' '}
+                <strong>목록 새로고침</strong>과 이 박스가 함께 갱신됩니다.
+              </dd>
+            </div>
+          </dl>
+          {aiRuntime.mockIgnoredInProduction ? (
+            <p className="mt-3 text-xs font-medium text-amber-900">
+              참고: <code className="rounded bg-amber-100 px-1">AI_MODE=mock</code> 이 있어도 운영 환경에서는 무시되며, 키가 있으면 실연동으로 동작합니다.
+            </p>
+          ) : null}
         </div>
       )}
 
