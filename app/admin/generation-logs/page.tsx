@@ -111,6 +111,9 @@ export default function AdminGenerationLogsPage() {
                 · (마지막 생성 시도: {new Date(lastInsertAt).toLocaleTimeString('ko-KR')})
               </>
             ) : null}
+            <span className="block mt-1 text-[11px] text-slate-400">
+              DB 기록: {persistenceEnabled ? '활성' : '비활성'}
+            </span>
           </p>
         </div>
         <button
