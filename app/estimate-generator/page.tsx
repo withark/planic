@@ -240,6 +240,9 @@ export default function EstimateGeneratorPage() {
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({ doc: nextDoc }),
         })
+        // 같은 화면에서 “저장된 견적” 컨텍스트를 즉시 재사용할 수 있게 히스토리를 갱신합니다.
+        const updatedHistory = await apiFetch<HistoryRecord[]>('/api/history')
+        setHistoryList([...updatedHistory].reverse().slice(0, 20))
         showToast('저장 완료!')
       } catch (e) {
         showToast(toUserMessage(e, '저장에 실패했습니다.'))
