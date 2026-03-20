@@ -73,3 +73,19 @@ export async function setCompanyProfileCount(userId: string, count: number, date
   return toRow(rows[0])
 }
 
+export async function resetQuoteGeneratedCount(userId: string, date = new Date()): Promise<UsageQuotaRow> {
+  await initDb()
+  const sql = getDb()
+  const periodKey = periodKeyFromDate(date)
+  await getOrCreateUsage(userId, date)
+  const now = new Date().toISOString()
+  const rows = await sql`
+    UPDATE usage_quotas
+    SET quote_generated_count = 0,
+        updated_at = ${now}::timestamptz
+    WHERE user_id = ${userId} AND period_key = ${periodKey}
+    RETURNING *
+  `
+  return toRow(rows[0])
+}
+

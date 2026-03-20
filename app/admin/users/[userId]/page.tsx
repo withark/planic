@@ -32,18 +32,50 @@ export default function AdminUserDetailPage() {
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
   const [saving, setSaving] = useState(false)
+  const [resetting, setResetting] = useState(false)
+
+  async function reloadUser() {
+    if (!userId) return
+    setLoading(true)
+    setError(null)
+    try {
+      const r = await fetch(`/api/admin/users/${userId}`)
+      const res = await r.json()
+      if (res?.ok && res?.data) setUser(res.data)
+      else setError(res?.error?.message || '조회 실패')
+    } catch {
+      setError('요청 실패')
+    } finally {
+      setLoading(false)
+    }
+  }
 
   useEffect(() => {
-    if (!userId) return
-    fetch(`/api/admin/users/${userId}`)
-      .then((r) => r.json())
-      .then((res) => {
-        if (res?.ok && res?.data) setUser(res.data)
-        else setError(res?.error?.message || '조회 실패')
-      })
-      .catch(() => setError('요청 실패'))
-      .finally(() => setLoading(false))
+    reloadUser()
   }, [userId])
+
+  const isFreePlan = user?.currentPlan === 'FREE'
+
+  async function resetFreeTrialQuota() {
+    if (!userId) return
+    setResetting(true)
+    try {
+      const res = await fetch('/api/admin/users', {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ userId, action: 'reset_free_trial_quota' }),
+      })
+      const data = await res.json().catch(() => ({}))
+      if (!res.ok || data?.ok === false) {
+        alert(data?.error?.message ?? '무료 체험 횟수 초기화 실패')
+        return
+      }
+      alert('무료 체험 횟수를 초기화했습니다.')
+      await reloadUser()
+    } finally {
+      setResetting(false)
+    }
+  }
 
   async function setActive(isActive: boolean) {
     setSaving(true)
@@ -94,6 +126,27 @@ export default function AdminUserDetailPage() {
           <div><dt className="text-slate-500">저장 견적 수</dt><dd>{user.quoteCount}</dd></div>
           <div><dt className="text-slate-500">최근 결제일</dt><dd>{user.lastPaymentAt ? new Date(user.lastPaymentAt).toLocaleDateString('ko-KR') : '—'}</dd></div>
         </dl>
+      </AdminSection>
+
+      <AdminSection title="무료 체험(이번 달 생성) 초기화" description="이번 달 무료 체험 생성 횟수를 0으로 되돌립니다.">
+        <div className="flex items-center justify-between gap-4">
+          <div className="text-sm">
+            <p className="text-slate-700 font-medium">
+              {user?.currentPlan === 'FREE' ? 'FREE 플랜 사용자' : '현재 플랜이 FREE가 아닙니다'}
+            </p>
+            <p className="mt-1 text-xs text-slate-500">
+              실제로 초기화되는 값은 이번 달 `quote_generated_count` 입니다.
+            </p>
+          </div>
+          <button
+            type="button"
+            onClick={resetFreeTrialQuota}
+            disabled={!isFreePlan || resetting}
+            className="rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm font-medium text-slate-700 shadow-sm hover:bg-slate-50 disabled:opacity-50"
+          >
+            {resetting ? '초기화 중…' : '무료 체험 횟수 0으로 초기화'}
+          </button>
+        </div>
       </AdminSection>
 
       <AdminSection title="상태 변경" description="활성/비활성 (비활성 시 로그인 제한)">

@@ -3,6 +3,7 @@ import { requireAdmin } from '@/lib/admin-auth'
 import { okResponse, errorResponse } from '@/lib/api/response'
 import { hasDatabase, initDb, getDb } from '@/lib/db/client'
 import { periodKeyFromDate, PLAN_LIMITS, type PlanType } from '@/lib/plans'
+import { resetQuoteGeneratedCount } from '@/lib/db/usage-db'
 
 export const dynamic = 'force-dynamic'
 
@@ -49,6 +50,8 @@ export async function GET(_req: NextRequest) {
         expiresAt: r.expires_at ? new Date(r.expires_at as string).toISOString() : null,
         startedAt: r.started_at ? new Date(r.started_at as string).toISOString() : null,
         usageStatus: `${used} / ${lim} (이번 달 생성)`,
+        quoteUsed: used,
+        quoteLimit: lim,
         quotaExceeded: over,
         loginMethod: String(r.auth_provider || '—'),
         isAdmin: Boolean(r.is_admin),
@@ -80,6 +83,17 @@ export async function PATCH(req: NextRequest) {
 
     if (typeof body?.isActive === 'boolean') {
       await sql`UPDATE users SET is_active = ${body.isActive}, updated_at = now() WHERE id = ${userId}`
+    }
+
+    if (body?.action === 'reset_free_trial_quota') {
+      const usage = await resetQuoteGeneratedCount(userId)
+      return okResponse({
+        userId,
+        usage: {
+          periodKey: usage.periodKey,
+          quoteGeneratedCount: usage.quoteGeneratedCount,
+        },
+      })
     }
 
     return okResponse(null)
