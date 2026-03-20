@@ -3,6 +3,7 @@ import { callLLM, getEffectiveEngineConfig } from './client'
 import { buildGeneratePrompt } from './prompts'
 import { getEnv } from '../env'
 import { isMockGenerationEnabled } from './mode'
+import { parseBudgetCeilingKRW } from '@/lib/budget'
 import {
   extractQuoteJson,
   safeParseQuoteJson,
@@ -154,9 +155,8 @@ function fillWeakOutputs(doc: QuoteDoc, input: GenerateInput): QuoteDoc {
     return !s || s === '-' || s.toLowerCase() === 'none'
   }
   const parseMoney = (s: string) => {
-    const digits = (s || '').replace(/[^\d]/g, '')
-    const n = digits ? Number(digits) : 0
-    return Number.isFinite(n) ? n : 0
+    const ceiling = parseBudgetCeilingKRW(s || '').ceilingKRW
+    return ceiling == null ? 0 : ceiling
   }
   const parseHeadcount = (s: string) => {
     const digits = (s || '').replace(/[^\d]/g, '')

@@ -29,6 +29,8 @@ import { hasDatabase } from '@/lib/db/client'
 import { getEffectiveEngineConfig } from '@/lib/ai/client'
 import { isAiModeMockRaw, isMockGenerationEnabled, isProductionRuntime } from '@/lib/ai/mode'
 import { logInfo } from '@/lib/utils/logger'
+import { parseBudgetCeilingKRW } from '@/lib/budget'
+import { enforceBudgetHardConstraint } from '@/lib/quote/budget-enforcer'
 
 const GenerateRequestSchema = z.object({
   eventName: z.string().min(1, '행사명을 입력해주세요.'),
@@ -218,9 +220,12 @@ export async function POST(req: NextRequest) {
       existingDoc,
     }
 
+    const parsedBudgetForLogging = parseBudgetCeilingKRW(body.budget || '')
+
     const quoteId = uid()
     let doc: QuoteDoc
     let genMeta: Awaited<ReturnType<typeof generateQuoteWithMeta>>['meta'] | undefined
+    let budgetConstraint: QuoteDoc['budgetConstraint'] | undefined
     try {
       const generation = await generateQuoteWithMeta(input)
       doc = generation.doc
@@ -235,6 +240,10 @@ export async function POST(req: NextRequest) {
         sampleFilename: appliedSampleFilename,
         cuesheetApplied,
         engineSnapshot,
+        budgetRange: parsedBudgetForLogging.selectedBudgetLabel,
+        budgetCeilingKRW: parsedBudgetForLogging.ceilingKRW,
+        generatedFinalTotalKRW: 0,
+        budgetFit: false,
       }).catch((err) => logError('generation_run.insert', err))
       await kvSet('generationRunsLast', { at: new Date().toISOString(), userId, ok: false }).catch((err) =>
         logError('generation_run.kvSet', err),
@@ -242,6 +251,11 @@ export async function POST(req: NextRequest) {
       throw genErr
     }
     ;(doc as QuoteDoc).quoteTemplate = normalizeTemplateForPlan(plan, (doc as QuoteDoc).quoteTemplate as any)
+
+    if (documentTarget === 'estimate') {
+      budgetConstraint = enforceBudgetHardConstraint(doc, body.budget || '')
+      doc.budgetConstraint = budgetConstraint
+    }
 
     const totals = calcTotals(doc)
 
@@ -287,6 +301,10 @@ export async function POST(req: NextRequest) {
       sampleId: appliedSampleId,
       sampleFilename: appliedSampleFilename,
       cuesheetApplied,
+      budgetRange: parsedBudgetForLogging.selectedBudgetLabel,
+      budgetCeilingKRW: parsedBudgetForLogging.ceilingKRW,
+      generatedFinalTotalKRW: totals.grand,
+      budgetFit: budgetConstraint?.budgetFit ?? true,
       engineSnapshot: {
         ...engineSnapshot,
         timings: {

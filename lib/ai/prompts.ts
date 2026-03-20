@@ -1,4 +1,5 @@
 import type { GenerateInput, QuoteDoc } from './types'
+import { parseBudgetCeilingKRW } from '@/lib/budget'
 
 export function buildPriceContext(prices: GenerateInput['prices']): string {
   if (!prices.length) return ''
@@ -189,6 +190,12 @@ export function buildGeneratePrompt(input: GenerateInput): string {
   const taskOrderCtx = includeTaskOrder && input.taskOrderRefs?.length ? buildTaskOrderContext(input.taskOrderRefs) : ''
   const { expenseRate, profitRate, validDays, paymentTerms } = input.settings
 
+  const budgetCeilingKRW = includePrice ? parseBudgetCeilingKRW(input.budget).ceilingKRW : null
+  const budgetHardRule =
+    includePrice && budgetCeilingKRW != null
+      ? `\n[예산 하드 제약]\n- 최종 합계(grand total)는 예산 상한(${budgetCeilingKRW.toLocaleString('ko-KR')}원) 이내로 맞추세요.\n- 불가능하면 필수 구성(인건비/필수 항목)까지 제외하는 식으로 문서가 쓸모 없어지는 경우가 있으니, 그 경우에는 notes에 "예산 불일치"를 1줄로 경고하고 초과분을 최소화하세요.`
+      : ''
+
   const start = input.eventStartHHmm?.trim()
   const end = input.eventEndHHmm?.trim()
   const timeRule =
@@ -208,7 +215,7 @@ export function buildGeneratePrompt(input: GenerateInput): string {
       : `\n- (1) 견적서 quoteItems 카테고리/항목명은 사용자 참고의 네이밍 규칙을 그대로 따르세요.
 - (2) notes는 참고 문서의 제안 문구 톤을 따라 “조건/제외사항” 중심으로 짧은 문장 반복 형태로 작성.
 - (3) 라인아이템 단위/표현(식/명/회 등)도 참고에 맞추세요.`
-  const styleRule = `${scenarioRefCtx}${cuesheetSampleCtx}${styleRuleBase}${styleModeSpecific}`
+  const styleRule = `${scenarioRefCtx}${cuesheetSampleCtx}${styleRuleBase}${styleModeSpecific}${budgetHardRule}`
 
   const existingDocJson = buildExistingDocContext(input, target)
 

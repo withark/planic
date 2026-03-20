@@ -1,6 +1,25 @@
 /** 항목 구분: 인건비·필수·선택1·선택2 (통합 표시용) */
 export type QuoteItemKind = '인건비' | '필수' | '선택1' | '선택2'
 
+export type BudgetConstraintMeta = {
+  selectedBudgetLabel: string
+  /** 예산 상한(원). 상한이 없거나(예: "1000만원 이상") 파싱 불가면 null */
+  budgetCeilingKRW: number | null
+  /** 최종(조정 후) 합계 */
+  generatedFinalTotalKRW: number
+  /** ceiling을 만족했는지 */
+  budgetFit: boolean
+  /** optional 제거/축소/축소가 적용됐는지 */
+  adjustments: {
+    optionalRemoved: boolean
+    staffingQtyReduced: boolean
+    unitPriceReduced: boolean
+  }
+  /** ceiling을 맞추기 위한 최소 viable 상태(조정 불가 시에도) */
+  minViableTotalKRW?: number
+  warning?: string
+}
+
 export interface QuoteLineItem {
   name: string
   spec: string
@@ -96,6 +115,9 @@ export interface QuoteDoc {
   planning?: PlanningDoc
   /** 견적서 스타일 템플릿 (구독/판매용) */
   quoteTemplate?: string
+
+  /** 예산 하드 제약(estimate에서만 적용) 결과 메타 */
+  budgetConstraint?: BudgetConstraintMeta
 }
 
 export interface ProgramPlan {

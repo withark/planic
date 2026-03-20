@@ -13,6 +13,10 @@ type Run = {
   sampleId: string
   sampleFilename: string
   cuesheetApplied: boolean
+  budgetRange: string | null
+  budgetCeilingKRW: number | null
+  generatedFinalTotalKRW: number | null
+  budgetFit: boolean | null
   engineSnapshot: Record<string, unknown>
   createdAt: string
 }
@@ -288,6 +292,14 @@ export default function AdminGenerationLogsPage() {
                           <div className="text-[11px]">
                             {r.engineSnapshot?.structureFirst != null && `구조:${String(r.engineSnapshot.structureFirst)}`}
                             {r.engineSnapshot?.toneFirst != null && ` · 문체:${String(r.engineSnapshot.toneFirst)}`}
+                          </div>
+                        )}
+                        {r.budgetCeilingKRW != null && (
+                          <div className="text-[11px] text-slate-600">
+                            예산 상한:{' '}
+                            {Number(r.budgetCeilingKRW).toLocaleString('ko-KR')}
+                            원 · fit:{' '}
+                            {r.budgetFit === true ? '✓' : r.budgetFit === false ? '✗' : '—'}
                           </div>
                         )}
                       </div>

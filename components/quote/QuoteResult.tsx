@@ -107,6 +107,7 @@ export function QuoteResult({
   const [openPriceForKind, setOpenPriceForKind] = useState<QuoteItemKind | null>(null)
   const priceDropdownRef = useRef<HTMLDivElement>(null)
   const totals = calcTotals(doc)
+  const budgetConstraint = doc.budgetConstraint
   const d = ensureProgramShape(doc)
   const supplierSignName = companySettings?.name?.trim() || '—'
   const requestedTabsRef = useRef<Set<DocTab>>(new Set())
@@ -530,7 +531,26 @@ export function QuoteResult({
                   })}
                 </tbody>
               </table>
-              <div className="border-t border-gray-200 pt-3 space-y-1 max-w-xs ml-auto">
+              <div className="border-t border-gray-200 pt-3 space-y-2 max-w-xs ml-auto">
+                {budgetConstraint?.budgetCeilingKRW != null && !budgetConstraint.budgetFit && (
+                  <div className="border border-amber-200 bg-amber-50 rounded-xl p-3 text-[11px] text-amber-900">
+                    <p className="font-semibold mb-1">예산 불일치 경고</p>
+                    <p className="leading-snug whitespace-pre-wrap">
+                      {budgetConstraint.warning ||
+                        `선택 예산 상한(${fmtKRW(budgetConstraint.budgetCeilingKRW)}원)을 맞추기엔 필수 구성 기준 최소 견적이 부족합니다.`}
+                    </p>
+                    <div className="mt-2 flex justify-between text-[10px] text-amber-900/80">
+                      <span>선택 상한</span>
+                      <span>{fmtKRW(budgetConstraint.budgetCeilingKRW)}원</span>
+                    </div>
+                    {budgetConstraint.minViableTotalKRW != null ? (
+                      <div className="mt-1 flex justify-between text-[10px] text-amber-900/80">
+                        <span>최소 viable</span>
+                        <span>{fmtKRW(budgetConstraint.minViableTotalKRW)}원</span>
+                      </div>
+                    ) : null}
+                  </div>
+                )}
                 {[
                   ['소계', fmtKRW(totals.sub)], [`제경비 (${doc.expenseRate}%)`, fmtKRW(totals.exp)], [`이윤 (${doc.profitRate}%)`, fmtKRW(totals.prof)],
                   ['부가세 (10%)', fmtKRW(totals.vat)], ['절사', `-${fmtKRW(doc.cutAmount)}`],

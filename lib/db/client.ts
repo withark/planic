@@ -264,10 +264,18 @@ export async function initDb(): Promise<void> {
       sample_id text NOT NULL DEFAULT '',
       sample_filename text NOT NULL DEFAULT '',
       cuesheet_applied boolean NOT NULL DEFAULT false,
+      budget_range text,
+      budget_ceiling_krw int,
+      generated_final_total_krw int,
+      budget_fit boolean,
       engine_snapshot jsonb NOT NULL DEFAULT '{}'::jsonb,
       created_at timestamptz NOT NULL DEFAULT now()
     )
   `
+  await sql`ALTER TABLE generation_runs ADD COLUMN IF NOT EXISTS budget_range text`
+  await sql`ALTER TABLE generation_runs ADD COLUMN IF NOT EXISTS budget_ceiling_krw int`
+  await sql`ALTER TABLE generation_runs ADD COLUMN IF NOT EXISTS generated_final_total_krw int`
+  await sql`ALTER TABLE generation_runs ADD COLUMN IF NOT EXISTS budget_fit boolean`
   await sql`CREATE INDEX IF NOT EXISTS idx_generation_runs_created ON generation_runs (created_at DESC)`
   await sql`CREATE INDEX IF NOT EXISTS idx_generation_runs_user ON generation_runs (user_id, created_at DESC)`
   await sql`
