@@ -37,6 +37,11 @@ interface Props {
   prices?: PriceCategory[]
   planType?: PlanType
   onChange: (doc: QuoteDoc) => void
+  /** 생성된 문서 id(저장을 위해 필요) */
+  docId?: string
+  /** 현재 doc 편집 내용을 서버에 저장 */
+  onSaveDoc?: (doc: QuoteDoc) => void | Promise<void>
+  saving?: boolean
   onRegenerate?: () => void
   regenerating?: boolean
   onExcel: (view: 'quote' | 'timeline') => void
@@ -88,6 +93,9 @@ export function QuoteResult({
   prices = [],
   planType = 'FREE',
   onChange,
+  docId,
+  onSaveDoc,
+  saving,
   onRegenerate,
   regenerating,
   onExcel,
@@ -272,6 +280,16 @@ export function QuoteResult({
           ) : (
             <Button size="sm" disabled>엑셀 다운로드</Button>
           )}
+          {onSaveDoc && docId ? (
+            <Button
+              size="sm"
+              variant="secondary"
+              onClick={() => void onSaveDoc(doc)}
+              disabled={!!saving}
+            >
+              {saving ? '저장 중...' : '저장'}
+            </Button>
+          ) : null}
           <Button size="sm" variant="primary" onClick={onPdf}>PDF 저장</Button>
           {planType !== 'FREE' && (
             <Button size="sm" variant="secondary" onClick={() => alert('이메일 공유 기능은 준비 중입니다.')}>이메일 공유</Button>

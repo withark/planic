@@ -1,5 +1,7 @@
 import { getDb, initDb } from './client'
 import type { HistoryRecord } from '../types'
+import type { QuoteDoc } from '@/lib/types'
+import { calcTotals } from '@/lib/calc'
 
 export async function quotesDbGetAll(userId: string): Promise<HistoryRecord[]> {
   await initDb()
@@ -50,6 +52,40 @@ export async function quotesDbAppend(record: HistoryRecord, userId: string): Pro
   await sql`
     INSERT INTO quotes (id, user_id, payload, created_at, updated_at)
     VALUES (${record.id}, ${userId}, ${JSON.stringify(payload)}::jsonb, ${now}::timestamptz, ${now}::timestamptz)
+  `
+}
+
+export async function quotesDbUpdateById(input: {
+  id: string
+  userId: string
+  doc: QuoteDoc
+}): Promise<void> {
+  const existing = await quotesDbGetById(input.id, input.userId)
+  if (!existing) return
+
+  await initDb()
+  const sql = getDb()
+  const now = new Date().toISOString()
+  const totals = calcTotals(input.doc)
+
+  const nextPayload: HistoryRecord = {
+    ...existing,
+    eventName: input.doc.eventName,
+    clientName: input.doc.clientName,
+    quoteDate: input.doc.quoteDate,
+    eventDate: input.doc.eventDate,
+    duration: input.doc.eventDuration,
+    type: input.doc.eventType,
+    headcount: input.doc.headcount,
+    total: totals.grand,
+    doc: input.doc,
+  }
+
+  await sql`
+    UPDATE quotes
+    SET payload = ${JSON.stringify(nextPayload)}::jsonb,
+        updated_at = ${now}::timestamptz
+    WHERE id = ${input.id} AND user_id = ${input.userId}
   `
 }
 

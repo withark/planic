@@ -83,3 +83,19 @@ export async function listGeneratedDocsByType(input: {
   return (rows as any[]).map(toGeneratedDocRow)
 }
 
+export async function updateGeneratedDocById(input: {
+  userId: string
+  id: string
+  doc: QuoteDoc
+}): Promise<void> {
+  await initDb()
+  const sql = getDb()
+  const now = new Date().toISOString()
+  await sql`
+    UPDATE generated_docs
+    SET payload = ${JSON.stringify(input.doc)}::jsonb,
+        updated_at = ${now}::timestamptz
+    WHERE user_id = ${input.userId} AND id = ${input.id}
+  `
+}
+

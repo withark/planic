@@ -77,6 +77,7 @@ export default function ProgramProposalGeneratorPage() {
   } | null>(null)
 
   const [doc, setDoc] = useState<QuoteDoc | null>(null)
+  const [generatedDocId, setGeneratedDocId] = useState<string | null>(null)
 
   const [topic, setTopic] = useState('')
   const [goal, setGoal] = useState('')
@@ -85,6 +86,7 @@ export default function ProgramProposalGeneratorPage() {
   const [notes, setNotes] = useState('')
 
   const [generating, setGenerating] = useState(false)
+  const [saving, setSaving] = useState(false)
   const generatingTabs = useMemo(() => ({ program: generating }), [generating])
 
   const fetchInit = useCallback(async () => {
@@ -105,6 +107,7 @@ export default function ProgramProposalGeneratorPage() {
     const rec = historyList.find(r => r.id === selectedEstimateId)
     if (!rec?.doc) return
     setDoc(rec.doc as QuoteDoc)
+    setGeneratedDocId(null)
   }, [historyList, selectedEstimateId, sourceMode])
 
   useEffect(() => {
@@ -112,6 +115,7 @@ export default function ProgramProposalGeneratorPage() {
     if (!selectedTaskOrderBaseId) {
       setTaskOrderSummary(null)
       setDoc(null)
+      setGeneratedDocId(null)
       return
     }
 
@@ -123,11 +127,13 @@ export default function ProgramProposalGeneratorPage() {
         setTaskOrderSummary(summary)
         const title = summary?.projectTitle || summary?.oneLineSummary || selectedTaskOrderBaseId
         setDoc(makeDummyProgramDoc({ topic: String(title), headcount: '', venue: '' }))
+        setGeneratedDocId(null)
       })
       .catch(() => {
         if (cancelled) return
         setTaskOrderSummary(null)
         setDoc(null)
+        setGeneratedDocId(null)
       })
 
     return () => {
@@ -174,7 +180,7 @@ export default function ProgramProposalGeneratorPage() {
             ? taskOrderSummary?.oneLineSummary?.trim() || ''
             : ''
       const body = requestBaseFromDoc(docForGenerate, requirementsText)
-      const data = await apiFetch<{ doc: QuoteDoc }>(`/api/generate`, {
+      const data = await apiFetch<{ doc: QuoteDoc; id: string }>(`/api/generate`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -184,6 +190,7 @@ export default function ProgramProposalGeneratorPage() {
         }),
       })
       setDoc(data.doc)
+      setGeneratedDocId(data.id)
       showToast('프로그램 제안 생성 완료!')
     } catch (e) {
       showToast(toUserMessage(e, '프로그램 생성에 실패했습니다.'))
@@ -191,6 +198,26 @@ export default function ProgramProposalGeneratorPage() {
       setGenerating(false)
     }
   }, [doc, requestBaseFromDoc, showToast, sourceMode, topic, headcount, venue, goal, notes, taskOrderSummary])
+
+  const handleSaveDoc = useCallback(
+    async (nextDoc: QuoteDoc) => {
+      if (!generatedDocId) return
+      setSaving(true)
+      try {
+        await apiFetch(`/api/generated-docs/${generatedDocId}`, {
+          method: 'PATCH',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ doc: nextDoc }),
+        })
+        showToast('저장 완료!')
+      } catch (e) {
+        showToast(toUserMessage(e, '저장에 실패했습니다.'))
+      } finally {
+        setSaving(false)
+      }
+    },
+    [generatedDocId, showToast],
+  )
 
   return (
     <div className="flex h-screen overflow-hidden bg-gray-50/50">
@@ -231,12 +258,17 @@ export default function ProgramProposalGeneratorPage() {
               setVenue('')
               setNotes('')
               setDoc(null)
+              setGeneratedDocId(null)
             }}
             requiredInput={
               sourceMode === 'fromEstimate' ? (
                 <select
                   value={selectedEstimateId || ''}
-                  onChange={(e) => setSelectedEstimateId(e.target.value || null)}
+                  onChange={(e) => {
+                    setSelectedEstimateId(e.target.value || null)
+                    setDoc(null)
+                    setGeneratedDocId(null)
+                  }}
                   className="w-full px-3 py-2 text-sm border border-gray-200 rounded-lg bg-white focus:outline-none focus:border-primary-400 focus:ring-1 focus:ring-primary-100"
                 >
                   <option value="" disabled>
@@ -251,7 +283,12 @@ export default function ProgramProposalGeneratorPage() {
               ) : sourceMode === 'fromTaskOrder' ? (
                 <select
                   value={selectedTaskOrderBaseId || ''}
-                  onChange={(e) => setSelectedTaskOrderBaseId(e.target.value || undefined)}
+                  onChange={(e) => {
+                    setSelectedTaskOrderBaseId(e.target.value || undefined)
+                    setTaskOrderSummary(null)
+                    setDoc(null)
+                    setGeneratedDocId(null)
+                  }}
                   className="w-full px-3 py-2 text-sm border border-gray-200 rounded-lg bg-white focus:outline-none focus:border-primary-400 focus:ring-1 focus:ring-primary-100"
                 >
                   <option value="" disabled>
@@ -318,7 +355,7 @@ export default function ProgramProposalGeneratorPage() {
             }
           />
 
-          {doc ? (
+          {doc && generatedDocId ? (
             <section className="rounded-2xl border border-gray-100 bg-white shadow-card overflow-hidden">
               <div className="p-4 border-b border-gray-100 bg-slate-50/50">
                 <div className="text-sm font-semibold text-gray-900">프로그램 제안 결과</div>
@@ -327,6 +364,9 @@ export default function ProgramProposalGeneratorPage() {
               <div className="h-[calc(100vh-220px)] min-h-[420px]">
                 <QuoteResult
                   doc={doc}
+                  docId={generatedDocId}
+                  onSaveDoc={handleSaveDoc}
+                  saving={saving}
                   companySettings={companySettings}
                   prices={prices}
                   planType={me?.subscription?.planType ?? 'FREE'}
@@ -358,9 +398,15 @@ export default function ProgramProposalGeneratorPage() {
             </section>
           ) : (
             <section className="rounded-2xl border border-dashed border-gray-200 bg-white p-8 text-center">
-              <div className="text-sm font-semibold text-gray-900">입력 후 생성하세요</div>
+              <div className="text-sm font-semibold text-gray-900">
+                {doc ? '문서 컨텍스트 선택 후 생성하세요' : '입력 후 생성하세요'}
+              </div>
               <div className="text-xs text-gray-500 mt-2">
-                {sourceMode === 'fromTopic' ? '주제/목표만 입력하면 됩니다' : '소스 선택과 필수 입력이 필요합니다'}
+                {doc
+                  ? '생성 후 편집 영역이 열립니다.'
+                  : sourceMode === 'fromTopic'
+                    ? '주제/목표만 입력하면 됩니다'
+                    : '소스 선택과 필수 입력이 필요합니다'}
               </div>
             </section>
           )}

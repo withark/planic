@@ -118,7 +118,9 @@ export default function ScenarioGeneratorPage() {
   const [notes, setNotes] = useState('')
 
   const [doc, setDoc] = useState<QuoteDoc | null>(null)
+  const [generatedDocId, setGeneratedDocId] = useState<string | null>(null)
   const [generating, setGenerating] = useState(false)
+  const [saving, setSaving] = useState(false)
   const generatingTabs = useMemo(() => ({ scenario: generating }), [generating])
 
   useEffect(() => {
@@ -143,11 +145,18 @@ export default function ScenarioGeneratorPage() {
     if (sourceMode === 'fromTopic') return
     if (!selectedBaseDocId) {
       setDoc(null)
+      setGeneratedDocId(null)
       return
     }
     apiFetch<{ doc: QuoteDoc }>(`/api/generated-docs/${selectedBaseDocId}`)
-      .then(res => setDoc(res.doc))
-      .catch(() => setDoc(null))
+      .then(res => {
+        setDoc(res.doc)
+        setGeneratedDocId(null)
+      })
+      .catch(() => {
+        setDoc(null)
+        setGeneratedDocId(null)
+      })
   }, [sourceMode, selectedBaseDocId])
 
   // fromTopic(prompt-only)은 생성 버튼 클릭 시 더미 컨텍스트를 구성합니다.
@@ -184,7 +193,7 @@ export default function ScenarioGeneratorPage() {
           ? promptRequirements
           : ''
       const baseBody = requestBaseFromDoc(docForGenerate, requirementsText)
-      const data = await apiFetch<{ doc: QuoteDoc }>(`/api/generate`, {
+      const data = await apiFetch<{ doc: QuoteDoc; id: string }>(`/api/generate`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -194,6 +203,7 @@ export default function ScenarioGeneratorPage() {
         }),
       })
       setDoc(data.doc)
+      setGeneratedDocId(data.id)
       showToast('시나리오 생성 완료!')
     } catch (e) {
       showToast(toUserMessage(e, '시나리오 생성에 실패했습니다.'))
@@ -201,6 +211,26 @@ export default function ScenarioGeneratorPage() {
       setGenerating(false)
     }
   }, [doc, requestBaseFromDoc, showToast, sourceMode, topic, goal, notes, headcount, venue])
+
+  const handleSaveDoc = useCallback(
+    async (nextDoc: QuoteDoc) => {
+      if (!generatedDocId) return
+      setSaving(true)
+      try {
+        await apiFetch(`/api/generated-docs/${generatedDocId}`, {
+          method: 'PATCH',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ doc: nextDoc }),
+        })
+        showToast('저장 완료!')
+      } catch (e) {
+        showToast(toUserMessage(e, '저장에 실패했습니다.'))
+      } finally {
+        setSaving(false)
+      }
+    },
+    [generatedDocId, showToast],
+  )
 
   const generateDisabled =
     sourceMode === 'fromTopic' ? !topic.trim() || !goal.trim() : !selectedBaseDocId || !doc
@@ -241,13 +271,17 @@ export default function ScenarioGeneratorPage() {
               setVenue('')
               setNotes('')
               setDoc(null)
+              setGeneratedDocId(null)
             }}
             highlightModeId="fromTopic"
             requiredInput={
               sourceMode === 'fromPlanning' || sourceMode === 'fromProgram' ? (
                 <select
                   value={selectedBaseDocId || ''}
-                  onChange={(e) => setSelectedBaseDocId(e.target.value || null)}
+                  onChange={(e) => {
+                    setSelectedBaseDocId(e.target.value || null)
+                    setGeneratedDocId(null)
+                  }}
                   className="w-full px-3 py-2 text-sm border border-gray-200 rounded-lg bg-white focus:outline-none focus:border-primary-400 focus:ring-1 focus:ring-primary-100"
                 >
                   <option value="" disabled>
@@ -308,7 +342,7 @@ export default function ScenarioGeneratorPage() {
             generateDisabled={generateDisabled}
           />
 
-          {doc ? (
+          {doc && generatedDocId ? (
             <section className="rounded-2xl border border-gray-100 bg-white shadow-card overflow-hidden">
               <div className="p-4 border-b border-gray-100 bg-slate-50/50">
                 <div className="text-sm font-semibold text-gray-900">시나리오 결과</div>
@@ -317,6 +351,9 @@ export default function ScenarioGeneratorPage() {
               <div className="h-[calc(100vh-280px)] min-h-[420px]">
                 <QuoteResult
                   doc={doc}
+                  docId={generatedDocId}
+                  onSaveDoc={handleSaveDoc}
+                  saving={saving}
                   companySettings={companySettings}
                   prices={prices}
                   planType={me?.subscription?.planType ?? 'FREE'}
@@ -348,9 +385,15 @@ export default function ScenarioGeneratorPage() {
             </section>
           ) : (
             <section className="rounded-2xl border border-dashed border-gray-200 bg-white p-8 text-center">
-              <div className="text-sm font-semibold text-gray-900">입력 후 생성하세요</div>
+              <div className="text-sm font-semibold text-gray-900">
+                {doc ? '문서 컨텍스트 선택 후 생성하세요' : '입력 후 생성하세요'}
+              </div>
               <div className="text-xs text-gray-500 mt-2">
-                {sourceMode === 'fromTopic' ? '주제/목표만 입력하면 됩니다' : '소스 선택과 필수 입력이 필요합니다'}
+                {doc
+                  ? '생성 후 편집 영역이 열립니다.'
+                  : sourceMode === 'fromTopic'
+                    ? '주제/목표만 입력하면 됩니다'
+                    : '소스 선택과 필수 입력이 필요합니다'}
               </div>
             </section>
           )}

@@ -77,7 +77,9 @@ export default function EstimateGeneratorPage() {
   const [notes, setNotes] = useState('')
 
   const [doc, setDoc] = useState<QuoteDoc | null>(null)
+  const [generatedDocId, setGeneratedDocId] = useState<string | null>(null)
   const [generating, setGenerating] = useState(false)
+  const [saving, setSaving] = useState(false)
   const generatingTabs = useMemo(() => ({ estimate: generating }), [generating])
 
   const selectedHistory = useMemo(
@@ -119,6 +121,7 @@ export default function EstimateGeneratorPage() {
   useEffect(() => {
     // 모드 전환 시 “이전 문서”가 남지 않도록 초기화합니다.
     setDoc(null)
+    setGeneratedDocId(null)
     if (sourceMode === 'fromEstimate') setSelectedTaskOrderId(null)
     if (sourceMode === 'fromTaskOrder') setSelectedEstimateId(null)
     if (sourceMode === 'fromTopic') {
@@ -206,12 +209,13 @@ export default function EstimateGeneratorPage() {
 
     setGenerating(true)
     try {
-      const data = await apiFetch<{ doc: QuoteDoc }>(`/api/generate`, {
+      const data = await apiFetch<{ doc: QuoteDoc; id: string }>(`/api/generate`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(body),
       })
       setDoc(data.doc)
+      setGeneratedDocId(data.id)
       showToast('견적서 생성 완료!')
     } catch (e) {
       showToast(toUserMessage(e, '견적서 생성에 실패했습니다.'))
@@ -219,6 +223,32 @@ export default function EstimateGeneratorPage() {
       setGenerating(false)
     }
   }, [requestBodyForEstimate, showToast])
+
+  const handleSaveDoc = useCallback(
+    async (nextDoc: QuoteDoc) => {
+      if (!generatedDocId) return
+      setSaving(true)
+      try {
+        await apiFetch(`/api/generated-docs/${generatedDocId}`, {
+          method: 'PATCH',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ doc: nextDoc }),
+        })
+        // estimate 문서는 quotes 테이블에도 저장되어 history에서 재사용됩니다.
+        await apiFetch(`/api/quotes/${generatedDocId}`, {
+          method: 'PATCH',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ doc: nextDoc }),
+        })
+        showToast('저장 완료!')
+      } catch (e) {
+        showToast(toUserMessage(e, '저장에 실패했습니다.'))
+      } finally {
+        setSaving(false)
+      }
+    },
+    [generatedDocId, showToast],
+  )
 
   const generateDisabled =
     sourceMode === 'fromEstimate'
@@ -263,7 +293,11 @@ export default function EstimateGeneratorPage() {
               sourceMode === 'fromEstimate' ? (
                 <select
                   value={selectedEstimateId || ''}
-                  onChange={(e) => setSelectedEstimateId(e.target.value || null)}
+                  onChange={(e) => {
+                    setSelectedEstimateId(e.target.value || null)
+                    setDoc(null)
+                    setGeneratedDocId(null)
+                  }}
                   className="w-full px-3 py-2 text-sm border border-gray-200 rounded-lg bg-white focus:outline-none focus:border-primary-400 focus:ring-1 focus:ring-primary-100"
                 >
                   <option value="" disabled>
@@ -278,7 +312,11 @@ export default function EstimateGeneratorPage() {
               ) : sourceMode === 'fromTaskOrder' ? (
                 <select
                   value={selectedTaskOrderId || ''}
-                  onChange={(e) => setSelectedTaskOrderId(e.target.value || null)}
+                  onChange={(e) => {
+                    setSelectedTaskOrderId(e.target.value || null)
+                    setDoc(null)
+                    setGeneratedDocId(null)
+                  }}
                   className="w-full px-3 py-2 text-sm border border-gray-200 rounded-lg bg-white focus:outline-none focus:border-primary-400 focus:ring-1 focus:ring-primary-100"
                 >
                   <option value="" disabled>
@@ -339,7 +377,7 @@ export default function EstimateGeneratorPage() {
             generateDisabled={generateDisabled}
           />
 
-          {doc ? (
+          {doc && generatedDocId ? (
             <section className="rounded-2xl border border-gray-100 bg-white shadow-card overflow-hidden">
               <div className="p-4 border-b border-gray-100 bg-slate-50/50">
                 <div className="text-sm font-semibold text-gray-900">견적 결과</div>
@@ -348,6 +386,9 @@ export default function EstimateGeneratorPage() {
               <div className="h-[calc(100vh-220px)] min-h-[420px]">
                 <QuoteResult
                   doc={doc}
+                  docId={generatedDocId}
+                  onSaveDoc={handleSaveDoc}
+                  saving={saving}
                   companySettings={companySettings}
                   prices={prices}
                   planType={me?.subscription?.planType ?? 'FREE'}

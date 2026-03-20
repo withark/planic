@@ -361,7 +361,7 @@ export async function POST(req: NextRequest) {
       logError('generation_run.kvSet', err),
     )
 
-    return okResponse({ doc, totals })
+    return okResponse({ doc, totals, id: quoteId })
   } catch (e) {
     logError('generate', e)
     const msg = e instanceof Error ? e.message : '견적서 생성에 실패했습니다.'
