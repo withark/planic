@@ -157,23 +157,29 @@ export default function ProgramProposalGeneratorPage() {
 
         <div className="flex-1 overflow-y-auto p-6 space-y-6">
           <section className="rounded-2xl border border-gray-100 bg-white p-5 shadow-card">
-            <div className="flex items-start justify-between gap-6 flex-wrap">
+            <div className="flex items-start gap-6 flex-wrap">
               <div className="min-w-[240px]">
                 <div className="text-sm font-semibold text-gray-900">입력 소스</div>
                 <div className="text-xs text-gray-500 mt-1">아래에서 견적 컨텍스트를 선택(또는 업로드)하세요.</div>
               </div>
 
               <div className="flex items-center gap-4 flex-wrap">
-                <label className="text-xs text-gray-600 flex items-center gap-2">
+                <label className="text-xs text-slate-500 flex items-center gap-2 opacity-90">
                   <input
                     type="radio"
+                    className="h-4 w-4 accent-slate-400"
                     checked={sourceMode === 'existingEstimate'}
                     onChange={() => setSourceMode('existingEstimate')}
                   />
                   기존 견적 선택
                 </label>
-                <label className="text-xs text-gray-600 flex items-center gap-2">
-                  <input type="radio" checked={sourceMode === 'uploadEstimate'} onChange={() => setSourceMode('uploadEstimate')} />
+                <label className="text-xs text-slate-500 flex items-center gap-2 opacity-90">
+                  <input
+                    type="radio"
+                    className="h-4 w-4 accent-slate-400"
+                    checked={sourceMode === 'uploadEstimate'}
+                    onChange={() => setSourceMode('uploadEstimate')}
+                  />
                   견적 문서 업로드
                 </label>
               </div>

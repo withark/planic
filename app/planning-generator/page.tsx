@@ -188,19 +188,29 @@ export default function PlanningGeneratorPage() {
 
         <div className="flex-1 overflow-y-auto p-6 space-y-6">
           <section className="rounded-2xl border border-gray-100 bg-white p-5 shadow-card">
-            <div className="flex items-start justify-between gap-6 flex-wrap">
+            <div className="flex items-start gap-6 flex-wrap">
               <div>
                 <div className="text-sm font-semibold text-gray-900">입력 모드</div>
                 <div className="text-xs text-gray-500 mt-1">A. 견적 기반 / B. 주제 기반</div>
               </div>
 
               <div className="flex items-center gap-4 flex-wrap">
-                <label className="text-xs text-gray-600 flex items-center gap-2">
-                  <input type="radio" checked={sourceMode === 'fromEstimate'} onChange={() => setSourceMode('fromEstimate')} />
+                <label className="text-xs text-slate-500 flex items-center gap-2 opacity-90">
+                  <input
+                    type="radio"
+                    className="h-4 w-4 accent-slate-400"
+                    checked={sourceMode === 'fromEstimate'}
+                    onChange={() => setSourceMode('fromEstimate')}
+                  />
                   견적에서 생성
                 </label>
-                <label className="text-xs text-gray-600 flex items-center gap-2">
-                  <input type="radio" checked={sourceMode === 'fromTopic'} onChange={() => setSourceMode('fromTopic')} />
+                <label className="text-xs text-slate-500 flex items-center gap-2 opacity-90">
+                  <input
+                    type="radio"
+                    className="h-4 w-4 accent-slate-400"
+                    checked={sourceMode === 'fromTopic'}
+                    onChange={() => setSourceMode('fromTopic')}
+                  />
                   주제로 생성
                 </label>
               </div>
