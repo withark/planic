@@ -4,7 +4,7 @@ import { useCallback, useEffect, useMemo, useState } from 'react'
 import { GNB } from '@/components/GNB'
 import QuoteResult from '@/components/quote/QuoteResult'
 import SimpleGeneratorWizard, { type WizardMode } from '@/components/generators/SimpleGeneratorWizard'
-import { Toast } from '@/components/ui'
+import { Input, Textarea, Toast } from '@/components/ui'
 import type { CompanySettings, PriceCategory, QuoteDoc } from '@/lib/types'
 import type { PlanType } from '@/lib/plans'
 import { apiFetch } from '@/lib/api/client'
@@ -33,7 +33,15 @@ function todayStr() {
   return new Date().toISOString().slice(0, 10)
 }
 
-function makeDummyCueSheetExistingDoc(topic: string): QuoteDoc {
+function makeDummyCueSheetExistingDoc({
+  topic,
+  headcount,
+  venue,
+}: {
+  topic: string
+  headcount: string
+  venue: string
+}): QuoteDoc {
   const quoteDate = todayStr()
   return {
     eventName: topic,
@@ -43,8 +51,8 @@ function makeDummyCueSheetExistingDoc(topic: string): QuoteDoc {
     quoteDate,
     eventDate: '',
     eventDuration: '',
-    venue: '',
-    headcount: '',
+    venue: venue.trim(),
+    headcount: headcount.trim(),
     eventType: '기타',
     quoteItems: [
       {
@@ -95,7 +103,7 @@ export default function CueSheetGeneratorPage() {
   const [companySettings, setCompanySettings] = useState<CompanySettings | null>(null)
   const [prices, setPrices] = useState<PriceCategory[]>([])
 
-  const [sourceMode, setSourceMode] = useState<SourceMode>('fromScenario')
+  const [sourceMode, setSourceMode] = useState<SourceMode>('fromTopic')
 
   const [scenarioList, setScenarioList] = useState<GeneratedDocListRow[]>([])
   const [programList, setProgramList] = useState<GeneratedDocListRow[]>([])
@@ -106,6 +114,10 @@ export default function CueSheetGeneratorPage() {
   const [selectedTimetableId, setSelectedTimetableId] = useState<string | null>(null)
 
   const [topic, setTopic] = useState('')
+  const [goal, setGoal] = useState('')
+  const [headcount, setHeadcount] = useState('')
+  const [venue, setVenue] = useState('')
+  const [notes, setNotes] = useState('')
 
   // contextDoc: 생성 요청에 쓰는 기존 문서
   const [contextDoc, setContextDoc] = useState<QuoteDoc | null>(null)
@@ -117,10 +129,10 @@ export default function CueSheetGeneratorPage() {
 
   const modes: WizardMode[] = useMemo(
     () => [
-      { id: 'fromScenario', title: '시나리오에서' },
-      { id: 'fromProgram', title: '프로그램 제안서에서' },
+      { id: 'fromTopic', title: '주제만 입력', desc: '주제/목표로 바로 초안 생성' },
+      { id: 'fromScenario', title: '시나리오 기준', desc: '시나리오 기반 운영 흐름 반영' },
+      { id: 'fromProgram', title: '프로그램 제안서 기준', desc: '프로그램 제안 문구 기반으로 구성' },
       { id: 'fromTimetable', title: '타임테이블에서' },
-      { id: 'fromTopic', title: '주제에서만' },
     ],
     [],
   )
@@ -174,15 +186,7 @@ export default function CueSheetGeneratorPage() {
       .catch(() => setContextDoc(null))
   }, [sourceMode, selectedTimetableId])
 
-  useEffect(() => {
-    if (sourceMode !== 'fromTopic') return
-    const safeTopic = topic.trim()
-    if (!safeTopic) {
-      setContextDoc(null)
-      return
-    }
-    setContextDoc(makeDummyCueSheetExistingDoc(safeTopic))
-  }, [sourceMode, topic])
+  // fromTopic(prompt-only)은 생성 버튼 클릭 시 더미 contextDoc을 구성합니다.
 
   const requestBaseFromDoc = useCallback((d: QuoteDoc, requirementsText: string) => {
     return {
@@ -203,18 +207,23 @@ export default function CueSheetGeneratorPage() {
   }, [])
 
   const handleGenerateCueSheet = useCallback(async () => {
-    if (!contextDoc) return
+    const contextDocForGenerate =
+      sourceMode === 'fromTopic'
+        ? makeDummyCueSheetExistingDoc({ topic: topic.trim() || '행사', headcount, venue })
+        : contextDoc
+    if (!contextDocForGenerate) return
     setGenerating(true)
     try {
-      const requirementsText = sourceMode === 'fromTopic' ? topic.trim() : ''
-      const baseBody = requestBaseFromDoc(contextDoc, requirementsText)
+      const promptRequirements = [goal.trim(), notes.trim() ? `추가 메모: ${notes.trim()}` : ''].filter(Boolean).join('\n')
+      const requirementsText = sourceMode === 'fromTopic' ? promptRequirements : ''
+      const baseBody = requestBaseFromDoc(contextDocForGenerate, requirementsText)
       const data = await apiFetch<{ doc: QuoteDoc }>(`/api/generate`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           ...baseBody,
           documentTarget: 'cuesheet',
-          existingDoc: contextDoc,
+          existingDoc: contextDocForGenerate,
           cuesheetSampleIds: [],
         }),
       })
@@ -225,11 +234,11 @@ export default function CueSheetGeneratorPage() {
     } finally {
       setGenerating(false)
     }
-  }, [contextDoc, requestBaseFromDoc, showToast, sourceMode, topic])
+  }, [contextDoc, requestBaseFromDoc, showToast, sourceMode, topic, goal, notes, headcount, venue])
 
   const generateDisabled =
     sourceMode === 'fromTopic'
-      ? !topic.trim() || !contextDoc
+      ? !topic.trim() || !goal.trim()
       : !contextDoc || !(sourceMode === 'fromScenario'
           ? selectedScenarioId
           : sourceMode === 'fromProgram'
@@ -258,6 +267,7 @@ export default function CueSheetGeneratorPage() {
             subtitle="시나리오/프로그램/타임테이블 또는 토픽으로 큐시트만 생성합니다"
             modes={modes}
             modeId={sourceMode}
+            highlightModeId="fromTopic"
             onModeChange={(id) => {
               const next = id as SourceMode
               setSourceMode(next)
@@ -265,6 +275,10 @@ export default function CueSheetGeneratorPage() {
               setSelectedProgramId(null)
               setSelectedTimetableId(null)
               setTopic('')
+              setGoal('')
+              setHeadcount('')
+              setVenue('')
+              setNotes('')
               setContextDoc(null)
               setDoc(null)
             }}
@@ -315,13 +329,46 @@ export default function CueSheetGeneratorPage() {
                   ))}
                 </select>
               ) : (
-                <textarea
-                  value={topic}
-                  onChange={(e) => setTopic(e.target.value)}
-                  placeholder="예) 현장 운영 흐름/구성 포인트"
-                  rows={4}
-                  className="w-full px-3 py-2 text-sm border border-gray-200 rounded-lg bg-white focus:outline-none focus:border-primary-400 focus:ring-1 focus:ring-primary-100 resize-none"
-                />
+                <div className="space-y-3">
+                  <div className="text-[11px] text-gray-500">
+                    필수: 주제, 목표 / 선택: 인원, 장소, 추가 메모
+                  </div>
+                  <Input
+                    label="이벤트 주제"
+                    value={topic}
+                    onChange={(e) => setTopic(e.target.value)}
+                    placeholder="예) 기업 워크숍 현장 운영 흐름"
+                  />
+                  <Textarea
+                    label="목표"
+                    value={goal}
+                    onChange={(e) => setGoal(e.target.value)}
+                    placeholder="예) 참가자들이 끝까지 몰입하고 행동까지 이어지게"
+                    rows={3}
+                  />
+                  <div className="grid grid-cols-2 gap-3">
+                    <Input
+                      label="참석 인원(선택)"
+                      value={headcount}
+                      onChange={(e) => setHeadcount(e.target.value)}
+                      placeholder="예) 80"
+                      inputMode="numeric"
+                    />
+                    <Input
+                      label="장소(선택)"
+                      value={venue}
+                      onChange={(e) => setVenue(e.target.value)}
+                      placeholder="예) 잠실"
+                    />
+                  </div>
+                  <Textarea
+                    label="추가 메모(선택)"
+                    value={notes}
+                    onChange={(e) => setNotes(e.target.value)}
+                    placeholder="예) VIP 동선 고려, 세션 구성 등"
+                    rows={3}
+                  />
+                </div>
               )
             }
             generateLabel="큐시트 생성"
@@ -374,7 +421,9 @@ export default function CueSheetGeneratorPage() {
           ) : (
             <section className="rounded-2xl border border-dashed border-gray-200 bg-white p-8 text-center">
               <div className="text-sm font-semibold text-gray-900">입력 후 생성하세요</div>
-              <div className="text-xs text-gray-500 mt-2">소스 선택과 필수 입력만 있으면 됩니다</div>
+              <div className="text-xs text-gray-500 mt-2">
+                {sourceMode === 'fromTopic' ? '주제/목표만 입력하면 됩니다' : '소스 선택과 필수 입력이 필요합니다'}
+              </div>
             </section>
           )}
         </div>

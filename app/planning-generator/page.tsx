@@ -3,7 +3,7 @@
 import { useCallback, useEffect, useMemo, useState } from 'react'
 import { GNB } from '@/components/GNB'
 import QuoteResult from '@/components/quote/QuoteResult'
-import { Toast } from '@/components/ui'
+import { Input, Textarea, Toast } from '@/components/ui'
 import SimpleGeneratorWizard from '@/components/generators/SimpleGeneratorWizard'
 import type { CompanySettings, HistoryRecord, PriceCategory, QuoteDoc, TaskOrderDoc } from '@/lib/types'
 import { apiFetch } from '@/lib/api/client'
@@ -20,17 +20,25 @@ type MeLite = {
 
 type SourceMode = 'fromEstimate' | 'fromTaskOrder' | 'fromTopic'
 
-function makeDummyQuoteDoc(topic: string, eventName: string): QuoteDoc {
+function makeDummyQuoteDoc({
+  topic,
+  headcount,
+  venue,
+}: {
+  topic: string
+  headcount: string
+  venue: string
+}): QuoteDoc {
   return {
-    eventName: eventName || topic || '행사',
+    eventName: topic || '행사',
     clientName: '',
     clientManager: '',
     clientTel: '',
     quoteDate: new Date().toISOString().slice(0, 10),
     eventDate: '',
     eventDuration: '',
-    venue: '',
-    headcount: '',
+    venue: venue.trim(),
+    headcount: headcount.trim(),
     eventType: '기타',
     quoteItems: [{ category: '기타', items: [{ name: '기본 컨텍스트', spec: '', qty: 1, unit: '식', unitPrice: 0, total: 0, note: '', kind: '필수' }] }],
     expenseRate: 0,
@@ -57,13 +65,17 @@ export default function PlanningGeneratorPage() {
     setTimeout(() => setToast(''), 3000)
   }, [])
 
-  const [sourceMode, setSourceMode] = useState<SourceMode>('fromEstimate')
+  const [sourceMode, setSourceMode] = useState<SourceMode>('fromTopic')
 
   const [historyList, setHistoryList] = useState<HistoryRecord[]>([])
   const [selectedEstimateId, setSelectedEstimateId] = useState<string | null>(null)
   const [doc, setDoc] = useState<QuoteDoc | null>(null)
 
   const [topic, setTopic] = useState('')
+  const [goal, setGoal] = useState('')
+  const [headcount, setHeadcount] = useState('')
+  const [venue, setVenue] = useState('')
+  const [notes, setNotes] = useState('')
   const [selectedTaskOrderBaseId, setSelectedTaskOrderBaseId] = useState<string | undefined>(undefined)
   const [taskOrderRefs, setTaskOrderRefs] = useState<TaskOrderDoc[]>([])
   const [taskOrderSummary, setTaskOrderSummary] = useState<{
@@ -90,13 +102,6 @@ export default function PlanningGeneratorPage() {
   }, [historyList, selectedEstimateId, sourceMode])
 
   useEffect(() => {
-    if (sourceMode !== 'fromTopic') return
-    const safeTopic = topic.trim()
-    if (!safeTopic) return
-    setDoc(makeDummyQuoteDoc(safeTopic, safeTopic))
-  }, [sourceMode, topic])
-
-  useEffect(() => {
     if (sourceMode !== 'fromTaskOrder') return
     if (!selectedTaskOrderBaseId) {
       setTaskOrderSummary(null)
@@ -111,7 +116,7 @@ export default function PlanningGeneratorPage() {
         const summary = d?.structuredSummary ?? null
         setTaskOrderSummary(summary)
         const title = summary?.projectTitle || summary?.oneLineSummary || selectedTaskOrderBaseId
-        setDoc(makeDummyQuoteDoc(String(title), String(title)))
+        setDoc(makeDummyQuoteDoc({ topic: String(title), headcount: '', venue: '' }))
       })
       .catch(() => {
         if (cancelled) return
@@ -148,17 +153,21 @@ export default function PlanningGeneratorPage() {
   )
 
   const handleGeneratePlanning = useCallback(async () => {
-    if (!doc) return
+    const docForGenerate =
+      sourceMode === 'fromTopic'
+        ? doc ?? makeDummyQuoteDoc({ topic: topic.trim() || '행사', headcount, venue })
+        : doc
+    if (!docForGenerate) return
     setGenerating(true)
     try {
       const requirementsText =
         sourceMode === 'fromTopic'
-          ? topic.trim()
+          ? [goal.trim(), notes.trim() ? `추가 메모: ${notes.trim()}` : ''].filter(Boolean).join('\n')
           : sourceMode === 'fromTaskOrder'
             ? taskOrderSummary?.oneLineSummary?.trim() || ''
             : ''
 
-      const body = requestBaseFromDoc(doc, requirementsText)
+      const body = requestBaseFromDoc(docForGenerate, requirementsText)
 
       const data = await apiFetch<{ doc: QuoteDoc }>(`/api/generate`, {
         method: 'POST',
@@ -166,7 +175,7 @@ export default function PlanningGeneratorPage() {
         body: JSON.stringify({
           ...body,
           documentTarget: 'planning',
-          existingDoc: doc,
+          existingDoc: docForGenerate,
         }),
       })
       setDoc(data.doc)
@@ -176,7 +185,7 @@ export default function PlanningGeneratorPage() {
     } finally {
       setGenerating(false)
     }
-  }, [doc, requestBaseFromDoc, showToast, sourceMode, taskOrderSummary, topic])
+  }, [doc, requestBaseFromDoc, showToast, sourceMode, taskOrderSummary, topic, goal, notes, headcount, venue])
 
   return (
     <div className="flex h-screen overflow-hidden bg-gray-50/50">
@@ -195,9 +204,9 @@ export default function PlanningGeneratorPage() {
             title="기획 문서 생성"
             subtitle="소스 선택 → 필수 입력 → 한 번에 생성"
             modes={[
-              { id: 'fromEstimate', title: '저장된 견적에서' },
-              { id: 'fromTaskOrder', title: '과업지시서에서' },
-              { id: 'fromTopic', title: '주제에서만' },
+              { id: 'fromTopic', title: '주제만 입력', desc: '주제/목표로 바로 초안 생성' },
+              { id: 'fromTaskOrder', title: '과업지시서 기준', desc: '요약을 바탕으로 더 정확하게' },
+              { id: 'fromEstimate', title: '기존 문서 기준', desc: '저장된 견적 컨텍스트 활용' },
             ]}
             modeId={sourceMode}
             onModeChange={(id) => {
@@ -207,8 +216,13 @@ export default function PlanningGeneratorPage() {
               setSelectedTaskOrderBaseId(undefined)
               setTaskOrderSummary(null)
               setTopic('')
+              setGoal('')
+              setHeadcount('')
+              setVenue('')
+              setNotes('')
               setDoc(null)
             }}
+            highlightModeId="fromTopic"
             requiredInput={
               sourceMode === 'fromEstimate' ? (
                 <select
@@ -241,13 +255,46 @@ export default function PlanningGeneratorPage() {
                   ))}
                 </select>
               ) : (
-                <textarea
-                  value={topic}
-                  onChange={(e) => setTopic(e.target.value)}
-                  placeholder="예) 팀 커뮤니케이션을 위한 기업 워크숍 운영/산출물 계획"
-                  rows={4}
-                  className="w-full px-3 py-2 text-sm border border-gray-200 rounded-lg bg-white focus:outline-none focus:border-primary-400 focus:ring-1 focus:ring-primary-100 resize-none"
-                />
+                <div className="space-y-3">
+                  <div className="text-[11px] text-gray-500">
+                    필수: 주제, 목표 / 선택: 인원, 장소, 추가 메모
+                  </div>
+                  <Input
+                    label="이벤트 주제"
+                    value={topic}
+                    onChange={(e) => setTopic(e.target.value)}
+                    placeholder="예) 기업 워크숍 운영/산출물 계획"
+                  />
+                  <Textarea
+                    label="목표"
+                    value={goal}
+                    onChange={(e) => setGoal(e.target.value)}
+                    placeholder="예) 참석자들이 핵심 메시지를 이해하고 행동까지 이어지게"
+                    rows={3}
+                  />
+                  <div className="grid grid-cols-2 gap-3">
+                    <Input
+                      label="참석 인원(선택)"
+                      value={headcount}
+                      onChange={(e) => setHeadcount(e.target.value)}
+                      placeholder="예) 80"
+                      inputMode="numeric"
+                    />
+                    <Input
+                      label="장소(선택)"
+                      value={venue}
+                      onChange={(e) => setVenue(e.target.value)}
+                      placeholder="예) 잠실"
+                    />
+                  </div>
+                  <Textarea
+                    label="추가 메모(선택)"
+                    value={notes}
+                    onChange={(e) => setNotes(e.target.value)}
+                    placeholder="예) VIP 동선 고려, 발표 시간/세션 구조 등"
+                    rows={3}
+                  />
+                </div>
               )
             }
             generateLabel="기획 문서 생성"
@@ -258,7 +305,7 @@ export default function PlanningGeneratorPage() {
                 ? !selectedEstimateId || !doc
                 : sourceMode === 'fromTaskOrder'
                   ? !selectedTaskOrderBaseId || !taskOrderSummary || !doc
-                  : !topic.trim() || !doc
+                  : !topic.trim() || !goal.trim()
             }
           />
 
@@ -302,7 +349,9 @@ export default function PlanningGeneratorPage() {
           ) : (
             <section className="rounded-2xl border border-dashed border-gray-200 bg-white p-8 text-center">
               <div className="text-sm font-semibold text-gray-900">입력 후 생성하세요</div>
-              <div className="text-xs text-gray-500 mt-2">소스 선택과 필수 입력만 있으면 됩니다</div>
+              <div className="text-xs text-gray-500 mt-2">
+                {sourceMode === 'fromTopic' ? '주제/목표만 입력하면 됩니다' : '소스 선택과 필수 입력이 필요합니다'}
+              </div>
             </section>
           )}
         </div>

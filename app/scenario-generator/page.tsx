@@ -4,7 +4,7 @@ import { useCallback, useEffect, useMemo, useState } from 'react'
 import { GNB } from '@/components/GNB'
 import QuoteResult from '@/components/quote/QuoteResult'
 import SimpleGeneratorWizard from '@/components/generators/SimpleGeneratorWizard'
-import { Toast } from '@/components/ui'
+import { Input, Textarea, Toast } from '@/components/ui'
 import type { CompanySettings, PriceCategory, QuoteDoc } from '@/lib/types'
 import { apiFetch } from '@/lib/api/client'
 import { toUserMessage } from '@/lib/errors/toUserMessage'
@@ -33,7 +33,15 @@ function todayStr() {
   return new Date().toISOString().slice(0, 10)
 }
 
-function makeDummyScenarioDoc(topic: string): QuoteDoc {
+function makeDummyScenarioDoc({
+  topic,
+  headcount,
+  venue,
+}: {
+  topic: string
+  headcount: string
+  venue: string
+}): QuoteDoc {
   const quoteDate = todayStr()
   return {
     eventName: topic,
@@ -43,8 +51,8 @@ function makeDummyScenarioDoc(topic: string): QuoteDoc {
     quoteDate,
     eventDate: '',
     eventDuration: '',
-    venue: '',
-    headcount: '',
+    venue: venue.trim(),
+    headcount: headcount.trim(),
     eventType: '기타',
     quoteItems: [
       {
@@ -96,7 +104,7 @@ export default function ScenarioGeneratorPage() {
   const [companySettings, setCompanySettings] = useState<CompanySettings | null>(null)
   const [prices, setPrices] = useState<PriceCategory[]>([])
 
-  const [sourceMode, setSourceMode] = useState<SourceMode>('fromPlanning')
+  const [sourceMode, setSourceMode] = useState<SourceMode>('fromTopic')
 
   // From planning / program
   const [baseDocList, setBaseDocList] = useState<GeneratedDocListRow[]>([])
@@ -104,6 +112,10 @@ export default function ScenarioGeneratorPage() {
 
   // From topic only
   const [topic, setTopic] = useState('')
+  const [goal, setGoal] = useState('')
+  const [headcount, setHeadcount] = useState('')
+  const [venue, setVenue] = useState('')
+  const [notes, setNotes] = useState('')
 
   const [doc, setDoc] = useState<QuoteDoc | null>(null)
   const [generating, setGenerating] = useState(false)
@@ -138,15 +150,7 @@ export default function ScenarioGeneratorPage() {
       .catch(() => setDoc(null))
   }, [sourceMode, selectedBaseDocId])
 
-  useEffect(() => {
-    if (sourceMode !== 'fromTopic') return
-    const safeTopic = topic.trim()
-    if (!safeTopic) {
-      setDoc(null)
-      return
-    }
-    setDoc(makeDummyScenarioDoc(safeTopic))
-  }, [sourceMode, topic])
+  // fromTopic(prompt-only)은 생성 버튼 클릭 시 더미 컨텍스트를 구성합니다.
 
   const requestBaseFromDoc = useCallback((d: QuoteDoc, requirementsText: string) => {
     return {
@@ -167,18 +171,26 @@ export default function ScenarioGeneratorPage() {
   }, [])
 
   const handleGenerateScenario = useCallback(async () => {
-    if (!doc) return
+    const docForGenerate =
+      sourceMode === 'fromTopic'
+        ? doc ?? makeDummyScenarioDoc({ topic: topic.trim() || '행사', headcount, venue })
+        : doc
+    if (!docForGenerate) return
     setGenerating(true)
     try {
-      const requirementsText = sourceMode === 'fromTopic' ? topic.trim() : ''
-      const baseBody = requestBaseFromDoc(doc, requirementsText)
+      const promptRequirements = [goal.trim(), notes.trim() ? `추가 메모: ${notes.trim()}` : ''].filter(Boolean).join('\n')
+      const requirementsText =
+        sourceMode === 'fromTopic'
+          ? promptRequirements
+          : ''
+      const baseBody = requestBaseFromDoc(docForGenerate, requirementsText)
       const data = await apiFetch<{ doc: QuoteDoc }>(`/api/generate`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           ...baseBody,
           documentTarget: 'scenario',
-          existingDoc: doc,
+          existingDoc: docForGenerate,
         }),
       })
       setDoc(data.doc)
@@ -188,10 +200,10 @@ export default function ScenarioGeneratorPage() {
     } finally {
       setGenerating(false)
     }
-  }, [doc, requestBaseFromDoc, showToast, sourceMode, topic])
+  }, [doc, requestBaseFromDoc, showToast, sourceMode, topic, goal, notes, headcount, venue])
 
   const generateDisabled =
-    sourceMode === 'fromTopic' ? !topic.trim() || !doc : !selectedBaseDocId || !doc
+    sourceMode === 'fromTopic' ? !topic.trim() || !goal.trim() : !selectedBaseDocId || !doc
 
   return (
     <div className="flex h-screen overflow-hidden bg-gray-50/50">
@@ -214,9 +226,9 @@ export default function ScenarioGeneratorPage() {
             title="시나리오 만들기"
             subtitle="컨텍스트/주제로 시나리오만 생성합니다"
             modes={[
-              { id: 'fromPlanning', title: '기획 문서에서' },
-              { id: 'fromProgram', title: '프로그램 제안서에서' },
-              { id: 'fromTopic', title: '주제에서만' },
+              { id: 'fromTopic', title: '주제만 입력', desc: '주제/목표로 바로 초안 생성' },
+              { id: 'fromPlanning', title: '기획안 기준', desc: '기획 문서 기반으로 더 정교하게' },
+              { id: 'fromProgram', title: '프로그램 제안서 기준', desc: '프로그램 제안 기반으로 구성' },
             ]}
             modeId={sourceMode}
             onModeChange={(id) => {
@@ -224,8 +236,13 @@ export default function ScenarioGeneratorPage() {
               setSourceMode(next)
               setSelectedBaseDocId(null)
               setTopic('')
+              setGoal('')
+              setHeadcount('')
+              setVenue('')
+              setNotes('')
               setDoc(null)
             }}
+            highlightModeId="fromTopic"
             requiredInput={
               sourceMode === 'fromPlanning' || sourceMode === 'fromProgram' ? (
                 <select
@@ -243,13 +260,46 @@ export default function ScenarioGeneratorPage() {
                   ))}
                 </select>
               ) : (
-                <textarea
-                  value={topic}
-                  onChange={(e) => setTopic(e.target.value)}
-                  placeholder="예) 기업 워크숍 시나리오 운영 흐름/구성 포인트"
-                  rows={4}
-                  className="w-full px-3 py-2 text-sm border border-gray-200 rounded-lg bg-white focus:outline-none focus:border-primary-400 focus:ring-1 focus:ring-primary-100 resize-none"
-                />
+                <div className="space-y-3">
+                  <div className="text-[11px] text-gray-500">
+                    필수: 주제, 목표 / 선택: 인원, 장소, 추가 메모
+                  </div>
+                  <Input
+                    label="이벤트 주제"
+                    value={topic}
+                    onChange={(e) => setTopic(e.target.value)}
+                    placeholder="예) 기업 워크숍 / 신제품 론칭"
+                  />
+                  <Textarea
+                    label="목표"
+                    value={goal}
+                    onChange={(e) => setGoal(e.target.value)}
+                    placeholder="예) 참가자들이 핵심 메시지를 이해하고 행동까지 이어지게"
+                    rows={3}
+                  />
+                  <div className="grid grid-cols-2 gap-3">
+                    <Input
+                      label="참석 인원(선택)"
+                      value={headcount}
+                      onChange={(e) => setHeadcount(e.target.value)}
+                      placeholder="예) 80"
+                      inputMode="numeric"
+                    />
+                    <Input
+                      label="장소(선택)"
+                      value={venue}
+                      onChange={(e) => setVenue(e.target.value)}
+                      placeholder="예) 잠실"
+                    />
+                  </div>
+                  <Textarea
+                    label="추가 메모(선택)"
+                    value={notes}
+                    onChange={(e) => setNotes(e.target.value)}
+                    placeholder="예) VIP 동선 고려, 세션 구성 등"
+                    rows={3}
+                  />
+                </div>
               )
             }
             generateLabel="시나리오 생성"
@@ -299,7 +349,9 @@ export default function ScenarioGeneratorPage() {
           ) : (
             <section className="rounded-2xl border border-dashed border-gray-200 bg-white p-8 text-center">
               <div className="text-sm font-semibold text-gray-900">입력 후 생성하세요</div>
-              <div className="text-xs text-gray-500 mt-2">소스 선택과 필수 입력만 있으면 됩니다</div>
+              <div className="text-xs text-gray-500 mt-2">
+                {sourceMode === 'fromTopic' ? '주제/목표만 입력하면 됩니다' : '소스 선택과 필수 입력이 필요합니다'}
+              </div>
             </section>
           )}
         </div>

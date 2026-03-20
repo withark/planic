@@ -4,7 +4,7 @@ import { useCallback, useEffect, useMemo, useState } from 'react'
 import { GNB } from '@/components/GNB'
 import QuoteResult from '@/components/quote/QuoteResult'
 import SimpleGeneratorWizard, { type WizardMode } from '@/components/generators/SimpleGeneratorWizard'
-import { Toast } from '@/components/ui'
+import { Input, Textarea, Toast } from '@/components/ui'
 import type { CompanySettings, HistoryRecord, PriceCategory, QuoteDoc, TaskOrderDoc } from '@/lib/types'
 import { apiFetch } from '@/lib/api/client'
 import { toUserMessage } from '@/lib/errors/toUserMessage'
@@ -62,7 +62,7 @@ export default function EstimateGeneratorPage() {
   const [companySettings, setCompanySettings] = useState<CompanySettings | null>(null)
   const [prices, setPrices] = useState<PriceCategory[]>([])
 
-  const [sourceMode, setSourceMode] = useState<SourceMode>('fromTaskOrder')
+  const [sourceMode, setSourceMode] = useState<SourceMode>('fromTopic')
 
   const [historyList, setHistoryList] = useState<HistoryRecord[]>([])
   const [selectedEstimateId, setSelectedEstimateId] = useState<string | null>(null)
@@ -71,6 +71,10 @@ export default function EstimateGeneratorPage() {
   const [selectedTaskOrderId, setSelectedTaskOrderId] = useState<string | null>(null)
 
   const [topic, setTopic] = useState('')
+  const [goal, setGoal] = useState('')
+  const [headcount, setHeadcount] = useState('')
+  const [venue, setVenue] = useState('')
+  const [notes, setNotes] = useState('')
 
   const [doc, setDoc] = useState<QuoteDoc | null>(null)
   const [generating, setGenerating] = useState(false)
@@ -93,9 +97,9 @@ export default function EstimateGeneratorPage() {
 
   const modes: WizardMode[] = useMemo(
     () => [
-      { id: 'fromTaskOrder', title: '과업지시서에서' },
-      { id: 'fromEstimate', title: '저장된 견적에서' },
-      { id: 'fromTopic', title: '주제에서만' },
+      { id: 'fromTopic', title: '주제만 입력', desc: '주제/목표로 바로 초안 생성' },
+      { id: 'fromTaskOrder', title: '과업지시서 기준', desc: '문서 컨텍스트로 더 정확하게' },
+      { id: 'fromEstimate', title: '기존 문서 기준', desc: '저장된 견적 컨텍스트 활용' },
     ],
     [],
   )
@@ -117,6 +121,10 @@ export default function EstimateGeneratorPage() {
     setDoc(null)
     if (sourceMode === 'fromEstimate') setSelectedTaskOrderId(null)
     if (sourceMode === 'fromTaskOrder') setSelectedEstimateId(null)
+    if (sourceMode === 'fromTopic') {
+      setSelectedEstimateId(null)
+      setSelectedTaskOrderId(null)
+    }
   }, [sourceMode])
 
   const requestBodyForEstimate = useCallback(() => {
@@ -173,16 +181,21 @@ export default function EstimateGeneratorPage() {
       }
     }
 
-    // fromTopic
+    // fromTopic (prompt-only)
     const safeTopic = topic.trim()
+    const safeGoal = goal.trim()
+    const safeNotes = notes.trim()
+    const promptRequirements = [safeGoal, safeNotes ? `추가 메모: ${safeNotes}` : ''].filter(Boolean).join('\n')
     return {
       ...base,
       eventName: safeTopic || '행사',
       quoteDate: todayStr(),
       eventType: '기타',
-      requirements: safeTopic,
+      headcount: headcount.trim(),
+      venue: venue.trim(),
+      requirements: promptRequirements,
     }
-  }, [selectedHistoryDoc, selectedTaskOrder, selectedTaskOrderParsed, sourceMode, topic])
+  }, [selectedHistoryDoc, selectedTaskOrder, selectedTaskOrderParsed, sourceMode, topic, goal, headcount, venue, notes])
 
   const handleGenerateEstimate = useCallback(async () => {
     const body = requestBodyForEstimate()
@@ -212,7 +225,7 @@ export default function EstimateGeneratorPage() {
       ? !selectedEstimateId || !selectedHistoryDoc
       : sourceMode === 'fromTaskOrder'
         ? !selectedTaskOrderId || !selectedTaskOrder
-        : !topic.trim()
+        : !topic.trim() || !goal.trim()
 
   return (
     <div className="flex h-screen overflow-hidden bg-gray-50/50">
@@ -234,12 +247,17 @@ export default function EstimateGeneratorPage() {
           <SimpleGeneratorWizard
             title="견적서 만들기"
             subtitle="컨텍스트/주제로 견적서만 생성합니다"
+            highlightModeId="fromTopic"
             modes={modes}
             modeId={sourceMode}
             onModeChange={(id) => {
               const next = id as SourceMode
               setSourceMode(next)
               setTopic('')
+              setGoal('')
+              setHeadcount('')
+              setVenue('')
+              setNotes('')
             }}
             requiredInput={
               sourceMode === 'fromEstimate' ? (
@@ -273,13 +291,46 @@ export default function EstimateGeneratorPage() {
                   ))}
                 </select>
               ) : (
-                <textarea
-                  value={topic}
-                  onChange={(e) => setTopic(e.target.value)}
-                  placeholder="예) 기업 워크숍 시나리오/운영 콘셉트와 진행 목표"
-                  rows={4}
-                  className="w-full px-3 py-2 text-sm border border-gray-200 rounded-lg bg-white focus:outline-none focus:border-primary-400 focus:ring-1 focus:ring-primary-100 resize-none"
-                />
+                <div className="space-y-3">
+                  <div className="text-[11px] text-gray-500">
+                    필수: 주제, 목표 / 선택: 인원, 장소, 추가 메모
+                  </div>
+                  <Input
+                    label="이벤트 주제"
+                    value={topic}
+                    onChange={(e) => setTopic(e.target.value)}
+                    placeholder="예) 기업 워크숍 / 신제품 론칭"
+                  />
+                  <Textarea
+                    label="목표"
+                    value={goal}
+                    onChange={(e) => setGoal(e.target.value)}
+                    placeholder="예) 참가자들이 핵심 메시지를 이해하고 행동까지 이어지게"
+                    rows={3}
+                  />
+                  <div className="grid grid-cols-2 gap-3">
+                    <Input
+                      label="참석 인원(선택)"
+                      value={headcount}
+                      onChange={(e) => setHeadcount(e.target.value)}
+                      placeholder="예) 80"
+                      inputMode="numeric"
+                    />
+                    <Input
+                      label="장소(선택)"
+                      value={venue}
+                      onChange={(e) => setVenue(e.target.value)}
+                      placeholder="예) 잠실"
+                    />
+                  </div>
+                  <Textarea
+                    label="추가 메모(선택)"
+                    value={notes}
+                    onChange={(e) => setNotes(e.target.value)}
+                    placeholder="예) VIP 동선 고려, 발표 시간/세션 구조 등"
+                    rows={3}
+                  />
+                </div>
               )
             }
             generateLabel="견적 생성"
@@ -329,7 +380,9 @@ export default function EstimateGeneratorPage() {
           ) : (
             <section className="rounded-2xl border border-dashed border-gray-200 bg-white p-8 text-center">
               <div className="text-sm font-semibold text-gray-900">입력 후 생성하세요</div>
-              <div className="text-xs text-gray-500 mt-2">소스 선택과 필수 입력만 있으면 됩니다</div>
+              <div className="text-xs text-gray-500 mt-2">
+                {sourceMode === 'fromTopic' ? '주제/목표만 입력하면 됩니다' : '소스 선택과 필수 입력이 필요합니다'}
+              </div>
             </section>
           )}
         </div>

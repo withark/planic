@@ -15,6 +15,7 @@ export default function SimpleGeneratorWizard({
   subtitle,
   modes,
   modeId,
+  highlightModeId,
   onModeChange,
   requiredInput,
   generateLabel,
@@ -26,6 +27,8 @@ export default function SimpleGeneratorWizard({
   subtitle?: string
   modes: WizardMode[]
   modeId: string
+  /** 특정 모드를 "프롬프트만 입력"처럼 시각적으로 강조 */
+  highlightModeId?: string
   onModeChange: (id: string) => void
   requiredInput: ReactNode
   generateLabel: string
@@ -49,6 +52,7 @@ export default function SimpleGeneratorWizard({
           <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
             {modes.map((m) => {
               const active = m.id === modeId
+              const isHighlight = !!highlightModeId && m.id === highlightModeId
               return (
                 <button
                   key={m.id}
@@ -58,11 +62,24 @@ export default function SimpleGeneratorWizard({
                     'text-left rounded-2xl border p-4 transition-colors shadow-sm',
                     active
                       ? 'bg-primary-50 border-primary-100'
-                      : 'bg-white border-gray-100 hover:bg-gray-50 hover:border-primary-200',
+                      : isHighlight
+                        ? 'bg-primary-600 border-primary-600 hover:bg-primary-700'
+                        : 'bg-white border-gray-100 hover:bg-gray-50 hover:border-primary-200',
                   )}
                 >
-                  <div className="font-bold text-gray-900">{m.title}</div>
-                  {m.desc ? <div className="mt-1 text-xs text-gray-500">{m.desc}</div> : null}
+                  <div className={clsx('font-bold', active ? 'text-gray-900' : isHighlight ? 'text-white' : 'text-gray-900')}>
+                    {m.title}
+                  </div>
+                  {m.desc ? (
+                    <div
+                      className={clsx(
+                        'mt-1 text-xs',
+                        active ? 'text-gray-500' : isHighlight ? 'text-primary-50' : 'text-gray-500',
+                      )}
+                    >
+                      {m.desc}
+                    </div>
+                  ) : null}
                 </button>
               )
             })}
