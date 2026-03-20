@@ -93,9 +93,9 @@ export default function EstimateGeneratorPage() {
 
   const modes: WizardMode[] = useMemo(
     () => [
-      { id: 'fromTaskOrder', title: 'From task order' },
-      { id: 'fromEstimate', title: 'From estimate' },
-      { id: 'fromTopic', title: 'From topic only' },
+      { id: 'fromTaskOrder', title: '과업지시서에서' },
+      { id: 'fromEstimate', title: '저장된 견적에서' },
+      { id: 'fromTopic', title: '주제에서만' },
     ],
     [],
   )
@@ -232,7 +232,7 @@ export default function EstimateGeneratorPage() {
 
         <div className="flex-1 overflow-y-auto p-6 space-y-6">
           <SimpleGeneratorWizard
-            title="Create Estimate"
+            title="견적서 만들기"
             subtitle="컨텍스트/주제로 견적서만 생성합니다"
             modes={modes}
             modeId={sourceMode}
@@ -313,7 +313,7 @@ export default function EstimateGeneratorPage() {
                   }}
                   onPdf={async () => {
                     if (me?.subscription?.planType === 'FREE') {
-                      showToast('PDF 다운로드는 BASIC 플랜부터 이용할 수 있어요.')
+                      showToast('PDF 다운로드는 베이직 플랜부터 이용할 수 있어요.')
                       return
                     }
                     try {

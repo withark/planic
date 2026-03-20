@@ -90,7 +90,7 @@ export default function TaskOrderSummaryPage() {
       <div className="flex-1 flex flex-col overflow-hidden">
         <header className="flex-shrink-0 h-14 border-b border-gray-100 bg-white/90 flex items-center justify-between px-6">
           <div>
-            <h1 className="text-base font-semibold text-gray-900">Task Order Summary</h1>
+            <h1 className="text-base font-semibold text-gray-900">과업지시서 요약하기</h1>
             <p className="text-xs text-gray-500 mt-0.5">과업지시서/기획안 업로드 → 핵심 정보를 구조화 → 이후 견적 생성에 자동 반영</p>
           </div>
         </header>
@@ -101,7 +101,7 @@ export default function TaskOrderSummaryPage() {
               <div className="mb-3">
                 <h2 className="text-base font-semibold text-gray-900">과업지시서/기획안 업로드</h2>
                 <p className="text-xs text-gray-500 mt-0.5">
-                  아래 박스에 파일을 올리면 AI가 11개 핵심 항목으로 요약을 생성합니다.
+                  아래 박스에 파일을 올리면 인공지능이 11개 핵심 항목으로 요약을 생성합니다.
                 </p>
               </div>
 
@@ -135,7 +135,7 @@ export default function TaskOrderSummaryPage() {
             <section className="space-y-2">
               <div className="mb-2">
                 <h2 className="text-base font-semibold text-gray-900">저장된 요약</h2>
-                <p className="text-xs text-gray-500 mt-0.5">한 개를 선택해서 견적 생성을 위한 upstream 컨텍스트로 사용하세요.</p>
+                <p className="text-xs text-gray-500 mt-0.5">한 개를 선택해서 견적 생성을 위한 상위 컨텍스트로 사용하세요.</p>
               </div>
 
               {parsedList.length === 0 ? (

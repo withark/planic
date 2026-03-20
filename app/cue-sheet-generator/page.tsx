@@ -117,10 +117,10 @@ export default function CueSheetGeneratorPage() {
 
   const modes: WizardMode[] = useMemo(
     () => [
-      { id: 'fromScenario', title: 'From scenario' },
-      { id: 'fromProgram', title: 'From program' },
-      { id: 'fromTimetable', title: 'From timetable' },
-      { id: 'fromTopic', title: 'From topic only' },
+      { id: 'fromScenario', title: '시나리오에서' },
+      { id: 'fromProgram', title: '프로그램 제안서에서' },
+      { id: 'fromTimetable', title: '타임테이블에서' },
+      { id: 'fromTopic', title: '주제에서만' },
     ],
     [],
   )
@@ -254,7 +254,7 @@ export default function CueSheetGeneratorPage() {
 
         <div className="flex-1 overflow-y-auto p-6 space-y-6">
           <SimpleGeneratorWizard
-            title="Create Cue Sheet"
+            title="큐시트 만들기"
             subtitle="시나리오/프로그램/타임테이블 또는 토픽으로 큐시트만 생성합니다"
             modes={modes}
             modeId={sourceMode}
@@ -358,7 +358,7 @@ export default function CueSheetGeneratorPage() {
                   }}
                   onPdf={async () => {
                     if (me?.subscription?.planType === 'FREE') {
-                      showToast('PDF 다운로드는 BASIC 플랜부터 이용할 수 있어요.')
+                      showToast('PDF 다운로드는 베이직 플랜부터 이용할 수 있어요.')
                       return
                     }
                     try {

@@ -16,9 +16,9 @@ type MeResponse = {
 }
 
 function planLabel(p: PlanType) {
-  if (p === 'BASIC') return 'BASIC'
-  if (p === 'PREMIUM') return 'PREMIUM'
-  return 'FREE'
+  if (p === 'BASIC') return '베이직'
+  if (p === 'PREMIUM') return '프리미엄'
+  return '무료'
 }
 
 function usageLine(label: string, used: number, limit: number) {
@@ -61,7 +61,7 @@ function DashboardContent() {
       <div className="flex-1 flex flex-col overflow-hidden">
         <header className="flex items-center justify-between px-6 h-14 border-b border-gray-100 bg-white/90 flex-shrink-0">
           <div>
-            <h1 className="text-base font-semibold text-gray-900">Home</h1>
+            <h1 className="text-base font-semibold text-gray-900">홈</h1>
             <p className="text-xs text-gray-500 mt-0.5">문서 생성으로 바로 이동하세요</p>
           </div>
           <div className="flex items-center gap-2">
@@ -119,12 +119,12 @@ function DashboardContent() {
           </section>
 
           <section className="bg-white border border-gray-100 rounded-2xl p-5 shadow-card">
-            <h2 className="text-sm font-semibold text-gray-900">Create Documents</h2>
+            <h2 className="text-sm font-semibold text-gray-900">문서 만들기</h2>
             <div className="mt-3 grid grid-cols-1 sm:grid-cols-2 gap-3">
               <Link href="/estimate-generator" className="block rounded-2xl bg-white border border-gray-100 p-5 shadow-card hover:shadow-card-hover hover:border-primary-200 transition-shadow">
                 <div className="flex items-start justify-between gap-3">
                   <div className="min-w-0">
-                    <div className="text-base font-bold text-gray-900 truncate">Create Estimate</div>
+                    <div className="text-base font-bold text-gray-900 truncate">견적서 만들기</div>
                     <div className="mt-1 text-sm text-gray-500 truncate">견적서 생성</div>
                   </div>
                   <div className="flex-shrink-0 w-10 h-10 rounded-xl bg-primary-50 border border-primary-100 flex items-center justify-center text-primary-700">
@@ -138,7 +138,7 @@ function DashboardContent() {
               <Link href="/planning-generator" className="block rounded-2xl bg-white border border-gray-100 p-5 shadow-card hover:shadow-card-hover hover:border-primary-200 transition-shadow">
                 <div className="flex items-start justify-between gap-3">
                   <div className="min-w-0">
-                    <div className="text-base font-bold text-gray-900 truncate">Create Planning Document</div>
+                    <div className="text-base font-bold text-gray-900 truncate">기획안 만들기</div>
                     <div className="mt-1 text-sm text-gray-500 truncate">기획 문서 생성</div>
                   </div>
                   <div className="flex-shrink-0 w-10 h-10 rounded-xl bg-primary-50 border border-primary-100 flex items-center justify-center text-primary-700">
@@ -152,7 +152,7 @@ function DashboardContent() {
               <Link href="/program-proposal-generator" className="block rounded-2xl bg-white border border-gray-100 p-5 shadow-card hover:shadow-card-hover hover:border-primary-200 transition-shadow">
                 <div className="flex items-start justify-between gap-3">
                   <div className="min-w-0">
-                    <div className="text-base font-bold text-gray-900 truncate">Create Program Proposal</div>
+                    <div className="text-base font-bold text-gray-900 truncate">프로그램 제안서 만들기</div>
                     <div className="mt-1 text-sm text-gray-500 truncate">프로그램 제안서 생성</div>
                   </div>
                   <div className="flex-shrink-0 w-10 h-10 rounded-xl bg-primary-50 border border-primary-100 flex items-center justify-center text-primary-700">
@@ -166,7 +166,7 @@ function DashboardContent() {
               <Link href="/scenario-generator" className="block rounded-2xl bg-white border border-gray-100 p-5 shadow-card hover:shadow-card-hover hover:border-primary-200 transition-shadow">
                 <div className="flex items-start justify-between gap-3">
                   <div className="min-w-0">
-                    <div className="text-base font-bold text-gray-900 truncate">Create Scenario</div>
+                    <div className="text-base font-bold text-gray-900 truncate">시나리오 만들기</div>
                     <div className="mt-1 text-sm text-gray-500 truncate">시나리오 생성</div>
                   </div>
                   <div className="flex-shrink-0 w-10 h-10 rounded-xl bg-primary-50 border border-primary-100 flex items-center justify-center text-primary-700">
@@ -180,7 +180,7 @@ function DashboardContent() {
               <Link href="/cue-sheet-generator" className="block rounded-2xl bg-white border border-gray-100 p-5 shadow-card hover:shadow-card-hover hover:border-primary-200 transition-shadow">
                 <div className="flex items-start justify-between gap-3">
                   <div className="min-w-0">
-                    <div className="text-base font-bold text-gray-900 truncate">Create Cue Sheet</div>
+                    <div className="text-base font-bold text-gray-900 truncate">큐시트 만들기</div>
                     <div className="mt-1 text-sm text-gray-500 truncate">큐시트 생성</div>
                   </div>
                   <div className="flex-shrink-0 w-10 h-10 rounded-xl bg-primary-50 border border-primary-100 flex items-center justify-center text-primary-700">
@@ -194,7 +194,7 @@ function DashboardContent() {
               <Link href="/task-order-summary" className="block rounded-2xl bg-white border border-gray-100 p-5 shadow-card hover:shadow-card-hover hover:border-primary-200 transition-shadow">
                 <div className="flex items-start justify-between gap-3">
                   <div className="min-w-0">
-                    <div className="text-base font-bold text-gray-900 truncate">Summarize Task Order</div>
+                    <div className="text-base font-bold text-gray-900 truncate">과업지시서 요약하기</div>
                     <div className="mt-1 text-sm text-gray-500 truncate">과업지시서 요약</div>
                   </div>
                   <div className="flex-shrink-0 w-10 h-10 rounded-xl bg-primary-50 border border-primary-100 flex items-center justify-center text-primary-700">

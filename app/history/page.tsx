@@ -57,7 +57,7 @@ export default function HistoryPage() {
       <div className="flex-1 flex flex-col overflow-hidden">
         <header className="flex items-center justify-between px-6 h-14 border-b border-gray-100 bg-white/90 flex-shrink-0">
           <div>
-            <h1 className="text-base font-semibold text-gray-900">견적 이력</h1>
+            <h1 className="text-base font-semibold text-gray-900">작업 이력</h1>
             <p className="text-xs text-gray-500 mt-0.5">생성한 견적서가 자동으로 기록됩니다</p>
           </div>
           <Button size="sm" variant="danger" onClick={clearAll}>전체 삭제</Button>

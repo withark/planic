@@ -16,6 +16,12 @@ function fmtKRW(n: number) {
   return n.toLocaleString('ko-KR')
 }
 
+function planName(p: PlanType) {
+  if (p === 'BASIC') return '베이직'
+  if (p === 'PREMIUM') return '프리미엄'
+  return '무료'
+}
+
 function annualDiscountText(monthly: number, annual: number) {
   const full = monthly * 12
   const disc = Math.max(0, full - annual)
@@ -51,9 +57,9 @@ function PlansContent() {
 
   const cards = useMemo(() => {
     const plans: { plan: PlanType; title: string; desc: string; badge?: string; highlight?: boolean }[] = [
-      { plan: 'FREE', title: 'FREE', desc: '무료로 시작' },
-      { plan: 'BASIC', title: 'BASIC', desc: '실무 기능 + 넉넉한 한도', badge: '추천', highlight: true },
-      { plan: 'PREMIUM', title: 'PREMIUM', desc: '브랜딩/고급 기능 + 확장 준비' },
+      { plan: 'FREE', title: '무료', desc: '무료로 시작' },
+      { plan: 'BASIC', title: '베이직', desc: '실무 기능 + 넉넉한 한도', badge: '추천', highlight: true },
+      { plan: 'PREMIUM', title: '프리미엄', desc: '브랜딩/고급 기능 + 확장 준비' },
     ]
     return plans
   }, [])
@@ -79,7 +85,7 @@ function PlansContent() {
         return
       }
       setCurrentPlan(planType)
-      setToast(`${planType} 플랜이 활성화되었습니다.`)
+      setToast(`${planName(planType)} 플랜이 활성화되었습니다.`)
       setTimeout(() => setToast(''), 2500)
     } catch (e) {
       setToast(toUserMessage(e, '구독 처리에 실패했습니다.'))
@@ -103,7 +109,7 @@ function PlansContent() {
 
       <main className="flex-1 px-6 py-14">
         <div className="max-w-5xl mx-auto text-center mb-10 space-y-3">
-          <h1 className="text-2xl sm:text-3xl font-bold text-gray-900">가격 및 플랜</h1>
+          <h1 className="text-2xl sm:text-3xl font-bold text-gray-900">단가표</h1>
           <p className="text-slate-500">
             월간/연간 결제를 선택하고, 플랜별 한도·기능 차이를 한눈에 비교하세요.
           </p>

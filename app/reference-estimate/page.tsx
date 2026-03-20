@@ -124,7 +124,7 @@ export default function ReferenceEstimatePage() {
   const inputRefModeText = useMemo(() => {
     return styleMode === 'userStyle'
       ? '사용자 학습 스타일 모드: 업로드한 견적서의 항목명/구성/문체를 따라가도록 학습합니다.'
-      : 'AI 추천 템플릿 모드: Planic 표준 포맷을 사용하며, 사용자 업로드 학습은 적용하지 않습니다.'
+      : '인공지능 추천 템플릿 모드: 플래닉 표준 포맷을 사용하며, 사용자 업로드 학습은 적용하지 않습니다.'
   }, [styleMode])
 
   return (
@@ -133,8 +133,8 @@ export default function ReferenceEstimatePage() {
       <div className="flex-1 flex flex-col overflow-hidden">
         <header className="flex items-center justify-between px-6 h-14 border-b border-gray-100 bg-white/90 flex-shrink-0">
           <div>
-            <h1 className="text-base font-semibold text-gray-900">Reference Estimate</h1>
-            <p className="text-xs text-gray-500 mt-0.5">사용자 스타일 학습 또는 Planic 표준 템플릿을 선택합니다.</p>
+            <h1 className="text-base font-semibold text-gray-900">참고 자료</h1>
+            <p className="text-xs text-gray-500 mt-0.5">사용자 스타일 학습 또는 플래닉 표준 템플릿을 선택합니다.</p>
           </div>
         </header>
 
@@ -177,7 +177,7 @@ export default function ReferenceEstimatePage() {
                   className="w-full px-3 py-2 text-sm border border-gray-200 rounded-lg bg-white focus:outline-none focus:border-primary-400 focus:ring-1 focus:ring-primary-100"
                 >
                   <option value="userStyle">사용자 학습 스타일</option>
-                  <option value="aiTemplate">AI 추천 템플릿 모드</option>
+                  <option value="aiTemplate">인공지능 추천 템플릿 모드</option>
                 </select>
               </div>
             </div>
@@ -186,9 +186,9 @@ export default function ReferenceEstimatePage() {
           <section className="rounded-2xl border border-gray-100 bg-white shadow-card overflow-hidden">
             {styleMode === 'aiTemplate' ? (
               <div className="p-4 border-b border-gray-100 bg-primary-50/30">
-                <div className="text-sm font-semibold text-primary-800">AI 추천 템플릿 모드 사용 중</div>
+                <div className="text-sm font-semibold text-primary-800">인공지능 추천 템플릿 모드 사용 중</div>
                 <div className="text-xs text-gray-600 mt-1">
-                  현재는 사용자 참고(활성 참고 견적서) 대신 AI 표준 템플릿으로 생성합니다. 스타일 모드를 사용자 학습 스타일로 바꾸면 활성 참고 견적서가 반영됩니다.
+                  현재는 사용자 참고(활성 참고 견적서) 대신 인공지능 표준 템플릿으로 생성합니다. 스타일 모드를 사용자 학습 스타일로 바꾸면 활성 참고 견적서가 반영됩니다.
                 </div>
               </div>
             ) : null}

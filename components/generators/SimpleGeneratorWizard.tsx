@@ -40,12 +40,12 @@ export default function SimpleGeneratorWizard({
           <div className="text-base font-semibold text-gray-900">{title}</div>
           {subtitle ? <div className="text-xs text-gray-500 mt-1">{subtitle}</div> : null}
         </div>
-        <div className="text-xs text-gray-500">3-step</div>
+        <div className="text-xs text-gray-500">3단계</div>
       </div>
 
       <div className="mt-5 space-y-4">
         <section>
-          <div className="text-sm font-semibold text-gray-900 mb-3">1) Source</div>
+          <div className="text-sm font-semibold text-gray-900 mb-3">1) 소스</div>
           <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
             {modes.map((m) => {
               const active = m.id === modeId
@@ -70,14 +70,14 @@ export default function SimpleGeneratorWizard({
         </section>
 
         <section>
-          <div className="text-sm font-semibold text-gray-900 mb-3">2) Input</div>
+          <div className="text-sm font-semibold text-gray-900 mb-3">2) 입력</div>
           <div className="rounded-2xl border border-gray-100 bg-gray-50/30 p-4">
             {requiredInput}
           </div>
         </section>
 
         <section>
-          <div className="text-sm font-semibold text-gray-900 mb-3">3) Generate</div>
+          <div className="text-sm font-semibold text-gray-900 mb-3">3) 생성</div>
           <Button
             variant="primary"
             className="w-full justify-center py-3.5 text-sm"

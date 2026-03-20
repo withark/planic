@@ -211,12 +211,12 @@ export default function ScenarioGeneratorPage() {
 
         <div className="flex-1 overflow-y-auto p-6 space-y-6">
           <SimpleGeneratorWizard
-            title="Create Scenario"
+            title="시나리오 만들기"
             subtitle="컨텍스트/주제로 시나리오만 생성합니다"
             modes={[
-              { id: 'fromPlanning', title: 'From planning' },
-              { id: 'fromProgram', title: 'From program' },
-              { id: 'fromTopic', title: 'From topic only' },
+              { id: 'fromPlanning', title: '기획 문서에서' },
+              { id: 'fromProgram', title: '프로그램 제안서에서' },
+              { id: 'fromTopic', title: '주제에서만' },
             ]}
             modeId={sourceMode}
             onModeChange={(id) => {
@@ -283,7 +283,7 @@ export default function ScenarioGeneratorPage() {
                   }}
                   onPdf={async () => {
                     if (me?.subscription?.planType === 'FREE') {
-                      showToast('PDF 다운로드는 BASIC 플랜부터 이용할 수 있어요.')
+                      showToast('PDF 다운로드는 베이직 플랜부터 이용할 수 있어요.')
                       return
                     }
                     try {

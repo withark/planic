@@ -195,9 +195,9 @@ export default function PlanningGeneratorPage() {
             title="기획 문서 생성"
             subtitle="소스 선택 → 필수 입력 → 한 번에 생성"
             modes={[
-              { id: 'fromEstimate', title: 'From estimate' },
-              { id: 'fromTaskOrder', title: 'From task order' },
-              { id: 'fromTopic', title: 'From topic only' },
+              { id: 'fromEstimate', title: '저장된 견적에서' },
+              { id: 'fromTaskOrder', title: '과업지시서에서' },
+              { id: 'fromTopic', title: '주제에서만' },
             ]}
             modeId={sourceMode}
             onModeChange={(id) => {
@@ -286,7 +286,7 @@ export default function PlanningGeneratorPage() {
                   }}
                   onPdf={async () => {
                     if (me?.subscription?.planType === 'FREE') {
-                      showToast('PDF 다운로드는 BASIC 플랜부터 이용할 수 있어요.')
+                      showToast('PDF 다운로드는 베이직 플랜부터 이용할 수 있어요.')
                       return
                     }
                     try {

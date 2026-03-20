@@ -16,7 +16,7 @@ type NavItem = {
 const NAVS: NavItem[] = [
   {
     href: '/dashboard',
-    text: 'Home',
+    text: '홈',
     icon: ({ className }) => (
       <svg viewBox="0 0 24 24" fill="none" className={className} aria-hidden>
         <path d="M4 10.5 12 4l8 6.5V20a1.5 1.5 0 0 1-1.5 1.5H5.5A1.5 1.5 0 0 1 4 20v-9.5Z" stroke="currentColor" strokeWidth="1.8" strokeLinejoin="round" />
@@ -26,7 +26,7 @@ const NAVS: NavItem[] = [
   },
   {
     href: '/create-documents',
-    text: 'Create Documents',
+    text: '문서 만들기',
     icon: ({ className }) => (
       <svg viewBox="0 0 24 24" fill="none" className={className} aria-hidden>
         <path d="M12 3.5h4.5L20 7v13.5A2 2 0 0 1 18 22.5H6A2 2 0 0 1 4 20.5V5.5A2 2 0 0 1 6 3.5h6Z" stroke="currentColor" strokeWidth="1.8" strokeLinejoin="round" />
@@ -37,7 +37,7 @@ const NAVS: NavItem[] = [
   },
   {
     href: '/reference-estimate',
-    text: 'Reference Materials',
+    text: '참고 자료',
     icon: ({ className }) => (
       <svg viewBox="0 0 24 24" fill="none" className={className} aria-hidden>
         <path d="M6.5 4.5h9A2.5 2.5 0 0 1 18 7v14.5H8.5A2.5 2.5 0 0 0 6 24V7A2.5 2.5 0 0 1 6.5 4.5Z" stroke="currentColor" strokeWidth="1.8" strokeLinejoin="round" />
@@ -48,7 +48,7 @@ const NAVS: NavItem[] = [
   },
   {
     href: '/plans',
-    text: 'Pricing Table',
+    text: '단가표',
     icon: ({ className }) => (
       <svg viewBox="0 0 24 24" fill="none" className={className} aria-hidden>
         <path d="M6.5 3.5h11A2.5 2.5 0 0 1 20 6v14.5A2.5 2.5 0 0 1 17.5 23h-11A2.5 2.5 0 0 1 4 20.5V6A2.5 2.5 0 0 1 6.5 3.5Z" stroke="currentColor" strokeWidth="1.8" strokeLinejoin="round" />
@@ -59,7 +59,7 @@ const NAVS: NavItem[] = [
   },
   {
     href: '/history',
-    text: 'History',
+    text: '작업 이력',
     icon: ({ className }) => (
       <svg viewBox="0 0 24 24" fill="none" className={className} aria-hidden>
         <path d="M12 22a9 9 0 1 0-6.3-2.6" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" />
@@ -70,7 +70,7 @@ const NAVS: NavItem[] = [
   },
   {
     href: '/settings',
-    text: 'Settings',
+    text: '설정',
     icon: ({ className }) => (
       <svg viewBox="0 0 24 24" fill="none" className={className} aria-hidden>
         <path
