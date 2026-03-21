@@ -47,7 +47,7 @@ const NAVS: NavItem[] = [
     ),
   },
   {
-    href: '/plans',
+    href: '/prices',
     text: '단가표',
     icon: ({ className }) => (
       <svg viewBox="0 0 24 24" fill="none" className={className} aria-hidden>

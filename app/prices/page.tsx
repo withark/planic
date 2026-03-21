@@ -126,8 +126,8 @@ export default function PricesPage() {
       <div className="flex-1 flex flex-col overflow-hidden bg-white">
         <header className="flex items-center justify-between px-6 h-14 border-b border-gray-100 flex-shrink-0 bg-white">
           <div>
-            <h1 className="text-base font-semibold text-gray-900">단가표 관리</h1>
-            <p className="text-xs text-gray-500 mt-0.5">AI 견적 생성 시 여기 단가를 우선 적용합니다</p>
+            <h1 className="text-base font-semibold text-gray-900">단가표</h1>
+            <p className="text-xs text-gray-500 mt-0.5">견적·행사 단가 기준표입니다. AI 생성 시 이 단가를 우선 적용합니다</p>
           </div>
           <div className="flex items-center gap-3">
             <span className={clsx('text-xs font-medium', dirty ? 'text-amber-600' : 'text-gray-400')}>

@@ -109,9 +109,9 @@ function PlansContent() {
 
       <main className="flex-1 px-6 py-14">
         <div className="max-w-5xl mx-auto text-center mb-10 space-y-3">
-          <h1 className="text-2xl sm:text-3xl font-bold text-gray-900">단가표</h1>
+          <h1 className="text-2xl sm:text-3xl font-bold text-gray-900">요금제</h1>
           <p className="text-slate-500">
-            월간/연간 결제를 선택하고, 플랜별 한도·기능 차이를 한눈에 비교하세요.
+            서비스 구독 요금입니다. 월간/연간을 선택하고 플랜별 한도·기능을 비교하세요.
           </p>
 
           <div className="inline-flex items-center gap-1 p-1 rounded-xl bg-white border border-slate-200 shadow-sm">
