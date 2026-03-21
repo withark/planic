@@ -123,9 +123,9 @@ export default function ProgramProposalGeneratorPage() {
     void apiFetch<any>(`/api/task-order-references/${encodeURIComponent(selectedTaskOrderBaseId)}`)
       .then((d) => {
         if (cancelled) return
-        const summary = d?.structuredSummary ?? null
-        setTaskOrderSummary(summary)
-        const title = summary?.projectTitle || summary?.oneLineSummary || selectedTaskOrderBaseId
+        const raw = d?.structuredSummary as { projectTitle?: string; oneLineSummary?: string } | null | undefined
+        setTaskOrderSummary(raw ?? {})
+        const title = raw?.projectTitle || raw?.oneLineSummary || selectedTaskOrderBaseId
         setDoc(makeDummyProgramDoc({ topic: String(title), headcount: '', venue: '' }))
         setGeneratedDocId(null)
       })
@@ -169,7 +169,10 @@ export default function ProgramProposalGeneratorPage() {
       sourceMode === 'fromTopic'
         ? doc ?? makeDummyProgramDoc({ topic: topic.trim() || '행사', headcount, venue })
         : doc
-    if (!docForGenerate) return
+    if (!docForGenerate) {
+      showToast('생성에 필요한 문서 컨텍스트가 없습니다. 소스를 선택했는지 확인해 주세요.')
+      return
+    }
     setGenerating(true)
     try {
       const promptRequirements = [goal.trim(), notes.trim() ? `추가 메모: ${notes.trim()}` : ''].filter(Boolean).join('\n')
@@ -219,6 +222,30 @@ export default function ProgramProposalGeneratorPage() {
     [generatedDocId, showToast],
   )
 
+  const generateDisabled =
+    sourceMode === 'fromEstimate'
+      ? !selectedEstimateId || !doc
+      : sourceMode === 'fromTaskOrder'
+        ? !selectedTaskOrderBaseId || !doc
+        : !topic.trim() || !goal.trim()
+
+  const validationMessage = useMemo(() => {
+    if (!generateDisabled) return null
+    if (sourceMode === 'fromTopic') {
+      if (!topic.trim()) return '이벤트 주제를 입력해 주세요.'
+      if (!goal.trim()) return '목표를 입력해 주세요.'
+      return null
+    }
+    if (sourceMode === 'fromTaskOrder') {
+      if (!selectedTaskOrderBaseId) return '과업지시서를 선택해 주세요.'
+      if (!doc) return '과업지시서 정보를 불러오는 중이거나 불러오지 못했습니다. 잠시 후 다시 시도해 주세요.'
+      return null
+    }
+    if (!selectedEstimateId) return '저장된 견적을 선택해 주세요.'
+    if (!doc) return '선택한 견적 문서를 불러올 수 없습니다. 문서가 포함된 다른 항목을 선택해 주세요.'
+    return null
+  }, [generateDisabled, sourceMode, topic, goal, selectedTaskOrderBaseId, selectedEstimateId, doc])
+
   return (
     <div className="flex h-screen overflow-hidden bg-gray-50/50">
       <GNB />
@@ -245,7 +272,6 @@ export default function ProgramProposalGeneratorPage() {
               { id: 'fromEstimate', title: '기존 문서 기준', desc: '저장된 견적 컨텍스트 활용' },
             ]}
             modeId={sourceMode}
-            highlightModeId="fromTopic"
             onModeChange={(id) => {
               const next = id as SourceMode
               setSourceMode(next)
@@ -346,13 +372,8 @@ export default function ProgramProposalGeneratorPage() {
             generateLabel="프로그램 생성"
             onGenerate={handleGenerateProgram}
             generating={generating}
-            generateDisabled={
-              sourceMode === 'fromEstimate'
-                ? !selectedEstimateId || !doc
-                : sourceMode === 'fromTaskOrder'
-                  ? !selectedTaskOrderBaseId || !taskOrderSummary || !doc
-                  : !topic.trim() || !goal.trim()
-            }
+            generateDisabled={generateDisabled}
+            validationMessage={validationMessage}
           />
 
           {doc && generatedDocId ? (

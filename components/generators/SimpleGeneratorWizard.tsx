@@ -15,26 +15,26 @@ export default function SimpleGeneratorWizard({
   subtitle,
   modes,
   modeId,
-  highlightModeId,
   onModeChange,
   requiredInput,
   generateLabel,
   onGenerate,
   generating = false,
   generateDisabled = false,
+  validationMessage,
 }: {
   title: string
   subtitle?: string
   modes: WizardMode[]
   modeId: string
-  /** 특정 모드를 "프롬프트만 입력"처럼 시각적으로 강조 */
-  highlightModeId?: string
   onModeChange: (id: string) => void
   requiredInput: ReactNode
   generateLabel: string
   onGenerate: () => void | Promise<void>
   generating?: boolean
   generateDisabled?: boolean
+  /** 생성 버튼이 비활성일 때, 부족한 입력을 한눈에 설명 */
+  validationMessage?: string | null
 }) {
   return (
     <div className="rounded-2xl border border-gray-100 bg-white p-5 shadow-card">
@@ -52,7 +52,6 @@ export default function SimpleGeneratorWizard({
           <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
             {modes.map((m) => {
               const active = m.id === modeId
-              const isHighlight = !!highlightModeId && m.id === highlightModeId
               return (
                 <button
                   key={m.id}
@@ -61,22 +60,15 @@ export default function SimpleGeneratorWizard({
                   className={clsx(
                     'text-left rounded-2xl border p-4 transition-colors shadow-sm',
                     active
-                      ? 'bg-primary-50 border-primary-100'
-                      : isHighlight
-                        ? 'bg-primary-600 border-primary-600 hover:bg-primary-700'
-                        : 'bg-white border-gray-100 hover:bg-gray-50 hover:border-primary-200',
+                      ? 'bg-primary-50 border-primary-100 ring-1 ring-primary-100'
+                      : 'bg-white border-gray-100 hover:bg-gray-50 hover:border-primary-200',
                   )}
                 >
-                  <div className={clsx('font-bold', active ? 'text-gray-900' : isHighlight ? 'text-white' : 'text-gray-900')}>
+                  <div className={clsx('font-bold', active ? 'text-gray-900' : 'text-gray-900')}>
                     {m.title}
                   </div>
                   {m.desc ? (
-                    <div
-                      className={clsx(
-                        'mt-1 text-xs',
-                        active ? 'text-gray-500' : isHighlight ? 'text-primary-50' : 'text-gray-500',
-                      )}
-                    >
+                    <div className={clsx('mt-1 text-xs', active ? 'text-gray-500' : 'text-gray-500')}>
                       {m.desc}
                     </div>
                   ) : null}
@@ -95,6 +87,11 @@ export default function SimpleGeneratorWizard({
 
         <section>
           <div className="text-sm font-semibold text-gray-900 mb-3">3) 생성</div>
+          {generateDisabled && validationMessage ? (
+            <div className="mb-3 rounded-xl border border-amber-200 bg-amber-50 px-3 py-2 text-xs text-amber-900">
+              {validationMessage}
+            </div>
+          ) : null}
           <Button
             variant="primary"
             className="w-full justify-center py-3.5 text-sm"

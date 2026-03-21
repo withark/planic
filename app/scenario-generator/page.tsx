@@ -184,7 +184,10 @@ export default function ScenarioGeneratorPage() {
       sourceMode === 'fromTopic'
         ? doc ?? makeDummyScenarioDoc({ topic: topic.trim() || '행사', headcount, venue })
         : doc
-    if (!docForGenerate) return
+    if (!docForGenerate) {
+      showToast('생성에 필요한 문서 컨텍스트가 없습니다. 소스 문서를 선택했는지 확인해 주세요.')
+      return
+    }
     setGenerating(true)
     try {
       const promptRequirements = [goal.trim(), notes.trim() ? `추가 메모: ${notes.trim()}` : ''].filter(Boolean).join('\n')
@@ -235,6 +238,22 @@ export default function ScenarioGeneratorPage() {
   const generateDisabled =
     sourceMode === 'fromTopic' ? !topic.trim() || !goal.trim() : !selectedBaseDocId || !doc
 
+  const validationMessage = useMemo(() => {
+    if (!generateDisabled) return null
+    if (sourceMode === 'fromTopic') {
+      if (!topic.trim()) return '이벤트 주제를 입력해 주세요.'
+      if (!goal.trim()) return '목표를 입력해 주세요.'
+      return null
+    }
+    if (!selectedBaseDocId) {
+      return sourceMode === 'fromPlanning'
+        ? '기획 문서를 선택해 주세요.'
+        : '프로그램 제안서를 선택해 주세요.'
+    }
+    if (!doc) return '선택한 문서를 불러오는 중이거나 불러오지 못했습니다. 잠시 후 다시 시도해 주세요.'
+    return null
+  }, [generateDisabled, sourceMode, topic, goal, selectedBaseDocId, doc])
+
   return (
     <div className="flex h-screen overflow-hidden bg-gray-50/50">
       <GNB />
@@ -273,7 +292,6 @@ export default function ScenarioGeneratorPage() {
               setDoc(null)
               setGeneratedDocId(null)
             }}
-            highlightModeId="fromTopic"
             requiredInput={
               sourceMode === 'fromPlanning' || sourceMode === 'fromProgram' ? (
                 <select
@@ -340,6 +358,7 @@ export default function ScenarioGeneratorPage() {
             onGenerate={handleGenerateScenario}
             generating={generating}
             generateDisabled={generateDisabled}
+            validationMessage={validationMessage}
           />
 
           {doc && generatedDocId ? (

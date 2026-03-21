@@ -213,7 +213,10 @@ export default function CueSheetGeneratorPage() {
       sourceMode === 'fromTopic'
         ? makeDummyCueSheetExistingDoc({ topic: topic.trim() || '행사', headcount, venue })
         : contextDoc
-    if (!contextDocForGenerate) return
+    if (!contextDocForGenerate) {
+      showToast('생성에 필요한 문서 컨텍스트가 없습니다. 소스를 선택했는지 확인해 주세요.')
+      return
+    }
     setGenerating(true)
     try {
       const promptRequirements = [goal.trim(), notes.trim() ? `추가 메모: ${notes.trim()}` : ''].filter(Boolean).join('\n')
@@ -268,6 +271,35 @@ export default function CueSheetGeneratorPage() {
             ? selectedProgramId
             : selectedTimetableId)
 
+  const validationMessage = useMemo(() => {
+    if (!generateDisabled) return null
+    if (sourceMode === 'fromTopic') {
+      if (!topic.trim()) return '이벤트 주제를 입력해 주세요.'
+      if (!goal.trim()) return '목표를 입력해 주세요.'
+      return null
+    }
+    const sourceLabel =
+      sourceMode === 'fromScenario' ? '시나리오' : sourceMode === 'fromProgram' ? '프로그램 제안' : '타임테이블'
+    const sourceId =
+      sourceMode === 'fromScenario'
+        ? selectedScenarioId
+        : sourceMode === 'fromProgram'
+          ? selectedProgramId
+          : selectedTimetableId
+    if (!sourceId) return `${sourceLabel}을(를) 선택해 주세요.`
+    if (!contextDoc) return `${sourceLabel} 문서를 불러오는 중이거나 불러오지 못했습니다. 잠시 후 다시 시도해 주세요.`
+    return null
+  }, [
+    generateDisabled,
+    sourceMode,
+    topic,
+    goal,
+    selectedScenarioId,
+    selectedProgramId,
+    selectedTimetableId,
+    contextDoc,
+  ])
+
   return (
     <div className="flex h-screen overflow-hidden bg-gray-50/50">
       <GNB />
@@ -290,7 +322,6 @@ export default function CueSheetGeneratorPage() {
             subtitle="시나리오/프로그램/타임테이블 또는 토픽으로 큐시트만 생성합니다"
             modes={modes}
             modeId={sourceMode}
-            highlightModeId="fromTopic"
             onModeChange={(id) => {
               const next = id as SourceMode
               setSourceMode(next)
@@ -411,6 +442,7 @@ export default function CueSheetGeneratorPage() {
             onGenerate={handleGenerateCueSheet}
             generating={generating}
             generateDisabled={generateDisabled}
+            validationMessage={validationMessage}
           />
 
           {doc && generatedDocId ? (

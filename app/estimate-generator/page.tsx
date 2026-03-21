@@ -203,7 +203,13 @@ export default function EstimateGeneratorPage() {
   const handleGenerateEstimate = useCallback(async () => {
     const body = requestBodyForEstimate()
     if (!body) {
-      showToast('필수 입력을 확인해 주세요.')
+      if (sourceMode === 'fromEstimate') {
+        showToast('저장된 견적 문서를 불러올 수 없습니다. 목록에서 다시 선택해 주세요.')
+      } else if (sourceMode === 'fromTaskOrder') {
+        showToast('과업지시서 정보를 불러올 수 없습니다. 다시 선택해 주세요.')
+      } else {
+        showToast('필수 입력을 확인해 주세요.')
+      }
       return
     }
 
@@ -222,7 +228,7 @@ export default function EstimateGeneratorPage() {
     } finally {
       setGenerating(false)
     }
-  }, [requestBodyForEstimate, showToast])
+  }, [requestBodyForEstimate, showToast, sourceMode])
 
   const handleSaveDoc = useCallback(
     async (nextDoc: QuoteDoc) => {
@@ -260,6 +266,32 @@ export default function EstimateGeneratorPage() {
         ? !selectedTaskOrderId || !selectedTaskOrder
         : !topic.trim() || !goal.trim()
 
+  const validationMessage = useMemo(() => {
+    if (!generateDisabled) return null
+    if (sourceMode === 'fromTopic') {
+      if (!topic.trim()) return '이벤트 주제를 입력해 주세요.'
+      if (!goal.trim()) return '목표를 입력해 주세요.'
+      return null
+    }
+    if (sourceMode === 'fromTaskOrder') {
+      if (!selectedTaskOrderId) return '과업지시서를 선택해 주세요.'
+      if (!selectedTaskOrder) return '선택한 과업지시서를 불러오지 못했습니다.'
+      return null
+    }
+    if (!selectedEstimateId) return '저장된 견적을 선택해 주세요.'
+    if (!selectedHistoryDoc) return '선택한 견적 문서를 불러올 수 없습니다. 다른 항목을 선택해 주세요.'
+    return null
+  }, [
+    generateDisabled,
+    sourceMode,
+    topic,
+    goal,
+    selectedTaskOrderId,
+    selectedTaskOrder,
+    selectedEstimateId,
+    selectedHistoryDoc,
+  ])
+
   return (
     <div className="flex h-screen overflow-hidden bg-gray-50/50">
       <GNB />
@@ -280,7 +312,6 @@ export default function EstimateGeneratorPage() {
           <SimpleGeneratorWizard
             title="견적서 만들기"
             subtitle="컨텍스트/주제로 견적서만 생성합니다"
-            highlightModeId="fromTopic"
             modes={modes}
             modeId={sourceMode}
             onModeChange={(id) => {
@@ -378,6 +409,7 @@ export default function EstimateGeneratorPage() {
             onGenerate={handleGenerateEstimate}
             generating={generating}
             generateDisabled={generateDisabled}
+            validationMessage={validationMessage}
           />
 
           {doc && generatedDocId ? (
