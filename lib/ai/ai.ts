@@ -91,62 +91,6 @@ export async function generateQuote(input: GenerateInput): Promise<QuoteDoc> {
   return doc
 }
 
-function hasWeakContent(doc: QuoteDoc, target: GenerateInput['documentTarget']): boolean {
-  const t = target ?? 'estimate'
-  const isBlankish = (v: string | undefined | null) => {
-    const s = (v ?? '').trim()
-    return !s || s === '-' || s.toLowerCase() === 'none'
-  }
-  if (t === 'program') {
-    const rows = doc.program?.programRows || []
-    const concept = doc.program?.concept?.trim() || ''
-    if (isBlankish(concept)) return true
-    if (rows.length < 4) return true
-    // time/notes가 누락되면 “그럴듯한 틀”만 남아 운영성이 떨어집니다.
-    return rows.some(r => isBlankish(r.content) || isBlankish(r.time) || isBlankish((r as any).notes))
-  }
-  if (t === 'planning') {
-    const p = doc.planning
-    if (!p) return true
-    if (isBlankish(p.overview) || isBlankish(p.scope) || isBlankish(p.approach) || isBlankish(p.operationPlan)) return true
-    if (isBlankish(p.deliverablesPlan) || isBlankish(p.staffingConditions) || isBlankish(p.risksAndCautions)) return true
-    const checklist = p.checklist || []
-    if (checklist.length < 6) return true
-    if (checklist.some(it => isBlankish(it))) return true
-    return false
-  }
-  if (t === 'scenario') {
-    const s = doc.scenario
-    if (!s) return true
-    if (isBlankish(s.summaryTop) || isBlankish(s.opening) || isBlankish(s.development) || isBlankish(s.closing)) return true
-    if ((s.mainPoints || []).length < 6) return true
-    if (isBlankish(s.directionNotes)) return true
-    const points = s.mainPoints || []
-    // 흔한 placeholder(포인트1 등)가 섞이면 약한 출력으로 간주
-    if (points.some(p => (p || '').trim().match(/^포인트\\d+$/))) return true
-    return false
-  }
-  if (t === 'cuesheet') {
-    const rows = doc.program?.cueRows || []
-    if (rows.length < 10) return true
-    return rows.some(r => isBlankish(r.time) || isBlankish(r.content) || isBlankish(r.staff) || isBlankish(r.prep) || isBlankish(r.script) || isBlankish(r.special))
-  }
-  return false
-}
-
-function buildRefinePrompt(input: GenerateInput, doc: QuoteDoc): string {
-  const target = input.documentTarget ?? 'estimate'
-  return `아래 JSON은 1차 생성 결과입니다. 타깃 문서(${target})만 품질 보강하세요.
-- JSON 외 텍스트 금지
-- 타깃 외 섹션은 의미를 바꾸지 말고 유지
-- 빈 필드/얇은 문장을 실무형 문장으로 보강
-- 특히 planning/scenario/cuesheet/program은 실제 운영에 바로 쓸 수 있게 밀도 강화
-
-입력 JSON:
-${JSON.stringify(doc).slice(0, 9000)}
-`
-}
-
 function fillWeakOutputs(doc: QuoteDoc, input: GenerateInput): QuoteDoc {
   const t = input.documentTarget ?? 'estimate'
 
@@ -764,9 +708,10 @@ export async function generateQuoteWithMeta(input: GenerateInput): Promise<{ doc
     }
   }
 
-  const eff = await getEffectiveEngineConfig()
+  const eff = input.cachedEngineConfig ?? (await getEffectiveEngineConfig())
   const maxOut = resolveGenerateMaxTokens(eff.maxTokens, eff.provider)
   const promptStart = Date.now()
+  input.pipelineEmit?.({ stage: 'prompt', label: '프롬프트 작성 중' })
   const prompt = buildGeneratePrompt(input)
   const promptBuildMs = Date.now() - promptStart
   let aiCallMs = 0
@@ -775,13 +720,13 @@ export async function generateQuoteWithMeta(input: GenerateInput): Promise<{ doc
   let llmRefineMs = 0
   let timedOut = false
   let parseNormalizeMs = 0
-  let stagedRefineMs = 0
+  const stagedRefineMs = 0
   let retries = 0
 
   async function runOnce(extra = '', kind: 'primary' | 'retry'): Promise<string> {
     const started = Date.now()
     try {
-      const out = await callLLM(prompt + extra, { maxTokens: maxOut, timeoutMs: 90_000 })
+      const out = await callLLM(prompt + extra, { maxTokens: maxOut, timeoutMs: 90_000, engine: eff })
       const ms = Date.now() - started
       aiCallMs += ms
       if (kind === 'primary') llmPrimaryMs += ms
@@ -801,6 +746,7 @@ export async function generateQuoteWithMeta(input: GenerateInput): Promise<{ doc
   }
 
   const target = input.documentTarget
+  input.pipelineEmit?.({ stage: 'llm', label: 'AI 응답 생성 중' })
   let text = await runOnce('', 'primary')
   let jsonText: string
   try {
@@ -829,6 +775,7 @@ export async function generateQuoteWithMeta(input: GenerateInput): Promise<{ doc
     }
   }
 
+  input.pipelineEmit?.({ stage: 'parse', label: 'JSON 해석·정규화 중' })
   const parseStart = Date.now()
   doc = normalizeQuoteDoc(doc, {
     eventStartHHmm: input.eventStartHHmm,
@@ -843,52 +790,9 @@ export async function generateQuoteWithMeta(input: GenerateInput): Promise<{ doc
   })
   parseNormalizeMs += Date.now() - parseStart
 
-  const needsRefine =
-    input.documentTarget === 'program' ||
-    input.documentTarget === 'planning' ||
-    input.documentTarget === 'scenario' ||
-    input.documentTarget === 'cuesheet'
-  if (needsRefine && hasWeakContent(doc, input.documentTarget)) {
-    const refineStart = Date.now()
-    try {
-      const refineRaw = await callLLM(buildRefinePrompt(input, doc), { maxTokens: Math.min(2600, maxOut), timeoutMs: 90_000 })
-      const refineMs = Date.now() - refineStart
-      aiCallMs += refineMs
-      stagedRefineMs += refineMs
-      llmRefineMs += refineMs
-      try {
-        const refined = safeParseQuoteJson(extractQuoteJson(refineRaw))
-        const refineParseStart = Date.now()
-        doc = normalizeQuoteDoc(refined, {
-          eventStartHHmm: input.eventStartHHmm,
-          eventEndHHmm: input.eventEndHHmm,
-          eventName: input.eventName,
-          eventType: input.eventType,
-          headcount: input.headcount,
-          eventDuration: input.eventDuration,
-          fillProgramDefaults: false,
-          fillScenarioDefaults: false,
-          fillCueRows: false,
-        })
-        parseNormalizeMs += Date.now() - refineParseStart
-      } catch {
-        doc = fillWeakOutputs(doc, input)
-      }
-    } catch (e) {
-      const refineMs = Date.now() - refineStart
-      aiCallMs += refineMs
-      stagedRefineMs += refineMs
-      llmRefineMs += refineMs
-      const err = e as any
-      if (err?.timedOut || err?.code === 'ETIMEDOUT' || String(err?.message || '').toLowerCase().includes('timeout')) {
-        timedOut = true
-      }
-      // 1차 결과가 이미 존재하므로, 리파인 실패 시 휴리스틱 보강으로만 복구합니다.
-      doc = fillWeakOutputs(doc, input)
-    }
-  } else {
-    doc = fillWeakOutputs(doc, input)
-  }
+  // 2차 refine LLM은 지연·비용이 커서 제거했습니다. 휴리스틱 보강(fillWeakOutputs)으로 실무 가능 수준을 맞춥니다.
+  input.pipelineEmit?.({ stage: 'post', label: '문서 보강 중' })
+  doc = fillWeakOutputs(doc, input)
 
   const stages = [
     { name: 'prompt.build', ms: promptBuildMs },

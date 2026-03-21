@@ -21,6 +21,7 @@ export default function SimpleGeneratorWizard({
   onGenerate,
   generating = false,
   generateDisabled = false,
+  generationProgressLabel = null,
   validationMessage,
 }: {
   title: string
@@ -33,6 +34,8 @@ export default function SimpleGeneratorWizard({
   onGenerate: () => void | Promise<void>
   generating?: boolean
   generateDisabled?: boolean
+  /** 생성 중 서버 단계(NDJSON) — 있으면 버튼 위에 표시 */
+  generationProgressLabel?: string | null
   /** 생성 버튼이 비활성일 때, 부족한 입력을 한눈에 설명 */
   validationMessage?: string | null
 }) {
@@ -87,6 +90,15 @@ export default function SimpleGeneratorWizard({
 
         <section>
           <div className="text-sm font-semibold text-gray-900 mb-3">3) 생성</div>
+          {generating && generationProgressLabel ? (
+            <div
+              className="mb-3 rounded-xl border border-primary-100 bg-primary-50/60 px-3 py-2 text-xs text-primary-800"
+              role="status"
+              aria-live="polite"
+            >
+              {generationProgressLabel}
+            </div>
+          ) : null}
           {generateDisabled && validationMessage ? (
             <div className="mb-3 rounded-xl border border-amber-200 bg-amber-50 px-3 py-2 text-xs text-amber-900">
               {validationMessage}

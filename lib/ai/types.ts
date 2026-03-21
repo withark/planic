@@ -1,3 +1,4 @@
+import type { EngineConfigOverlay } from '../admin-types'
 import type { QuoteDoc, PriceCategory, CompanySettings, ReferenceDoc, TaskOrderDoc, ScenarioRefDoc } from '../types'
 
 export type { QuoteDoc, PriceCategory, CompanySettings, ReferenceDoc, TaskOrderDoc }
@@ -46,4 +47,14 @@ export interface GenerateInput {
 
   /** 큐시트 생성 시 참고할(업로드) 샘플 텍스트 컨텍스트 */
   cuesheetSampleContext?: string
+
+  /** 서버 전용: 요청당 1회 조회된 엔진 설정 — callLLM 내부 KV 중복 조회 방지 */
+  cachedEngineConfig?: {
+    provider: 'anthropic' | 'openai'
+    model: string
+    maxTokens: number
+    overlay: EngineConfigOverlay | null
+  }
+  /** 서버 전용: 진행 단계(NDJSON 스트림 등) */
+  pipelineEmit?: (info: { stage: string; label: string }) => void
 }

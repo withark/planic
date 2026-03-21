@@ -7,7 +7,7 @@ import SimpleGeneratorWizard, { type WizardMode } from '@/components/generators/
 import { Input, Textarea, Toast } from '@/components/ui'
 import type { CompanySettings, PriceCategory, QuoteDoc } from '@/lib/types'
 import type { PlanType } from '@/lib/plans'
-import { apiFetch } from '@/lib/api/client'
+import { apiFetch, apiGenerateStream } from '@/lib/api/client'
 import { toUserMessage } from '@/lib/errors/toUserMessage'
 import { exportToExcel } from '@/lib/exportExcel'
 import { exportToPdf } from '@/lib/exportPdf'
@@ -126,6 +126,7 @@ export default function CueSheetGeneratorPage() {
   const [generatedDocId, setGeneratedDocId] = useState<string | null>(null)
 
   const [generating, setGenerating] = useState(false)
+  const [generationProgressLabel, setGenerationProgressLabel] = useState<string | null>(null)
   const [saving, setSaving] = useState(false)
   const generatingTabs = useMemo(() => ({ program: generating }), [generating])
 
@@ -218,20 +219,20 @@ export default function CueSheetGeneratorPage() {
       return
     }
     setGenerating(true)
+    setGenerationProgressLabel('요청 전송 중…')
     try {
       const promptRequirements = [goal.trim(), notes.trim() ? `추가 메모: ${notes.trim()}` : ''].filter(Boolean).join('\n')
       const requirementsText = sourceMode === 'fromTopic' ? promptRequirements : ''
       const baseBody = requestBaseFromDoc(contextDocForGenerate, requirementsText)
-      const data = await apiFetch<{ doc: QuoteDoc; id: string }>(`/api/generate`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
+      const data = await apiGenerateStream(
+        {
           ...baseBody,
           documentTarget: 'cuesheet',
           existingDoc: contextDocForGenerate,
           cuesheetSampleIds: [],
-        }),
-      })
+        },
+        { onStage: ({ label }) => setGenerationProgressLabel(label) },
+      )
       setDoc(data.doc)
       setGeneratedDocId(data.id)
       showToast('큐시트 생성 완료!')
@@ -239,6 +240,7 @@ export default function CueSheetGeneratorPage() {
       showToast(toUserMessage(e, '큐시트 생성에 실패했습니다.'))
     } finally {
       setGenerating(false)
+      setGenerationProgressLabel(null)
     }
   }, [contextDoc, requestBaseFromDoc, showToast, sourceMode, topic, goal, notes, headcount, venue])
 
@@ -441,6 +443,7 @@ export default function CueSheetGeneratorPage() {
             generateLabel="큐시트 생성"
             onGenerate={handleGenerateCueSheet}
             generating={generating}
+            generationProgressLabel={generationProgressLabel}
             generateDisabled={generateDisabled}
             validationMessage={validationMessage}
           />

@@ -6,7 +6,7 @@ import QuoteResult from '@/components/quote/QuoteResult'
 import SimpleGeneratorWizard from '@/components/generators/SimpleGeneratorWizard'
 import { Input, Textarea, Toast } from '@/components/ui'
 import type { CompanySettings, PriceCategory, QuoteDoc } from '@/lib/types'
-import { apiFetch } from '@/lib/api/client'
+import { apiFetch, apiGenerateStream } from '@/lib/api/client'
 import { toUserMessage } from '@/lib/errors/toUserMessage'
 import { exportToExcel } from '@/lib/exportExcel'
 import { exportToPdf } from '@/lib/exportPdf'
@@ -120,6 +120,7 @@ export default function ScenarioGeneratorPage() {
   const [doc, setDoc] = useState<QuoteDoc | null>(null)
   const [generatedDocId, setGeneratedDocId] = useState<string | null>(null)
   const [generating, setGenerating] = useState(false)
+  const [generationProgressLabel, setGenerationProgressLabel] = useState<string | null>(null)
   const [saving, setSaving] = useState(false)
   const generatingTabs = useMemo(() => ({ scenario: generating }), [generating])
 
@@ -189,6 +190,7 @@ export default function ScenarioGeneratorPage() {
       return
     }
     setGenerating(true)
+    setGenerationProgressLabel('요청 전송 중…')
     try {
       const promptRequirements = [goal.trim(), notes.trim() ? `추가 메모: ${notes.trim()}` : ''].filter(Boolean).join('\n')
       const requirementsText =
@@ -196,15 +198,14 @@ export default function ScenarioGeneratorPage() {
           ? promptRequirements
           : ''
       const baseBody = requestBaseFromDoc(docForGenerate, requirementsText)
-      const data = await apiFetch<{ doc: QuoteDoc; id: string }>(`/api/generate`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
+      const data = await apiGenerateStream(
+        {
           ...baseBody,
           documentTarget: 'scenario',
           existingDoc: docForGenerate,
-        }),
-      })
+        },
+        { onStage: ({ label }) => setGenerationProgressLabel(label) },
+      )
       setDoc(data.doc)
       setGeneratedDocId(data.id)
       showToast('시나리오 생성 완료!')
@@ -212,6 +213,7 @@ export default function ScenarioGeneratorPage() {
       showToast(toUserMessage(e, '시나리오 생성에 실패했습니다.'))
     } finally {
       setGenerating(false)
+      setGenerationProgressLabel(null)
     }
   }, [doc, requestBaseFromDoc, showToast, sourceMode, topic, goal, notes, headcount, venue])
 
@@ -357,6 +359,7 @@ export default function ScenarioGeneratorPage() {
             generateLabel="시나리오 생성"
             onGenerate={handleGenerateScenario}
             generating={generating}
+            generationProgressLabel={generationProgressLabel}
             generateDisabled={generateDisabled}
             validationMessage={validationMessage}
           />

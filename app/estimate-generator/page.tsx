@@ -6,7 +6,7 @@ import QuoteResult from '@/components/quote/QuoteResult'
 import SimpleGeneratorWizard, { type WizardMode } from '@/components/generators/SimpleGeneratorWizard'
 import { Input, Textarea, Toast } from '@/components/ui'
 import type { CompanySettings, HistoryRecord, PriceCategory, QuoteDoc, TaskOrderDoc } from '@/lib/types'
-import { apiFetch } from '@/lib/api/client'
+import { apiFetch, apiGenerateStream } from '@/lib/api/client'
 import { toUserMessage } from '@/lib/errors/toUserMessage'
 import { exportToExcel } from '@/lib/exportExcel'
 import { exportToPdf } from '@/lib/exportPdf'
@@ -79,6 +79,7 @@ export default function EstimateGeneratorPage() {
   const [doc, setDoc] = useState<QuoteDoc | null>(null)
   const [generatedDocId, setGeneratedDocId] = useState<string | null>(null)
   const [generating, setGenerating] = useState(false)
+  const [generationProgressLabel, setGenerationProgressLabel] = useState<string | null>(null)
   const [saving, setSaving] = useState(false)
   const generatingTabs = useMemo(() => ({ estimate: generating }), [generating])
 
@@ -214,11 +215,10 @@ export default function EstimateGeneratorPage() {
     }
 
     setGenerating(true)
+    setGenerationProgressLabel('요청 전송 중…')
     try {
-      const data = await apiFetch<{ doc: QuoteDoc; id: string }>(`/api/generate`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(body),
+      const data = await apiGenerateStream(body, {
+        onStage: ({ label }) => setGenerationProgressLabel(label),
       })
       setDoc(data.doc)
       setGeneratedDocId(data.id)
@@ -227,6 +227,7 @@ export default function EstimateGeneratorPage() {
       showToast(toUserMessage(e, '견적서 생성에 실패했습니다.'))
     } finally {
       setGenerating(false)
+      setGenerationProgressLabel(null)
     }
   }, [requestBodyForEstimate, showToast, sourceMode])
 
@@ -408,6 +409,7 @@ export default function EstimateGeneratorPage() {
             generateLabel="견적 생성"
             onGenerate={handleGenerateEstimate}
             generating={generating}
+            generationProgressLabel={generationProgressLabel}
             generateDisabled={generateDisabled}
             validationMessage={validationMessage}
           />

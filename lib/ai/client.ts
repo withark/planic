@@ -9,10 +9,14 @@ import { logInfo } from '../utils/logger'
 
 export type AIProvider = 'anthropic' | 'openai'
 
+export type EffectiveEngineConfig = Awaited<ReturnType<typeof getEffectiveEngineConfig>>
+
 export interface CallLLMOptions {
   maxTokens?: number
   model?: string
   timeoutMs?: number
+  /** 요청당 1회 조회값을 넘기면 getEffectiveEngineConfig/KV를 다시 읽지 않습니다. */
+  engine?: EffectiveEngineConfig
 }
 
 export function getAIProvider(): AIProvider {
@@ -70,7 +74,7 @@ function getOpenAIClient(): OpenAI {
 }
 
 export async function callLLM(prompt: string, opts: CallLLMOptions = {}): Promise<string> {
-  const effective = await getEffectiveEngineConfig()
+  const effective = opts.engine ?? (await getEffectiveEngineConfig())
   const provider = effective.provider
   const maxTokens = opts.maxTokens ?? effective.maxTokens
   const model = opts.model ?? effective.model

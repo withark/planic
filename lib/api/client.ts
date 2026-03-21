@@ -1,4 +1,5 @@
 import { toUserMessage } from '@/lib/errors/toUserMessage'
+import type { QuoteDoc } from '@/lib/types'
 
 export type ApiOk<T> = { ok: true; data: T }
 export type ApiErr = { ok: false; error?: unknown }
@@ -57,5 +58,80 @@ export async function apiFetch<T>(input: RequestInfo | URL, init?: RequestInit):
 
   const msg = toUserMessage(payload, '요청에 실패했습니다.')
   throw new ApiError(msg, res.status, payload)
+}
+
+export type GenerateStreamCallbacks = {
+  /** NDJSON `stage` 이벤트마다 호출(실제 서버 단계) */
+  onStage?: (info: { stage: string; label: string }) => void
+}
+
+/**
+ * POST /api/generate + `streamProgress: true` — NDJSON으로 단계 이벤트 후 최종 문서 수신.
+ * 일반 JSON(`ok` 봉투)과 달리 스트림 본문을 직접 파싱합니다.
+ */
+export async function apiGenerateStream(
+  body: object,
+  callbacks?: GenerateStreamCallbacks,
+): Promise<{ doc: QuoteDoc; totals: Record<string, number>; id: string }> {
+  const res = await fetch('/api/generate', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ ...body, streamProgress: true }),
+  })
+
+  const ct = res.headers.get('content-type') || ''
+  if (!ct.includes('ndjson')) {
+    const payload = await parseResponsePayload(res)
+    if (res.ok) {
+      const env = payload as ApiEnvelope<{ doc: QuoteDoc; totals: Record<string, number>; id: string }>
+      if (env && typeof env === 'object' && (env as any).ok === true && 'data' in (env as any)) {
+        return (env as ApiOk<{ doc: QuoteDoc; totals: Record<string, number>; id: string }>).data
+      }
+    }
+    const msg = toUserMessage(payload, '요청에 실패했습니다.')
+    throw new ApiError(msg, res.status, payload)
+  }
+
+  const reader = res.body?.getReader()
+  if (!reader) {
+    throw new ApiError('응답 스트림을 읽을 수 없습니다.', res.status || 500)
+  }
+
+  const decoder = new TextDecoder()
+  let buffer = ''
+  while (true) {
+    const { done, value } = await reader.read()
+    if (done) break
+    buffer += decoder.decode(value, { stream: true })
+    const lines = buffer.split('\n')
+    buffer = lines.pop() || ''
+    for (const line of lines) {
+      const trimmed = line.trim()
+      if (!trimmed) continue
+      let obj: { type?: string } & Record<string, unknown>
+      try {
+        obj = JSON.parse(trimmed) as { type?: string } & Record<string, unknown>
+      } catch {
+        continue
+      }
+      if (obj.type === 'stage' && typeof obj.label === 'string' && typeof obj.stage === 'string') {
+        callbacks?.onStage?.({ stage: obj.stage, label: obj.label })
+      }
+      if (obj.type === 'error') {
+        const status = typeof obj.status === 'number' ? obj.status : 500
+        const message = typeof obj.message === 'string' ? obj.message : '생성에 실패했습니다.'
+        throw new ApiError(message, status, obj)
+      }
+      if (obj.type === 'complete' && obj.doc) {
+        return {
+          doc: obj.doc as QuoteDoc,
+          totals: (obj.totals as Record<string, number>) || {},
+          id: String(obj.id ?? ''),
+        }
+      }
+    }
+  }
+
+  throw new ApiError('생성 응답이 완료되지 않았습니다.', 500)
 }
 

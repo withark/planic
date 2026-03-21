@@ -6,7 +6,7 @@ import QuoteResult from '@/components/quote/QuoteResult'
 import { Input, Textarea, Toast } from '@/components/ui'
 import SimpleGeneratorWizard from '@/components/generators/SimpleGeneratorWizard'
 import type { CompanySettings, HistoryRecord, PriceCategory, QuoteDoc, TaskOrderDoc } from '@/lib/types'
-import { apiFetch } from '@/lib/api/client'
+import { apiFetch, apiGenerateStream } from '@/lib/api/client'
 import { toUserMessage } from '@/lib/errors/toUserMessage'
 import { exportToExcel } from '@/lib/exportExcel'
 import { exportToPdf } from '@/lib/exportPdf'
@@ -85,6 +85,7 @@ export default function PlanningGeneratorPage() {
   } | null>(null)
 
   const [generating, setGenerating] = useState(false)
+  const [generationProgressLabel, setGenerationProgressLabel] = useState<string | null>(null)
   const [saving, setSaving] = useState(false)
   const generatingTabs = useMemo(() => ({ planning: generating }), [generating])
 
@@ -168,6 +169,7 @@ export default function PlanningGeneratorPage() {
       return
     }
     setGenerating(true)
+    setGenerationProgressLabel('요청 전송 중…')
     try {
       const requirementsText =
         sourceMode === 'fromTopic'
@@ -178,15 +180,14 @@ export default function PlanningGeneratorPage() {
 
       const body = requestBaseFromDoc(docForGenerate, requirementsText)
 
-      const data = await apiFetch<{ doc: QuoteDoc; id: string }>(`/api/generate`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
+      const data = await apiGenerateStream(
+        {
           ...body,
           documentTarget: 'planning',
           existingDoc: docForGenerate,
-        }),
-      })
+        },
+        { onStage: ({ label }) => setGenerationProgressLabel(label) },
+      )
       setDoc(data.doc)
       setGeneratedDocId(data.id)
       showToast('기획 문서 생성 완료!')
@@ -194,6 +195,7 @@ export default function PlanningGeneratorPage() {
       showToast(toUserMessage(e, '기획 문서 생성에 실패했습니다.'))
     } finally {
       setGenerating(false)
+      setGenerationProgressLabel(null)
     }
   }, [doc, requestBaseFromDoc, showToast, sourceMode, taskOrderSummary, topic, goal, notes, headcount, venue])
 
@@ -363,6 +365,7 @@ export default function PlanningGeneratorPage() {
             generateLabel="기획 문서 생성"
             onGenerate={handleGeneratePlanning}
             generating={generating}
+            generationProgressLabel={generationProgressLabel}
             generateDisabled={generateDisabled}
             validationMessage={validationMessage}
           />
