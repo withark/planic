@@ -1,6 +1,7 @@
-import { getDb, initDb } from '@/lib/db/client'
+import { getDb, hasDatabase, initDb } from '@/lib/db/client'
 import { uid } from '@/lib/calc'
 import { periodKeyFromDate } from '@/lib/plans'
+import { readDataJson, writeDataJson } from '@/lib/db/file-persistence'
 
 export type UsageQuotaRow = {
   id: string
@@ -22,7 +23,37 @@ function toRow(r: any): UsageQuotaRow {
   }
 }
 
+type FileUsageQuotaRow = {
+  quoteGeneratedCount: number
+  companyProfileCount: number
+  updatedAt: string
+}
+
+type FileUsageStore = Record<string, FileUsageQuotaRow>
+
+function fileNameForUser(userId: string) {
+  return `usage_quotas_${userId}.json`
+}
+
 export async function getOrCreateUsage(userId: string, date = new Date()): Promise<UsageQuotaRow> {
+  if (!hasDatabase()) {
+    const periodKey = periodKeyFromDate(date)
+    const now = new Date().toISOString()
+    const store = readDataJson<FileUsageStore>(fileNameForUser(userId), {})
+    if (!store[periodKey]) {
+      store[periodKey] = { quoteGeneratedCount: 0, companyProfileCount: 0, updatedAt: now }
+      writeDataJson(fileNameForUser(userId), store)
+    }
+    const row = store[periodKey]
+    return {
+      id: `local_${userId}_${periodKey}`,
+      userId,
+      periodKey,
+      quoteGeneratedCount: Number(row.quoteGeneratedCount ?? 0),
+      companyProfileCount: Number(row.companyProfileCount ?? 0),
+      updatedAt: row.updatedAt || now,
+    }
+  }
   await initDb()
   const sql = getDb()
   const periodKey = periodKeyFromDate(date)
@@ -42,6 +73,24 @@ export async function getOrCreateUsage(userId: string, date = new Date()): Promi
 }
 
 export async function incQuoteGenerated(userId: string, delta = 1, date = new Date()): Promise<UsageQuotaRow> {
+  if (!hasDatabase()) {
+    const periodKey = periodKeyFromDate(date)
+    const now = new Date().toISOString()
+    const store = readDataJson<FileUsageStore>(fileNameForUser(userId), {})
+    const row = store[periodKey] || { quoteGeneratedCount: 0, companyProfileCount: 0, updatedAt: now }
+    row.quoteGeneratedCount = Number(row.quoteGeneratedCount ?? 0) + delta
+    row.updatedAt = now
+    store[periodKey] = row
+    writeDataJson(fileNameForUser(userId), store)
+    return {
+      id: `local_${userId}_${periodKey}`,
+      userId,
+      periodKey,
+      quoteGeneratedCount: Number(row.quoteGeneratedCount ?? 0),
+      companyProfileCount: Number(row.companyProfileCount ?? 0),
+      updatedAt: row.updatedAt,
+    }
+  }
   await initDb()
   const sql = getDb()
   const periodKey = periodKeyFromDate(date)
@@ -58,6 +107,24 @@ export async function incQuoteGenerated(userId: string, delta = 1, date = new Da
 }
 
 export async function setCompanyProfileCount(userId: string, count: number, date = new Date()): Promise<UsageQuotaRow> {
+  if (!hasDatabase()) {
+    const periodKey = periodKeyFromDate(date)
+    const now = new Date().toISOString()
+    const store = readDataJson<FileUsageStore>(fileNameForUser(userId), {})
+    const row = store[periodKey] || { quoteGeneratedCount: 0, companyProfileCount: 0, updatedAt: now }
+    row.companyProfileCount = count
+    row.updatedAt = now
+    store[periodKey] = row
+    writeDataJson(fileNameForUser(userId), store)
+    return {
+      id: `local_${userId}_${periodKey}`,
+      userId,
+      periodKey,
+      quoteGeneratedCount: Number(row.quoteGeneratedCount ?? 0),
+      companyProfileCount: Number(row.companyProfileCount ?? 0),
+      updatedAt: row.updatedAt,
+    }
+  }
   await initDb()
   const sql = getDb()
   const periodKey = periodKeyFromDate(date)
@@ -74,6 +141,24 @@ export async function setCompanyProfileCount(userId: string, count: number, date
 }
 
 export async function resetQuoteGeneratedCount(userId: string, date = new Date()): Promise<UsageQuotaRow> {
+  if (!hasDatabase()) {
+    const periodKey = periodKeyFromDate(date)
+    const now = new Date().toISOString()
+    const store = readDataJson<FileUsageStore>(fileNameForUser(userId), {})
+    const row = store[periodKey] || { quoteGeneratedCount: 0, companyProfileCount: 0, updatedAt: now }
+    row.quoteGeneratedCount = 0
+    row.updatedAt = now
+    store[periodKey] = row
+    writeDataJson(fileNameForUser(userId), store)
+    return {
+      id: `local_${userId}_${periodKey}`,
+      userId,
+      periodKey,
+      quoteGeneratedCount: 0,
+      companyProfileCount: Number(row.companyProfileCount ?? 0),
+      updatedAt: row.updatedAt,
+    }
+  }
   await initDb()
   const sql = getDb()
   const periodKey = periodKeyFromDate(date)

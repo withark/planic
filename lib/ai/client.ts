@@ -19,6 +19,57 @@ export interface CallLLMOptions {
   engine?: EffectiveEngineConfig
 }
 
+function readableLLMError(input: unknown, provider: AIProvider): Error & { code?: string; timedOut?: boolean } {
+  const err = input as Error & { code?: string; timedOut?: boolean; status?: number }
+  const raw = input instanceof Error ? input.message : String(input || '')
+  const lowered = raw.toLowerCase()
+  const out = new Error('AI 요청 처리 중 오류가 발생했습니다. 잠시 후 다시 시도해 주세요.') as Error & {
+    code?: string
+    timedOut?: boolean
+  }
+
+  if (err?.code) out.code = err.code
+  if (err?.timedOut) out.timedOut = true
+
+  if (
+    lowered.includes('credit balance is too low') ||
+    lowered.includes('insufficient credit') ||
+    lowered.includes('insufficient_quota') ||
+    lowered.includes('quota exceeded') ||
+    lowered.includes('billing')
+  ) {
+    out.message = 'AI 크레딧이 부족합니다. 플랜/결제에서 크레딧을 충전한 뒤 다시 시도해 주세요.'
+    return out
+  }
+
+  if (lowered.includes('rate limit') || lowered.includes('too many requests') || lowered.includes('429')) {
+    out.message = '요청이 많아 잠시 제한되었습니다. 잠시 후 다시 시도해 주세요.'
+    return out
+  }
+
+  if (err?.timedOut || lowered.includes('timeout') || lowered.includes('etimedout')) {
+    out.message = 'AI 응답 시간이 초과되었습니다. 잠시 후 다시 시도해 주세요.'
+    out.timedOut = true
+    out.code = out.code ?? 'ETIMEDOUT'
+    return out
+  }
+
+  if (
+    lowered.includes('api key') ||
+    lowered.includes('authentication') ||
+    lowered.includes('invalid x-api-key') ||
+    lowered.includes('unauthorized') ||
+    lowered.includes('forbidden') ||
+    lowered.includes('401') ||
+    lowered.includes('403')
+  ) {
+    out.message = `${provider === 'anthropic' ? 'Anthropic' : 'OpenAI'} 인증에 실패했습니다. API 키와 결제 상태를 확인해 주세요.`
+    return out
+  }
+
+  return out
+}
+
 export function getAIProvider(): AIProvider {
   const env = getEnv()
   const provider = env.AI_PROVIDER?.toLowerCase()
@@ -120,6 +171,10 @@ export async function callLLM(prompt: string, opts: CallLLMOptions = {}): Promis
           return message.content[0].type === 'text' ? message.content[0].text : ''
         })()
 
-  return await Promise.race([requestPromise, timeoutPromise])
+  try {
+    return await Promise.race([requestPromise, timeoutPromise])
+  } catch (e) {
+    throw readableLLMError(e, provider)
+  }
 }
 

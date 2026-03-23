@@ -1,6 +1,7 @@
-import { getDb, initDb } from '@/lib/db/client'
+import { getDb, hasDatabase, initDb } from '@/lib/db/client'
 import { uid } from '@/lib/calc'
 import type { PriceCategory, PriceItem } from '@/lib/types'
+import { readPrices, writePrices } from '@/lib/storage'
 
 type RowCat = { id: string; name: string }
 type RowItem = {
@@ -15,6 +16,10 @@ type RowItem = {
 }
 
 export async function getUserPrices(userId: string): Promise<PriceCategory[]> {
+  if (!hasDatabase()) {
+    // DBless 환경에서는 전역 파일(`prices.json`)을 사용합니다.
+    return readPrices()
+  }
   await initDb()
   const sql = getDb()
   const cats = (await sql`
@@ -56,6 +61,10 @@ export async function getUserPrices(userId: string): Promise<PriceCategory[]> {
 }
 
 export async function replaceUserPrices(userId: string, prices: PriceCategory[]): Promise<void> {
+  if (!hasDatabase()) {
+    writePrices(prices)
+    return
+  }
   await initDb()
   const sql = getDb()
   const now = new Date().toISOString()

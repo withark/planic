@@ -1,6 +1,7 @@
-import { getDb, initDb } from '@/lib/db/client'
+import { getDb, hasDatabase, initDb } from '@/lib/db/client'
 import { uid } from '@/lib/calc'
 import type { CompanySettings } from '@/lib/types'
+import { readDataJson, writeDataJson } from '@/lib/db/file-persistence'
 
 export type CompanyProfileRow = {
   id: string
@@ -71,6 +72,10 @@ export function companySettingsToProfileInput(s: CompanySettings) {
 }
 
 export async function getDefaultCompanyProfile(userId: string): Promise<CompanyProfileRow | null> {
+  if (!hasDatabase()) {
+    const file = `company_profile_${userId}.json`
+    return readDataJson<CompanyProfileRow | null>(file, null)
+  }
   await initDb()
   const sql = getDb()
   const rows = await sql`
@@ -84,6 +89,11 @@ export async function getDefaultCompanyProfile(userId: string): Promise<CompanyP
 }
 
 export async function countCompanyProfiles(userId: string): Promise<number> {
+  if (!hasDatabase()) {
+    const file = `company_profile_${userId}.json`
+    const p = readDataJson<CompanyProfileRow | null>(file, null)
+    return p ? 1 : 0
+  }
   await initDb()
   const sql = getDb()
   const rows = await sql`SELECT COUNT(*)::int AS cnt FROM company_profiles WHERE user_id = ${userId}`
@@ -91,6 +101,53 @@ export async function countCompanyProfiles(userId: string): Promise<number> {
 }
 
 export async function upsertDefaultCompanyProfile(userId: string, settings: CompanySettings): Promise<{ profile: CompanyProfileRow; created: boolean }> {
+  if (!hasDatabase()) {
+    const now = new Date().toISOString()
+    const file = `company_profile_${userId}.json`
+    const existing = readDataJson<CompanyProfileRow | null>(file, null)
+    const p = companySettingsToProfileInput(settings)
+
+    if (existing) {
+      const next: CompanyProfileRow = {
+        ...existing,
+        companyName: p.companyName,
+        bizNo: p.bizNo,
+        ceo: p.ceo,
+        contactName: p.contactName,
+        tel: p.tel,
+        addr: p.addr,
+        expenseRate: p.expenseRate,
+        profitRate: p.profitRate,
+        validDays: p.validDays,
+        paymentTerms: p.paymentTerms,
+        isDefault: true,
+        updatedAt: now,
+      }
+      writeDataJson(file, next)
+      return { profile: next, created: false }
+    }
+
+    const nextId = uid()
+    const next: CompanyProfileRow = {
+      id: nextId,
+      userId,
+      companyName: p.companyName,
+      bizNo: p.bizNo,
+      ceo: p.ceo,
+      contactName: p.contactName,
+      tel: p.tel,
+      addr: p.addr,
+      expenseRate: p.expenseRate,
+      profitRate: p.profitRate,
+      validDays: p.validDays,
+      paymentTerms: p.paymentTerms,
+      isDefault: true,
+      createdAt: now,
+      updatedAt: now,
+    }
+    writeDataJson(file, next)
+    return { profile: next, created: true }
+  }
   await initDb()
   const sql = getDb()
   const now = new Date().toISOString()

@@ -1,4 +1,4 @@
-import { getDb, initDb } from '@/lib/db/client'
+import { getDb, hasDatabase, initDb } from '@/lib/db/client'
 import { uid } from '@/lib/calc'
 import type { BillingCycle, PlanType } from '@/lib/plans'
 
@@ -25,6 +25,23 @@ function toBillingCycle(v: unknown): BillingCycle {
 }
 
 export async function getActiveSubscription(userId: string): Promise<SubscriptionRow | null> {
+  if (!hasDatabase()) {
+    // DBless(로컬/테스트)에서는 영구 FREE로 취급합니다.
+    const now = new Date().toISOString()
+    return {
+      id: `local_free_${userId}`,
+      userId,
+      planType: 'FREE',
+      billingCycle: null,
+      status: 'active',
+      startedAt: now,
+      expiresAt: null,
+      canceledAt: null,
+      stripeSubscriptionId: null,
+      createdAt: now,
+      updatedAt: now,
+    }
+  }
   await initDb()
   const sql = getDb()
   // 만료 처리: active인데 expires_at이 지난 경우 expired로 정리
@@ -61,6 +78,10 @@ export async function getActiveSubscription(userId: string): Promise<Subscriptio
 }
 
 export async function ensureFreeSubscription(userId: string): Promise<SubscriptionRow> {
+  if (!hasDatabase()) {
+    // getActiveSubscription에서 이미 처리하므로, 단일 호출 경로를 유지합니다.
+    return getActiveSubscription(userId) as unknown as SubscriptionRow
+  }
   await initDb()
   const existing = await getActiveSubscription(userId)
   if (existing) return existing
@@ -96,6 +117,10 @@ export async function setActiveSubscription(input: {
   expiresAt?: string | null
   stripeSubscriptionId?: string | null
 }): Promise<void> {
+  if (!hasDatabase()) {
+    // DBless 환경에서는 결제/플랜 상태가 운영될 수 없으므로 no-op 입니다.
+    return
+  }
   await initDb()
   const sql = getDb()
   const now = new Date().toISOString()
@@ -129,6 +154,7 @@ export async function setActiveSubscription(input: {
 }
 
 export async function getSubscriptionByStripeSubscriptionId(stripeSubscriptionId: string): Promise<SubscriptionRow | null> {
+  if (!hasDatabase()) return null
   await initDb()
   const sql = getDb()
   const rows = await sql`
@@ -157,6 +183,7 @@ export async function updateSubscriptionByStripeId(
   stripeSubscriptionId: string,
   updates: { expiresAt?: string | null; status?: SubscriptionRow['status']; canceledAt?: string | null }
 ): Promise<void> {
+  if (!hasDatabase()) return
   await initDb()
   const sql = getDb()
   const now = new Date().toISOString()
@@ -184,6 +211,7 @@ export async function updateSubscriptionByStripeId(
 }
 
 export async function expireSubscriptionByStripeId(stripeSubscriptionId: string): Promise<void> {
+  if (!hasDatabase()) return
   await initDb()
   const sql = getDb()
   const now = new Date().toISOString()
@@ -195,6 +223,7 @@ export async function expireSubscriptionByStripeId(stripeSubscriptionId: string)
 }
 
 export async function cancelActiveSubscription(userId: string): Promise<void> {
+  if (!hasDatabase()) return
   await initDb()
   const sql = getDb()
   const now = new Date().toISOString()
