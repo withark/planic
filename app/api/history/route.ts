@@ -25,7 +25,7 @@ export async function GET() {
           return t >= cutoff
         })
       : list
-    const parsed = HistoryListSchema.safeParse(list)
+    const parsed = HistoryListSchema.safeParse(filtered)
     if (!parsed.success) {
       return errorResponse(500, 'INVALID_HISTORY_DATA', '저장된 이력 데이터 형식이 올바르지 않습니다.', parsed.error.flatten())
     }

@@ -40,6 +40,17 @@ function fieldVal(v: unknown): string {
   return String(v).trim()
 }
 
+function detectTaskOrderStatus(rawSummary: string, parsed: TaskOrderStructuredSummary | null): {
+  label: string
+  tone: 'ok' | 'warn' | 'plain'
+} {
+  if (!rawSummary?.trim()) return { label: '업로드됨', tone: 'plain' }
+  const oneLine = typeof parsed?.oneLineSummary === 'string' ? parsed.oneLineSummary : ''
+  if (oneLine.includes('AI 요약 미적용')) return { label: '업로드됨 · 분석 생략', tone: 'warn' }
+  if (parsed) return { label: '업로드+파싱 성공 · 적용 준비', tone: 'ok' }
+  return { label: '업로드됨', tone: 'plain' }
+}
+
 export default function TaskOrderSummaryPage() {
   const [taskOrderRefs, setTaskOrderRefs] = useState<TaskOrderDoc[]>([])
   const [uploading, setUploading] = useState(false)
@@ -69,8 +80,12 @@ export default function TaskOrderSummaryPage() {
     const fd = new FormData()
     fd.append('file', file)
     try {
-      await apiFetch<null>('/api/task-order-references', { method: 'POST', body: fd })
-      showToast('과업지시서·기획안 요약이 저장되었습니다.')
+      const result = await apiFetch<{ warning?: string }>('/api/task-order-references', { method: 'POST', body: fd })
+      if (result?.warning) {
+        showToast(result.warning, 'err')
+      } else {
+        showToast('과업지시서·기획안 요약이 저장되었습니다.')
+      }
       const list = await apiFetch<TaskOrderDoc[]>('/api/task-order-references')
       setTaskOrderRefs(list)
     } catch (e) {
@@ -146,11 +161,25 @@ export default function TaskOrderSummaryPage() {
                 <ul className="space-y-3">
                   {parsedList.map(r => {
                     const s = r.structured
+                    const st = detectTaskOrderStatus(r.summary, s)
                     return (
                       <li key={r.id} className="rounded-2xl border border-gray-200 bg-white p-4">
                         <div className="flex items-start justify-between gap-3">
                           <div className="min-w-0">
-                            <div className="text-sm text-gray-900 font-semibold truncate">{r.filename}</div>
+                            <div className="flex items-center gap-2 flex-wrap">
+                              <div className="text-sm text-gray-900 font-semibold truncate">{r.filename}</div>
+                              <span
+                                className={
+                                  st.tone === 'ok'
+                                    ? 'inline-flex rounded-full border border-emerald-200 bg-emerald-50 px-2 py-0.5 text-[11px] font-semibold text-emerald-800'
+                                    : st.tone === 'warn'
+                                      ? 'inline-flex rounded-full border border-amber-200 bg-amber-50 px-2 py-0.5 text-[11px] font-semibold text-amber-800'
+                                      : 'inline-flex rounded-full border border-slate-200 bg-slate-50 px-2 py-0.5 text-[11px] font-semibold text-slate-700'
+                                }
+                              >
+                                {st.label}
+                              </span>
+                            </div>
                             <div className="text-xs text-gray-400 mt-1">{new Date(r.uploadedAt).toLocaleString('ko-KR')}</div>
                           </div>
                           <Btn

@@ -8,6 +8,19 @@ import { getUserIdFromSession } from '@/lib/auth-server'
 import { ensureFreeSubscription } from '@/lib/db/subscriptions-db'
 import { listScenarioRefs, insertScenarioRef, deleteScenarioRef } from '@/lib/db/scenario-refs-db'
 import { MAX_UPLOAD_BYTES, formatUploadLimitText } from '@/lib/upload-limits'
+import { toServerUserMessage } from '@/lib/errors/server-error-message'
+
+function isUpstreamCreditError(input: unknown): boolean {
+  const msg = input instanceof Error ? input.message : String(input || '')
+  const lowered = msg.toLowerCase()
+  return (
+    lowered.includes('credit balance is too low') ||
+    lowered.includes('insufficient credit') ||
+    lowered.includes('insufficient_quota') ||
+    lowered.includes('quota') ||
+    lowered.includes('billing')
+  )
+}
 
 export async function GET() {
   try {
@@ -51,7 +64,17 @@ export async function POST(req: NextRequest) {
       return errorResponse(400, 'EMPTY_FILE_TEXT', '파일에서 텍스트를 읽을 수 없습니다.')
     }
 
-    const summary = await summarizeScenarioRef(rawText, file.name)
+    let summary = ''
+    let warning: string | undefined
+    try {
+      summary = await summarizeScenarioRef(rawText, file.name)
+    } catch (aiErr) {
+      logError('scenario-references:POST:ai-analyze', aiErr)
+      summary = `${file.name} 업로드됨 (AI 요약 미적용)`
+      warning = isUpstreamCreditError(aiErr)
+        ? 'AI 크레딧 부족으로 자동 요약이 생략되었습니다. 파일은 업로드되었고, 크레딧 충전 후 다시 업로드하면 요약이 적용됩니다.'
+        : 'AI 요약에 실패해 기본 요약으로 저장했습니다.'
+    }
     const maxRaw = ext === 'pptx' || ext === 'pdf' ? 15000 : 8000
     await insertScenarioRef(userId, {
       filename: file.name,
@@ -59,10 +82,10 @@ export async function POST(req: NextRequest) {
       summary,
       rawText: rawText.slice(0, maxRaw),
     })
-    return okResponse({ ok: true, summary })
+    return okResponse({ ok: true, summary, warning })
   } catch (e) {
     logError('scenario-references:POST', e)
-    const msg = e instanceof Error ? e.message : '업로드 실패'
+    const msg = toServerUserMessage(e, '시나리오 참고자료 업로드에 실패했습니다.')
     return errorResponse(500, 'INTERNAL_ERROR', msg)
   }
 }

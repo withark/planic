@@ -8,6 +8,36 @@ import { getUserIdFromSession } from '@/lib/auth-server'
 import { ensureFreeSubscription } from '@/lib/db/subscriptions-db'
 import { insertReferenceDoc, listReferenceDocs, deleteReferenceDoc } from '@/lib/db/reference-docs-db'
 import { MAX_UPLOAD_BYTES, formatUploadLimitText } from '@/lib/upload-limits'
+import { toServerUserMessage } from '@/lib/errors/server-error-message'
+
+function buildFallbackSummary(filename: string, rawText: string): string {
+  const lines = (rawText || '')
+    .split(/\n+/)
+    .map((s) => s.trim())
+    .filter(Boolean)
+    .slice(0, 3)
+
+  return JSON.stringify({
+    namingRules: `${filename} 기반 기본 요약`,
+    categoryOrder: ['기본', '필수', '선택'],
+    unitPricingStyle: /원|₩/.test(rawText) ? '원 단위 표기' : '기본 단위 표기',
+    toneStyle: '실무형',
+    proposalPhraseStyle: '간결한 안내 문장',
+    oneLineSummary: lines.join(' / ') || `${filename} 업로드됨 (AI 요약 미적용)`,
+  })
+}
+
+function isUpstreamCreditError(input: unknown): boolean {
+  const msg = input instanceof Error ? input.message : String(input || '')
+  const lowered = msg.toLowerCase()
+  return (
+    lowered.includes('credit balance is too low') ||
+    lowered.includes('insufficient credit') ||
+    lowered.includes('insufficient_quota') ||
+    lowered.includes('quota') ||
+    lowered.includes('billing')
+  )
+}
 
 export async function GET() {
   try {
@@ -51,10 +81,24 @@ export async function POST(req: NextRequest) {
       return errorResponse(400, 'EMPTY_FILE_TEXT', '파일에서 텍스트를 읽을 수 없습니다.')
     }
 
-    const [summary, extracted] = await Promise.all([
-      summarizeReference(rawText, file.name),
-      extractPricesFromReference(rawText, file.name),
-    ])
+    let summary = ''
+    let extracted: { category: string; items: { name: string; spec: string; unit: string; price: number }[] }[] = []
+    let warning: string | undefined
+
+    try {
+      ;[summary, extracted] = await Promise.all([
+        summarizeReference(rawText, file.name),
+        extractPricesFromReference(rawText, file.name),
+      ])
+    } catch (aiErr) {
+      // AI 분석이 실패해도 파일 업로드 자체는 성공 처리(운영 연속성 보장)
+      logError('upload-reference:POST:ai-analyze', aiErr)
+      summary = buildFallbackSummary(file.name, rawText)
+      extracted = []
+      warning = isUpstreamCreditError(aiErr)
+        ? 'AI 크레딧 부족으로 자동 분석이 생략되었습니다. 파일은 업로드되었고, 크레딧 충전 후 다시 업로드하면 분석이 적용됩니다.'
+        : 'AI 분석에 실패해 기본 요약으로 저장했습니다.'
+    }
 
     await insertReferenceDoc(userId, {
       filename: file.name,
@@ -69,10 +113,11 @@ export async function POST(req: NextRequest) {
       summary,
       extractedPricesCount: extracted.length,
       extractedItemsCount: extracted.reduce((acc, c) => acc + (c.items?.length || 0), 0),
+      warning,
     })
   } catch (e) {
     logError('upload-reference:POST', e)
-    const msg = e instanceof Error ? e.message : '업로드 실패'
+    const msg = toServerUserMessage(e, '참고 자료 업로드에 실패했습니다.')
     return errorResponse(500, 'INTERNAL_ERROR', msg)
   }
 }

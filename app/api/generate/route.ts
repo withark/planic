@@ -13,6 +13,7 @@ import {
   executeGeneratePipeline,
   GeneratePipelineError,
 } from '@/lib/generation/execute-generate-pipeline'
+import { toServerUserMessage } from '@/lib/errors/server-error-message'
 
 const GenerateRequestSchema = z.object({
   eventName: z.string().min(1, '행사명을 입력해주세요.'),
@@ -126,7 +127,7 @@ export async function POST(req: NextRequest) {
             if (e instanceof GeneratePipelineError) {
               send({ type: 'error', code: e.code, message: e.message, status: e.httpStatus })
             } else {
-              const msg = e instanceof Error ? e.message : '견적서 생성에 실패했습니다.'
+              const msg = toServerUserMessage(e, '문서 생성에 실패했습니다.')
               send({ type: 'error', code: 'INTERNAL_ERROR', message: msg, status: 500 })
             }
           } finally {
@@ -153,7 +154,7 @@ export async function POST(req: NextRequest) {
     }
   } catch (e) {
     logError('generate', e)
-    const msg = e instanceof Error ? e.message : '견적서 생성에 실패했습니다.'
+    const msg = toServerUserMessage(e, '문서 생성에 실패했습니다.')
     const status = msg.includes('로그인') ? 401 : msg.includes('월') ? 403 : 500
     return errorResponse(status, 'INTERNAL_ERROR', msg)
   }

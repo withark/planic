@@ -1,6 +1,7 @@
 'use client'
 
 import { useCallback, useEffect, useMemo, useState } from 'react'
+import Link from 'next/link'
 import { GNB } from '@/components/GNB'
 import { Btn, Toast } from '@/components/ui'
 import type { ReferenceDoc } from '@/lib/types'
@@ -52,6 +53,15 @@ export default function ReferenceEstimatePage() {
     }
   }, [])
 
+  const getAnalysisStatus = useCallback((rawSummary: string) => {
+    const parsed = parseRefSummary(rawSummary)
+    const oneLine = typeof parsed?.oneLineSummary === 'string' ? parsed.oneLineSummary : ''
+    if (!rawSummary?.trim()) return { label: '업로드됨', tone: 'plain' as const }
+    if (oneLine.includes('AI 요약 미적용')) return { label: '업로드됨 · 분석 생략', tone: 'warn' as const }
+    if (parsed) return { label: '업로드+파싱 성공 · 적용 준비', tone: 'ok' as const }
+    return { label: '업로드됨', tone: 'plain' as const }
+  }, [parseRefSummary])
+
   const taskCheckFileSize = (file: File) => {
     if (file.size <= MAX_UPLOAD_BYTES) return true
     showToast(`파일이 너무 큽니다. ${formatUploadLimitText()} 이하로 업로드해 주세요.`, 'err')
@@ -79,10 +89,14 @@ export default function ReferenceEstimatePage() {
     const fd = new FormData()
     fd.append('file', file)
     try {
-      await apiFetch<unknown>('/api/upload-reference', { method: 'POST', body: fd as any })
+      const result = await apiFetch<{ warning?: string }>('/api/upload-reference', { method: 'POST', body: fd as any })
       const list = await apiFetch<ReferenceDoc[]>('/api/upload-reference')
       setRefs(list)
-      showToast('참고 견적서 업로드 완료!')
+      if (result?.warning) {
+        showToast(result.warning, 'err')
+      } else {
+        showToast('참고 견적서 업로드 완료!')
+      }
     } catch (e) {
       showToast(toUserMessage(e, '업로드에 실패했습니다.'), 'err')
     } finally {
@@ -139,6 +153,31 @@ export default function ReferenceEstimatePage() {
         </header>
 
         <div className="flex-1 overflow-y-auto p-6 space-y-6">
+          <section className="rounded-2xl border border-gray-100 bg-white p-5 shadow-card">
+            <div className="text-sm font-semibold text-gray-900">참고 자료 메뉴 안내</div>
+            <div className="text-xs text-gray-500 mt-1">업로드 목적에 맞는 메뉴를 선택해 주세요.</div>
+            <div className="mt-3 grid grid-cols-1 sm:grid-cols-3 gap-2">
+              <Link
+                href="/reference-estimate"
+                className="rounded-xl border border-primary-200 bg-primary-50 px-3 py-2 text-xs font-semibold text-primary-700"
+              >
+                견적 참고자료(현재)
+              </Link>
+              <Link
+                href="/task-order-summary"
+                className="rounded-xl border border-gray-200 bg-white px-3 py-2 text-xs font-semibold text-gray-700 hover:bg-gray-50"
+              >
+                과업지시서 / 기획안 요약
+              </Link>
+              <Link
+                href="/scenario-reference"
+                className="rounded-xl border border-gray-200 bg-white px-3 py-2 text-xs font-semibold text-gray-700 hover:bg-gray-50"
+              >
+                시나리오 참고자료 업로드
+              </Link>
+            </div>
+          </section>
+
           <section className="rounded-2xl border border-gray-100 bg-white p-5 shadow-card">
             <div className="flex items-start justify-between gap-4 flex-wrap">
               <div>
@@ -213,6 +252,22 @@ export default function ReferenceEstimatePage() {
                       <div className="min-w-0 flex-1">
                         <div className="flex items-center gap-2 flex-wrap">
                           <div className="text-sm font-semibold text-gray-900 truncate">{r.filename}</div>
+                          {(() => {
+                            const st = getAnalysisStatus(r.summary)
+                            return (
+                              <span
+                                className={
+                                  st.tone === 'ok'
+                                    ? 'inline-flex items-center rounded-full bg-emerald-50 text-emerald-800 border border-emerald-100 px-2 py-0.5 text-[11px] font-semibold'
+                                    : st.tone === 'warn'
+                                      ? 'inline-flex items-center rounded-full bg-amber-50 text-amber-800 border border-amber-200 px-2 py-0.5 text-[11px] font-semibold'
+                                      : 'inline-flex items-center rounded-full bg-slate-50 text-slate-600 border border-slate-200 px-2 py-0.5 text-[11px] font-semibold'
+                                }
+                              >
+                                {st.label}
+                              </span>
+                            )
+                          })()}
                           {r.isActive ? (
                             <span className="inline-flex items-center rounded-full bg-emerald-50 text-emerald-800 border border-emerald-100 px-2 py-0.5 text-[11px] font-semibold">
                               활성화됨

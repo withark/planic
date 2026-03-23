@@ -8,6 +8,44 @@ import { getUserIdFromSession } from '@/lib/auth-server'
 import { ensureFreeSubscription } from '@/lib/db/subscriptions-db'
 import { listTaskOrderRefs, insertTaskOrderRef, deleteTaskOrderRef } from '@/lib/db/task-order-refs-db'
 import { MAX_UPLOAD_BYTES, formatUploadLimitText } from '@/lib/upload-limits'
+import { toServerUserMessage } from '@/lib/errors/server-error-message'
+
+function fallbackTaskOrderSummary(filename: string, rawText: string): string {
+  const lines = (rawText || '')
+    .split(/\n+/)
+    .map((s) => s.trim())
+    .filter(Boolean)
+    .slice(0, 4)
+  return JSON.stringify(
+    {
+      projectTitle: filename,
+      orderingOrganization: '',
+      purpose: lines[0] || '',
+      mainScope: lines[1] || '',
+      eventRange: '',
+      timelineDuration: '',
+      deliverables: lines[2] || '',
+      requiredStaffing: '',
+      evaluationSelection: '',
+      restrictionsCautions: '',
+      oneLineSummary: lines.join(' / ') || `${filename} 업로드됨 (AI 요약 미적용)`,
+    },
+    null,
+    2,
+  )
+}
+
+function isUpstreamCreditError(input: unknown): boolean {
+  const msg = input instanceof Error ? input.message : String(input || '')
+  const lowered = msg.toLowerCase()
+  return (
+    lowered.includes('credit balance is too low') ||
+    lowered.includes('insufficient credit') ||
+    lowered.includes('insufficient_quota') ||
+    lowered.includes('quota') ||
+    lowered.includes('billing')
+  )
+}
 
 export async function GET() {
   try {
@@ -51,12 +89,18 @@ export async function POST(req: NextRequest) {
       return errorResponse(400, 'EMPTY_FILE_TEXT', '파일에서 텍스트를 읽을 수 없습니다.')
     }
 
-    const summary = await summarizeTaskOrderRef(rawText, file.name)
-    // 모델이 JSON만 반환하도록 지시하지만, 실제로는 실패할 수 있으므로 최소 검증합니다.
+    let summary = ''
+    let warning: string | undefined
     try {
+      summary = await summarizeTaskOrderRef(rawText, file.name)
+      // 모델이 JSON만 반환하도록 지시하지만, 실제로는 실패할 수 있으므로 최소 검증합니다.
       JSON.parse(summary)
-    } catch {
-      return errorResponse(500, 'INVALID_SUMMARY_FORMAT', '과업지시서 요약 포맷(JSON)이 올바르지 않습니다. 잠시 후 다시 시도해 주세요.')
+    } catch (aiErr) {
+      logError('task-order-references:POST:ai-analyze', aiErr)
+      summary = fallbackTaskOrderSummary(file.name, rawText)
+      warning = isUpstreamCreditError(aiErr)
+        ? 'AI 크레딧 부족으로 자동 요약이 생략되었습니다. 파일은 업로드되었고, 크레딧 충전 후 다시 업로드하면 요약이 정확해집니다.'
+        : 'AI 요약에 실패해 기본 요약으로 저장했습니다.'
     }
     await insertTaskOrderRef(userId, {
       filename: file.name,
@@ -64,10 +108,10 @@ export async function POST(req: NextRequest) {
       summary,
       rawText: rawText.slice(0, 5000),
     })
-    return okResponse({ ok: true, summary })
+    return okResponse({ ok: true, summary, warning })
   } catch (e) {
     logError('task-order-references:POST', e)
-    const msg = e instanceof Error ? e.message : '업로드 실패'
+    const msg = toServerUserMessage(e, '과업지시서 업로드에 실패했습니다.')
     return errorResponse(500, 'INTERNAL_ERROR', msg)
   }
 }

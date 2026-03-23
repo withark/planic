@@ -13,6 +13,7 @@ const PROTECTED_PREFIXES = [
   '/cue-sheet-generator',
   '/task-order-summary',
   '/reference-estimate',
+  '/scenario-reference',
   '/settings',
   '/history',
   '/prices',
