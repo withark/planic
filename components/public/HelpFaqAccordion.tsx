@@ -29,7 +29,7 @@ export function HelpFaqAccordion() {
   const [openIndex, setOpenIndex] = useState(0)
 
   return (
-    <section className="space-y-3">
+    <section className="space-y-2.5">
       {FAQ_ITEMS.map((item, index) => {
         const isOpen = openIndex === index
         return (
@@ -37,10 +37,10 @@ export function HelpFaqAccordion() {
             <button
               type="button"
               onClick={() => setOpenIndex(isOpen ? -1 : index)}
-              className="flex w-full items-center justify-between gap-4 px-5 py-4 text-left sm:px-6 sm:py-5"
+              className="flex w-full items-center justify-between gap-4 px-5 py-4 text-left"
               aria-expanded={isOpen}
             >
-              <span className="text-sm font-semibold text-slate-900 sm:text-base">{item.q}</span>
+              <span className="text-sm font-semibold text-slate-900 sm:text-[15px]">{item.q}</span>
               <span className={`text-slate-400 transition-transform ${isOpen ? 'rotate-180' : ''}`} aria-hidden="true">
                 <svg viewBox="0 0 20 20" className="h-5 w-5 fill-current">
                   <path d="M5.2 7.6a1 1 0 0 1 1.4 0L10 11l3.4-3.4a1 1 0 1 1 1.4 1.4l-4.1 4.1a1 1 0 0 1-1.4 0L5.2 9a1 1 0 0 1 0-1.4Z" />
@@ -48,7 +48,7 @@ export function HelpFaqAccordion() {
               </span>
             </button>
             {isOpen ? (
-              <div className="border-t border-slate-100 px-5 pb-5 pt-3 sm:px-6">
+              <div className="border-t border-slate-100 px-5 pb-5 pt-3">
                 <p className="text-sm leading-relaxed text-slate-600">{item.a}</p>
               </div>
             ) : null}

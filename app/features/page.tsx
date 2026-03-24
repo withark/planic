@@ -40,21 +40,21 @@ export default function FeaturesPage() {
 
   return (
     <PublicPageShell>
-      <article className="mx-auto max-w-4xl space-y-8">
+      <article className="mx-auto max-w-[860px] space-y-10">
         <header className="max-w-2xl">
-          <h1 className="text-[30px] font-extrabold tracking-tight text-slate-900 sm:text-[34px]">기능 소개</h1>
+          <h1 className="text-[28px] font-bold tracking-tight text-slate-900 sm:text-[32px]">기능 소개</h1>
           <p className="mt-3 text-sm leading-relaxed text-slate-600 sm:text-[15px]">
             플래닉은 행사 문서를 하나씩 빠르게 만드는 데 집중합니다. 시작은 단순하게, 결과는 실무에 맞게 정교화합니다.
           </p>
         </header>
 
-        <section className="grid grid-cols-1 gap-4 md:grid-cols-2">
+        <section className="grid grid-cols-1 gap-4 sm:grid-cols-2">
           {features.map((feature) => (
-            <article key={feature.title} className="rounded-2xl border border-slate-200 bg-white p-5 sm:p-6">
-              <div className="inline-flex h-9 w-9 items-center justify-center rounded-full bg-primary-50 text-sm font-bold text-primary-700">
+            <article key={feature.title} className="rounded-2xl border border-slate-200 bg-white p-5">
+              <div className="inline-flex h-8 w-8 items-center justify-center rounded-full bg-primary-50 text-xs font-bold text-primary-700">
                 {feature.icon}
               </div>
-              <h2 className="mt-4 text-lg font-bold tracking-tight text-slate-900">{feature.title}</h2>
+              <h2 className="mt-3 text-[17px] font-semibold tracking-tight text-slate-900">{feature.title}</h2>
               <p className="mt-2 text-sm leading-relaxed text-slate-600">{feature.description}</p>
               <p className="mt-3 rounded-lg bg-slate-50 px-3 py-2 text-xs text-slate-600">{feature.example}</p>
               <p className="mt-3 text-sm font-semibold text-primary-700">{feature.takeaway}</p>
@@ -62,8 +62,8 @@ export default function FeaturesPage() {
           ))}
         </section>
 
-        <section className="rounded-2xl border border-slate-200 bg-white p-5 sm:p-6">
-          <h2 className="text-lg font-bold text-slate-900">플래닉이 만들 수 있는 문서 종류</h2>
+        <section className="rounded-2xl border border-slate-200 bg-white p-5">
+          <h2 className="text-[17px] font-semibold text-slate-900">플래닉이 만들 수 있는 문서 종류</h2>
           <div className="mt-4 grid grid-cols-1 gap-3 sm:grid-cols-2">
             <div className="rounded-xl border border-slate-100 bg-slate-50 p-4">
               <p className="text-sm font-semibold text-slate-900">견적서</p>

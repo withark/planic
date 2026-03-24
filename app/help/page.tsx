@@ -10,20 +10,20 @@ export const metadata: Metadata = {
 export default function HelpPage() {
   return (
     <PublicPageShell>
-      <article className="mx-auto max-w-4xl space-y-8">
+      <article className="mx-auto max-w-[860px] space-y-8">
         <header className="max-w-2xl">
-          <h1 className="text-[30px] font-extrabold tracking-tight text-slate-900 sm:text-[34px]">도움말</h1>
+          <h1 className="text-[28px] font-bold tracking-tight text-slate-900 sm:text-[32px]">도움말</h1>
           <p className="mt-3 text-sm leading-relaxed text-slate-600 sm:text-[15px]">
             자주 묻는 질문을 먼저 확인해보세요. 추가 문의는 아래 대표 연락처로 빠르게 안내해드립니다.
           </p>
         </header>
 
-        <h2 className="text-lg font-bold text-slate-900">자주 묻는 질문</h2>
+        <h2 className="text-[17px] font-semibold text-slate-900">자주 묻는 질문</h2>
 
         <HelpFaqAccordion />
 
-        <section className="rounded-2xl border border-primary-100 bg-primary-50/40 p-5 sm:p-6">
-          <h2 className="text-lg font-bold text-slate-900">문의 안내</h2>
+        <section className="rounded-2xl border border-slate-200 bg-slate-50 p-5 sm:p-6">
+          <h2 className="text-[17px] font-semibold text-slate-900">문의 안내</h2>
           <p className="mt-2 text-sm text-slate-600">추가로 확인이 필요한 내용은 아래 정보로 문의해 주세요.</p>
           <dl className="mt-4 space-y-2 text-sm text-slate-700">
             <div className="flex flex-wrap gap-x-2">

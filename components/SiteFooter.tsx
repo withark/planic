@@ -10,8 +10,8 @@ type SiteFooterProps = {
  * 공통 사업자·약관 푸터 (랜딩, 약관 페이지 등)
  */
 export function SiteFooter({ compact = false }: SiteFooterProps) {
-  const pad = compact ? 'py-7 sm:py-8' : 'py-10 sm:py-12'
-  const textSize = compact ? 'text-[11px] sm:text-xs' : 'text-xs sm:text-sm'
+  const pad = compact ? 'py-8 sm:py-9' : 'py-10 sm:py-12'
+  const textSize = compact ? 'text-xs' : 'text-sm'
 
   return (
     <footer className="flex-shrink-0 border-t border-slate-100 bg-white">
@@ -34,9 +34,9 @@ export function SiteFooter({ compact = false }: SiteFooterProps) {
             </div>
           </nav>
 
-          <address className="mt-5 not-italic text-slate-600">
-            <p>(주)시냇가에심은나무</p>
-            <p>사업자번호: 438-81-01028 | 대표자: 이다윗</p>
+          <address className="mt-5 space-y-1 not-italic text-slate-600">
+            <p className="font-medium text-slate-700">(주)시냇가에심은나무</p>
+            <p>사업자번호: 438-81-01028 · 대표자: 이다윗</p>
             <p>주소: 광릉수목원로 600 A동</p>
             <p>
               대표 연락처:{' '}

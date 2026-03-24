@@ -97,9 +97,9 @@ function PlansContent() {
 
   return (
     <PublicPageShell>
-      <section className="mx-auto max-w-5xl">
+      <section className="mx-auto max-w-[960px]">
         <div className="mx-auto mb-8 max-w-3xl">
-          <h1 className="text-[30px] font-extrabold tracking-tight text-slate-900 sm:text-[34px]">요금제</h1>
+          <h1 className="text-[28px] font-bold tracking-tight text-slate-900 sm:text-[32px]">요금제</h1>
           <p className="mt-3 text-sm leading-relaxed text-slate-600 sm:text-[15px]">
             플래닉은 행사 문서 생성 흐름에 맞춘 플랜을 제공합니다. 월간/연간을 선택해 팀에 맞는 구성을 비교해보세요.
           </p>
@@ -128,14 +128,14 @@ function PlansContent() {
           </div>
         </div>
 
-        <div className="mx-auto mb-8 max-w-5xl rounded-2xl border border-slate-200 bg-slate-50 px-5 py-4 text-sm text-slate-600 sm:px-6">
-          <p className="font-semibold text-slate-900">안내</p>
+        <div className="mx-auto mb-8 max-w-5xl rounded-2xl border border-slate-200 bg-slate-50 px-5 py-4 text-sm text-slate-600">
+          <p className="font-semibold text-slate-900">요금제 안내</p>
           <p className="mt-1">
             연간 결제 선택 시 월간 대비 할인 혜택이 적용됩니다. 현재 플랜은 카드 상단에서 바로 확인할 수 있습니다.
           </p>
         </div>
 
-        <div className="mx-auto grid max-w-5xl grid-cols-1 gap-5 md:grid-cols-3">
+        <div className="mx-auto grid max-w-5xl grid-cols-1 gap-4 md:grid-cols-3">
           {cards.map((c) => {
             const isCurrent = currentPlan === c.plan
             const price = priceOf(c.plan)
@@ -144,7 +144,7 @@ function PlansContent() {
             return (
               <div
                 key={c.plan}
-                className={`flex flex-col rounded-2xl border-2 bg-white p-6 ${
+                className={`flex flex-col rounded-2xl border-2 bg-white p-5 ${
                   c.highlight ? 'border-primary-500 shadow-lg shadow-primary-500/10 ring-2 ring-primary-500/10' : 'border-slate-200'
                 }`}
               >
