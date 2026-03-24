@@ -1,19 +1,31 @@
 import Link from 'next/link'
 
+type SiteFooterProps = {
+  /** 랜딩 등에서 여백·부가 카피 축소 */
+  compact?: boolean
+}
+
 /**
  * 공통 사업자·약관 푸터 (랜딩, 약관 페이지 등)
  */
-export function SiteFooter() {
+export function SiteFooter({ compact = false }: SiteFooterProps) {
+  const pad = compact ? 'py-5 sm:py-6' : 'py-8 sm:py-9'
+  const gap = compact ? 'gap-4 sm:gap-8' : 'gap-6 sm:gap-10'
+  const titleSpace = compact ? 'space-y-2' : 'space-y-4'
+  const tagline = !compact
+
   return (
     <footer className="flex-shrink-0 border-t border-slate-100 bg-white">
-      <div className="mx-auto max-w-5xl px-4 sm:px-6 py-8 sm:py-9">
-        <div className="flex flex-col gap-6 sm:flex-row sm:items-start sm:justify-between sm:gap-10">
-          <div className="min-w-0 space-y-4 text-left">
+      <div className={`mx-auto max-w-5xl px-4 sm:px-6 ${pad}`}>
+        <div className={`flex flex-col sm:flex-row sm:items-start sm:justify-between ${gap}`}>
+          <div className={`min-w-0 ${titleSpace} text-left`}>
             <div>
               <p className="text-sm font-semibold text-slate-900 tracking-tight">플래닉 Planic</p>
-              <p className="mt-1 text-xs text-slate-500 leading-relaxed">
-                행사 문서를 함께 기획하는 파트너
-              </p>
+              {tagline && (
+                <p className="mt-1 text-xs text-slate-500 leading-relaxed">
+                  행사 문서를 함께 기획하는 파트너
+                </p>
+              )}
             </div>
             <address className="not-italic space-y-1.5 text-[11px] sm:text-xs text-slate-600 leading-relaxed">
               <p className="text-slate-700 font-medium">(주)시냇가에심은나무</p>
@@ -36,7 +48,7 @@ export function SiteFooter() {
             </address>
           </div>
           <nav
-            className="flex flex-row sm:flex-col flex-wrap gap-x-5 gap-y-2 sm:items-end sm:gap-2 text-xs sm:text-sm shrink-0"
+            className={`flex flex-row sm:flex-col flex-wrap gap-x-5 gap-y-2 sm:items-end sm:gap-2 shrink-0 ${compact ? 'text-[11px] sm:text-xs' : 'text-xs sm:text-sm'}`}
             aria-label="약관 및 정책"
           >
             <Link href="/terms" className="font-medium text-slate-700 hover:text-primary-600 transition-colors">
