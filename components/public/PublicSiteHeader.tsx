@@ -10,10 +10,10 @@ type PublicSiteHeaderProps = {
 }
 
 const NAV_LINKS = [
-  { href: '/features', label: '기능 소개', activePrefixes: ['/features'] },
-  { href: '/guide', label: '사용 방법', activePrefixes: ['/guide', '/how-it-works'] },
-  { href: '/help', label: '도움말', activePrefixes: ['/help', '/support'] },
-  { href: '/plans', label: '요금제', activePrefixes: ['/plans'] },
+  { href: '/features', label: '기능 소개', activePaths: ['/features'] },
+  { href: '/guide', label: '사용 방법', activePaths: ['/guide', '/how-it-works'] },
+  { href: '/help', label: '도움말', activePaths: ['/help', '/support'] },
+  { href: '/plans', label: '요금제', activePaths: ['/plans'] },
 ] as const
 
 export function PublicSiteHeader({ loginHref = '/auth', loginLabel = '로그인' }: PublicSiteHeaderProps) {
@@ -30,7 +30,7 @@ export function PublicSiteHeader({ loginHref = '/auth', loginLabel = '로그인'
           aria-label="공개 사이트 메뉴"
         >
           {NAV_LINKS.map((item) => {
-            const isActive = item.activePrefixes.some((prefix) => pathname === prefix || pathname.startsWith(`${prefix}/`))
+            const isActive = item.activePaths.includes(pathname)
             return (
             <Link
               key={item.href}
