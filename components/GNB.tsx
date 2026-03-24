@@ -103,7 +103,7 @@ function SidebarContent({ onNavigate }: { onNavigate?: () => void }) {
           className="flex flex-col gap-1 group"
         >
           <EvQuoteLogo showText size="sm" className="group-hover:[&_svg]:text-primary-600 group-hover:[&_span]:text-primary-600 transition-colors" />
-          <span className="text-[11px] text-slate-500 tracking-wide">이벤트 문서 생성 도구</span>
+          <span className="text-[11px] text-slate-500 tracking-wide leading-snug">행사 문서 기획 파트너</span>
         </Link>
       </div>
 

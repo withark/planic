@@ -5,7 +5,10 @@ import { useSearchParams } from 'next/navigation'
 import { GNB } from '@/components/GNB'
 import { apiFetch } from '@/lib/api/client'
 import { toUserMessage } from '@/lib/errors/toUserMessage'
+import { MARKETING_DOCUMENTS } from '@/lib/marketing-documents'
 import type { PlanLimits, PlanType } from '@/lib/plans'
+
+const DASH_DOC_GROUPS = ['견적·금액', '기획·제안', '운영·정리', '스타일·참고'] as const
 
 function ArrowIntoIcon({ className }: { className?: string }) {
   return (
@@ -26,50 +29,6 @@ function ArrowIntoIcon({ className }: { className?: string }) {
     </svg>
   )
 }
-
-const DOCUMENT_CARDS: {
-  href: string
-  title: string
-  desc: string
-  group: '견적·금액' | '기획·제안' | '운영·정리'
-}[] = [
-  {
-    href: '/estimate-generator',
-    title: '견적서',
-    desc: '단가표·기업정보를 반영하고, 과업지시서·기존 견적과 연결해 항목·금액이 갖춰진 견적서를 만듭니다.',
-    group: '견적·금액',
-  },
-  {
-    href: '/planning-generator',
-    title: '기획안',
-    desc: '콘셉트·진행 구조·투입 인력 등 행사를 설명하는 기획 문서 초안을 만듭니다.',
-    group: '기획·제안',
-  },
-  {
-    href: '/program-proposal-generator',
-    title: '프로그램 제안서',
-    desc: '프로그램 구성·타임라인·운영 포인트가 담긴 제안 형태로 정리합니다.',
-    group: '기획·제안',
-  },
-  {
-    href: '/scenario-generator',
-    title: '시나리오',
-    desc: '행사 진행·연출·촬영 흐름을 순서에 맞게 담은 시나리오 문서를 만듭니다.',
-    group: '기획·제안',
-  },
-  {
-    href: '/cue-sheet-generator',
-    title: '큐시트',
-    desc: '시나리오·프로그램·타임테이블을 이어 붙이거나 주제만으로 현장 운영 표를 만듭니다.',
-    group: '운영·정리',
-  },
-  {
-    href: '/task-order-summary',
-    title: '과업지시서 요약',
-    desc: '긴 과업지시서를 요약해 견적·기획 생성 시 그대로 활용할 수 있게 합니다.',
-    group: '운영·정리',
-  },
-]
 
 type MeResponse = {
   user: { id: string; email: string | null; name: string | null; image: string | null }
@@ -218,8 +177,8 @@ function DashboardContent() {
             </div>
 
             <div className="mt-5 space-y-6">
-            {(['견적·금액', '기획·제안', '운영·정리'] as const).map((group) => {
-              const items = DOCUMENT_CARDS.filter((c) => c.group === group)
+            {DASH_DOC_GROUPS.map((group) => {
+              const items = MARKETING_DOCUMENTS.filter((c) => c.category === group)
               if (items.length === 0) return null
               return (
                 <div key={group}>

@@ -4,51 +4,24 @@ import { EvQuoteLogo } from '@/components/EvQuoteLogo'
 import { StartNowLink } from '@/components/StartNowLink'
 import { authOptions } from '@/lib/auth'
 import { buildStartHref } from '@/lib/auth-redirect'
+import { LANDING_PROCESS_STEPS, MARKETING_DOCUMENTS } from '@/lib/marketing-documents'
 
 export const dynamic = 'force-dynamic'
 
-const INTRO_FEATURE_BLOCKS = [
-  {
-    title: '견적서',
-    lead: '저장해 둔 단가표와 회사 정보를 반영해, 항목·금액이 갖춰진 견적서가 나옵니다.',
-    bullets: [
-      '주제·목표만 넣어도 초안 생성. 과업지시서나 기존 견적을 선택하면 맥락을 살려 더 정확하게 짭니다.',
-      '구분·품목·수량·단가 구조로 정리되어, 인건비·경비·마진 등 견적 실무에 맞게 다듬을 수 있습니다.',
-      '완성본은 Excel·PDF로 내보내 바로 제출·검토에 쓸 수 있습니다.',
-    ],
-  },
-  {
-    title: '제안·타임테이블',
-    lead: '기획안·프로그램 제안·진행 일정까지, 행사를 설명하는 문서 세트를 한 번에 잡습니다.',
-    bullets: [
-      '기획 문서·프로그램 제안·시나리오 등 도구가 나뉘어 있어, 단계별로 쌓아가며 수정할 수 있습니다.',
-      '견적·과업지시서와 연결하면 같은 행사 정보를 기준으로 콘셉트·프로그램·타임라인·투입 인력이 정리됩니다.',
-      '다음 단계인 시나리오·큐시트로 자연스럽게 이어지도록 설계된 흐름입니다.',
-    ],
-  },
-  {
-    title: '큐시트',
-    lead: '현장에서 돌릴 운영 표를, 주제만으로도 만들고 이미 만든 문서를 이어 붙여서도 만듭니다.',
-    bullets: [
-      '시나리오·프로그램 제안·타임테이블 등 저장된 문서를 소스로 선택하면 그 흐름이 큐시트에 반영됩니다.',
-      '촬영·연출·음향 등 순서와 역할이 잡힌 운영표 형태로 정리되어, 문서 작업자 없이도 리허설·본행사에 바로 쓸 수 있습니다.',
-      '생성 후에도 편집·저장하고, Excel·PDF로 내보낼 수 있습니다.',
-    ],
-  },
-] as const
+const CATEGORY_ORDER: readonly string[] = ['견적·금액', '기획·제안', '운영·정리', '스타일·참고']
 
 export default async function IntroPage() {
   const session = await getServerSession(authOptions)
   const initialStartHref = buildStartHref({ isAuthenticated: !!session, targetPath: '/dashboard' })
 
   return (
-    <div className="min-h-screen flex flex-col bg-gradient-to-b from-slate-50 via-white to-primary-50/30">
-      <header className="flex-shrink-0 flex items-center justify-between px-6 py-4">
+    <div className="min-h-screen flex flex-col bg-[#fafbfc]">
+      <header className="flex-shrink-0 flex items-center justify-between px-5 sm:px-8 py-4 border-b border-slate-100/90 bg-white/80 backdrop-blur-sm">
         <Link href="/" className="flex items-center gap-2 text-gray-800 hover:text-primary-600 transition-colors">
           <EvQuoteLogo showText size="md" />
         </Link>
-        <nav className="flex items-center gap-4">
-          <Link href="/plans" className="text-sm font-medium text-gray-600 hover:text-primary-600 transition-colors">
+        <nav className="flex items-center gap-4 sm:gap-6">
+          <Link href="/plans" className="text-sm font-medium text-slate-600 hover:text-primary-600 transition-colors">
             플랜
           </Link>
           <StartNowLink
@@ -59,61 +32,133 @@ export default async function IntroPage() {
         </nav>
       </header>
 
-      <main className="flex-1 flex flex-col items-center justify-center px-6 py-16 text-center">
-        <div className="max-w-2xl mx-auto space-y-8">
-          <EvQuoteLogo showText size="lg" className="justify-center mx-auto" />
-          <p className="text-slate-500 text-lg leading-relaxed">
-            행사 문서의 모든 것, 플래닉이 함께 기획하고 만듭니다.
-            <br />
-            <span className="text-gray-700 font-medium">AI가 견적·제안·큐시트까지 문서별로 완성합니다.</span>
+      <main className="flex-1 w-full max-w-5xl mx-auto px-5 sm:px-8 pb-20">
+        {/* Hero — Blbi 스타일: 태그라인 · 큰 헤드라인 · 보조 · 단일 CTA */}
+        <section className="pt-14 sm:pt-20 pb-16 text-center">
+          <p className="text-primary-600 text-xs sm:text-sm font-semibold tracking-wide uppercase">
+            Partner for your event documents
           </p>
-          <div className="flex flex-col sm:flex-row items-center justify-center gap-4 pt-4">
-            <Link
-              href="/plans"
-              className="w-full sm:w-auto inline-flex items-center justify-center px-6 py-3.5 rounded-xl text-sm font-semibold bg-primary-600 text-white hover:bg-primary-700 transition-colors shadow-lg shadow-primary-500/25"
-            >
-              플랜 보기
-            </Link>
+          <h1 className="mt-4 text-3xl sm:text-4xl md:text-[2.5rem] font-bold text-gray-900 tracking-tight leading-[1.2]">
+            당신의 행사 문서를 함께 기획하는 파트너,
+            <br className="hidden sm:block" /> 플래닉입니다
+          </h1>
+          <p className="mt-5 text-base sm:text-lg text-slate-600 max-w-2xl mx-auto leading-relaxed">
+            주제와 과업만 알려 주면 견적서부터 기획·제안·시나리오·큐시트까지 AI가 문서별로 완성합니다.
+            <span className="text-slate-500"> 별도 기획자 없이도 한 서비스에서 이어집니다.</span>
+          </p>
+          <div className="mt-10 flex flex-col sm:flex-row items-center justify-center gap-3 sm:gap-4">
             <StartNowLink
               variant="cta"
-              className="w-full sm:w-auto inline-flex items-center justify-center px-6 py-3.5 rounded-xl text-sm font-semibold border-2 border-primary-200 text-primary-700 bg-white hover:bg-primary-50 hover:border-primary-300 transition-colors"
+              className="w-full sm:w-auto inline-flex items-center justify-center gap-2 px-8 py-4 rounded-2xl text-base font-semibold bg-primary-600 text-white hover:bg-primary-700 transition-colors shadow-lg shadow-primary-600/25"
               initialHref={initialStartHref}
             >
-              바로 시작하기
+              문서 만들러 가기
+              <span aria-hidden>→</span>
             </StartNowLink>
+            <Link
+              href="#documents"
+              className="w-full sm:w-auto inline-flex items-center justify-center px-6 py-3.5 rounded-2xl text-sm font-semibold text-slate-700 border border-slate-200 bg-white hover:bg-slate-50 transition-colors"
+            >
+              만들 수 있는 문서 전체
+            </Link>
           </div>
-        </div>
+          <p className="mt-6 text-xs text-slate-400">로그인 후 홈(대시보드)에서 바로 문서 생성을 시작할 수 있어요.</p>
+        </section>
 
-        <section className="mt-24 w-full max-w-6xl mx-auto px-0 sm:px-0">
-          <div className="text-center mb-10 max-w-2xl mx-auto px-1">
-            <h2 className="text-xl sm:text-2xl font-semibold tracking-tight text-gray-900">
-              견적부터 현장 운영표까지, 한 서비스에서
-            </h2>
-            <p className="mt-3 text-sm sm:text-[15px] text-slate-600 leading-relaxed">
-              별도 기획자·문서 담당 없이도 단가·과업 내용을 반영한 견적, 기획·제안·일정, 현장 큐시트까지 이어지는
-              문서 워크플로를 플래닉 하나로 갖출 수 있습니다.
+        {/* 프로세스 — 3개 제한 없이 단계별 아코디언 */}
+        <section id="process" className="border-t border-slate-100 pt-16">
+          <div className="text-center max-w-2xl mx-auto mb-10">
+            <h2 className="text-xl sm:text-2xl font-bold text-gray-900 tracking-tight">플래닉이 해 드리는 일</h2>
+            <p className="mt-2 text-sm sm:text-[15px] text-slate-600">
+              입력부터 현장 운영표·내보내기까지, 단계마다 무엇이 가능한지 펼쳐 보세요.
             </p>
           </div>
-          <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 lg:gap-8 text-left">
-            {INTRO_FEATURE_BLOCKS.map((item) => (
-              <div
-                key={item.title}
-                className="flex flex-col rounded-2xl bg-white/90 border border-slate-100/90 shadow-sm p-6 sm:p-7 hover:border-primary-100/80 hover:shadow-md transition-shadow"
+          <div className="space-y-3 max-w-3xl mx-auto">
+            {LANDING_PROCESS_STEPS.map((step, i) => (
+              <details
+                key={step.title}
+                className="group rounded-2xl border border-slate-100 bg-white shadow-sm hover:shadow-md transition-shadow open:shadow-md open:border-primary-100"
               >
-                <h3 className="text-lg font-semibold text-gray-900">{item.title}</h3>
-                <p className="mt-3 text-sm text-slate-600 leading-relaxed">{item.lead}</p>
-                <ul className="mt-4 space-y-2.5 text-sm text-slate-600 leading-relaxed list-disc pl-[1.15rem] marker:text-primary-400">
-                  {item.bullets.map((line, i) => (
-                    <li key={`${item.title}-${i}`}>{line}</li>
-                  ))}
-                </ul>
-              </div>
+                <summary className="flex cursor-pointer list-none items-center gap-4 px-5 py-4 sm:px-6 sm:py-5 [&::-webkit-details-marker]:hidden">
+                  <span className="flex h-10 w-10 flex-shrink-0 items-center justify-center rounded-xl bg-primary-50 text-sm font-bold text-primary-700 border border-primary-100/80">
+                    {i + 1}
+                  </span>
+                  <div className="min-w-0 flex-1 text-left">
+                    <p className="font-semibold text-gray-900">{step.title}</p>
+                    <p className="mt-1 text-sm text-slate-600 leading-snug">{step.summary}</p>
+                  </div>
+                  <span className="text-slate-400 group-open:rotate-180 transition-transform flex-shrink-0" aria-hidden>
+                    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                      <path d="M6 9l6 6 6-6" strokeLinecap="round" strokeLinejoin="round" />
+                    </svg>
+                  </span>
+                </summary>
+                <div className="px-5 pb-5 sm:px-6 sm:pb-6 pt-0 border-t border-slate-50">
+                  <p className="pt-4 text-sm text-slate-600 leading-relaxed pl-0 sm:pl-[3.5rem]">{step.detail}</p>
+                </div>
+              </details>
             ))}
+          </div>
+        </section>
+
+        {/* 문서 종류 — 7종 전부 노출 */}
+        <section id="documents" className="border-t border-slate-100 pt-16 scroll-mt-24">
+          <div className="text-center max-w-2xl mx-auto mb-10">
+            <h2 className="text-xl sm:text-2xl font-bold text-gray-900 tracking-tight">만들 수 있는 문서</h2>
+            <p className="mt-2 text-sm sm:text-[15px] text-slate-600">
+              견적·기획·현장 운영까지 도구별로 나뉘어 있어, 필요한 것만 골라 쓸 수 있습니다.
+            </p>
+          </div>
+
+          <div className="space-y-10">
+            {CATEGORY_ORDER.map((cat) => {
+              const items = MARKETING_DOCUMENTS.filter((d) => d.category === cat)
+              if (items.length === 0) return null
+              return (
+                <div key={cat}>
+                  <p className="text-[11px] font-semibold uppercase tracking-wider text-slate-400 mb-4">{cat}</p>
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                    {items.map((doc) => (
+                      <Link
+                        key={doc.href}
+                        href={doc.href}
+                        className="group flex flex-col rounded-2xl border border-slate-100 bg-white p-5 sm:p-6 shadow-sm hover:shadow-md hover:border-primary-200/80 transition-all text-left"
+                      >
+                        <span className="text-base font-bold text-gray-900 group-hover:text-primary-800 transition-colors">
+                          {doc.title}
+                        </span>
+                        <p className="mt-2 text-sm text-slate-600 leading-relaxed flex-1">{doc.desc}</p>
+                        <span className="mt-4 text-xs font-semibold text-primary-600 group-hover:text-primary-700">
+                          열기 →
+                        </span>
+                      </Link>
+                    ))}
+                  </div>
+                </div>
+              )
+            })}
+          </div>
+
+          <div className="mt-12 rounded-2xl bg-gradient-to-br from-primary-50/80 to-slate-50 border border-primary-100/60 px-6 py-8 text-center">
+            <p className="text-sm font-semibold text-gray-900">한곳에서 문서 만들기 메뉴로도 이용할 수 있어요</p>
+            <p className="mt-1 text-sm text-slate-600">로그인 후 사이드바의 「문서 만들기」에서 동일한 항목을 선택할 수 있습니다.</p>
+            <div className="mt-5 flex flex-col sm:flex-row items-center justify-center gap-3">
+              <StartNowLink
+                variant="cta"
+                className="inline-flex items-center justify-center px-6 py-3 rounded-xl text-sm font-semibold bg-primary-600 text-white hover:bg-primary-700 transition-colors"
+                initialHref={initialStartHref}
+              >
+                지금 시작하기
+              </StartNowLink>
+              <Link href="/plans" className="text-sm font-semibold text-primary-700 hover:text-primary-800 underline underline-offset-2">
+                플랜·요금 보기
+              </Link>
+            </div>
           </div>
         </section>
       </main>
 
-      <footer className="flex-shrink-0 py-8 px-6 border-t border-slate-100/90 text-center text-xs text-slate-400 space-y-3">
+      <footer className="flex-shrink-0 py-8 px-6 border-t border-slate-100 bg-white text-center text-xs text-slate-400 space-y-3">
         <p className="text-slate-500 font-medium tracking-tight">
           플래닉 Planic — 행사 문서를 함께 기획하는 파트너
         </p>
