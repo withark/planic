@@ -7,6 +7,36 @@ import { buildStartHref } from '@/lib/auth-redirect'
 
 export const dynamic = 'force-dynamic'
 
+const INTRO_FEATURE_BLOCKS = [
+  {
+    title: '견적서',
+    lead: '저장해 둔 단가표와 회사 정보를 반영해, 항목·금액이 갖춰진 견적서가 나옵니다.',
+    bullets: [
+      '주제·목표만 넣어도 초안 생성. 과업지시서나 기존 견적을 선택하면 맥락을 살려 더 정확하게 짭니다.',
+      '구분·품목·수량·단가 구조로 정리되어, 인건비·경비·마진 등 견적 실무에 맞게 다듬을 수 있습니다.',
+      '완성본은 Excel·PDF로 내보내 바로 제출·검토에 쓸 수 있습니다.',
+    ],
+  },
+  {
+    title: '제안·타임테이블',
+    lead: '기획안·프로그램 제안·진행 일정까지, 행사를 설명하는 문서 세트를 한 번에 잡습니다.',
+    bullets: [
+      '기획 문서·프로그램 제안·시나리오 등 도구가 나뉘어 있어, 단계별로 쌓아가며 수정할 수 있습니다.',
+      '견적·과업지시서와 연결하면 같은 행사 정보를 기준으로 콘셉트·프로그램·타임라인·투입 인력이 정리됩니다.',
+      '다음 단계인 시나리오·큐시트로 자연스럽게 이어지도록 설계된 흐름입니다.',
+    ],
+  },
+  {
+    title: '큐시트',
+    lead: '현장에서 돌릴 운영 표를, 주제만으로도 만들고 이미 만든 문서를 이어 붙여서도 만듭니다.',
+    bullets: [
+      '시나리오·프로그램 제안·타임테이블 등 저장된 문서를 소스로 선택하면 그 흐름이 큐시트에 반영됩니다.',
+      '촬영·연출·음향 등 순서와 역할이 잡힌 운영표 형태로 정리되어, 문서 작업자 없이도 리허설·본행사에 바로 쓸 수 있습니다.',
+      '생성 후에도 편집·저장하고, Excel·PDF로 내보낼 수 있습니다.',
+    ],
+  },
+] as const
+
 export default async function IntroPage() {
   const session = await getServerSession(authOptions)
   const initialStartHref = buildStartHref({ isAuthenticated: !!session, targetPath: '/estimate-generator' })
@@ -54,17 +84,32 @@ export default async function IntroPage() {
           </div>
         </div>
 
-        <section className="mt-24 grid grid-cols-1 sm:grid-cols-3 gap-8 max-w-3xl mx-auto text-left">
-          {[
-            { title: '견적서', desc: '단가 반영·구분별 항목으로 깔끔한 견적서 자동 작성' },
-            { title: '제안·타임테이블', desc: '진행 일정과 투입 인력까지 한 번에 구성' },
-            { title: '큐시트', desc: '참고 샘플을 올려두고 형식에 맞춰 활용' },
-          ].map((item) => (
-            <div key={item.title} className="p-4 rounded-2xl bg-white/80 border border-slate-100 shadow-sm">
-              <h3 className="font-semibold text-gray-800 mb-1">{item.title}</h3>
-              <p className="text-sm text-slate-500">{item.desc}</p>
-            </div>
-          ))}
+        <section className="mt-24 w-full max-w-6xl mx-auto px-0 sm:px-0">
+          <div className="text-center mb-10 max-w-2xl mx-auto px-1">
+            <h2 className="text-xl sm:text-2xl font-semibold tracking-tight text-gray-900">
+              견적부터 현장 운영표까지, 한 서비스에서
+            </h2>
+            <p className="mt-3 text-sm sm:text-[15px] text-slate-600 leading-relaxed">
+              별도 기획자·문서 담당 없이도 단가·과업 내용을 반영한 견적, 기획·제안·일정, 현장 큐시트까지 이어지는
+              문서 워크플로를 플래닉 하나로 갖출 수 있습니다.
+            </p>
+          </div>
+          <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 lg:gap-8 text-left">
+            {INTRO_FEATURE_BLOCKS.map((item) => (
+              <div
+                key={item.title}
+                className="flex flex-col rounded-2xl bg-white/90 border border-slate-100/90 shadow-sm p-6 sm:p-7 hover:border-primary-100/80 hover:shadow-md transition-shadow"
+              >
+                <h3 className="text-lg font-semibold text-gray-900">{item.title}</h3>
+                <p className="mt-3 text-sm text-slate-600 leading-relaxed">{item.lead}</p>
+                <ul className="mt-4 space-y-2.5 text-sm text-slate-600 leading-relaxed list-disc pl-[1.15rem] marker:text-primary-400">
+                  {item.bullets.map((line, i) => (
+                    <li key={`${item.title}-${i}`}>{line}</li>
+                  ))}
+                </ul>
+              </div>
+            ))}
+          </div>
         </section>
       </main>
 
