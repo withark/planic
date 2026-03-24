@@ -94,20 +94,17 @@ export default async function IntroPage() {
       </header>
 
       <main className="flex-1 w-full bg-[#fafbfc]">
-        {/* 히어로 CTA — 문구·버튼 스타일 기존 랜딩 톤 유지 */}
-        <section className="max-w-5xl mx-auto px-5 sm:px-8 pt-12 sm:pt-16 pb-12 text-center border-b border-slate-100/80">
-          <p className="text-primary-600 text-xs sm:text-sm font-semibold tracking-wide uppercase">
+        {/* 히어로 CTA — 버튼 문구·스타일만 유지(본문은 짧은 헤드라인) */}
+        <section className="max-w-5xl mx-auto px-5 sm:px-8 pt-12 sm:pt-16 pb-10 text-center border-b border-slate-100/80">
+          <p className="text-primary-600 text-xs font-semibold tracking-wide uppercase">
             Partner for your event documents
           </p>
-          <h1 className="mt-4 text-3xl sm:text-4xl md:text-[2.5rem] font-bold text-gray-900 tracking-tight leading-[1.2]">
-            당신의 행사 문서를 함께 기획하는 파트너,
-            <br className="hidden sm:block" /> 플래닉입니다
+          <h1 className="mt-3 text-2xl sm:text-3xl md:text-4xl font-bold text-gray-900 tracking-tight leading-snug">
+            주제와 과업만 알려 주세요.
+            <br />
+            나머지 문서는 플래닉이 이어 붙입니다.
           </h1>
-          <p className="mt-5 text-base sm:text-lg text-slate-600 max-w-2xl mx-auto leading-relaxed">
-            주제와 과업만 알려 주면 견적서부터 기획·제안·시나리오·큐시트까지 AI가 문서별로 완성합니다.
-            <span className="text-slate-500"> 별도 기획자 없이도 한 서비스에서 이어집니다.</span>
-          </p>
-          <div className="mt-10 flex flex-col sm:flex-row items-center justify-center gap-4">
+          <div className="mt-8 flex flex-col sm:flex-row items-center justify-center gap-3 sm:gap-4">
             <StartNowLink
               variant="cta"
               className="w-full sm:w-auto inline-flex items-center justify-center gap-2 px-6 py-3.5 rounded-xl text-sm font-semibold bg-primary-600 text-white hover:bg-primary-700 transition-colors shadow-lg shadow-primary-500/25"
@@ -123,7 +120,6 @@ export default async function IntroPage() {
               만들 수 있는 문서 전체
             </Link>
           </div>
-          <p className="mt-6 text-xs text-slate-400">로그인 후 홈(대시보드)에서 바로 문서 생성을 시작할 수 있어요.</p>
         </section>
 
         {/* 기능 소개 */}
