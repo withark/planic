@@ -13,21 +13,23 @@ export async function MainPageContent() {
 
   return (
     <PublicPageShell loginHref={loginHref} loginLabel={loginLabel}>
-      <section className="mx-auto max-w-3xl pt-3 text-center sm:pt-5">
-        <p className="text-xs font-semibold uppercase tracking-[0.16em] text-primary-700">행사 문서 AI 도구</p>
-        <h1 className="mt-5 text-4xl font-extrabold leading-[1.16] tracking-tight text-slate-900 sm:text-[54px]">
-          행사 문서,
+      <section className="mx-auto mt-1 w-full max-w-[980px] rounded-[28px] bg-slate-100/70 px-6 pb-16 pt-16 text-center sm:px-10 sm:pt-20">
+        <p className="text-[11px] font-semibold tracking-[0.1em] text-primary-600">행사 문서 생성을 위한 파트너</p>
+        <h1 className="mt-5 text-[30px] font-bold leading-[1.3] tracking-tight text-slate-900 sm:text-[42px]">
+          행사 문서 준비를 더 빠르게,
           <br />
-          하나씩 빠르게 만드세요
+          플래닉과 함께 시작하세요
         </h1>
-        <p className="mx-auto mt-5 max-w-xl text-sm leading-relaxed text-slate-500 sm:text-[15px]">
-          주제만 입력해도 시작 가능하고, 기존 문서를 연결하면 더 정교해집니다.
+        <p className="mx-auto mt-4 max-w-2xl text-sm leading-relaxed text-slate-500 sm:text-[15px]">
+          주제만으로 초안을 만들고, 기존 문서를 연결해 실무 흐름에 맞는 결과로 정리합니다.
         </p>
-        <div className="mt-9 flex items-center justify-center">
+        <p className="mt-2 text-sm font-medium text-slate-600">가입 후 무료로 시작 가능합니다.</p>
+
+        <div className="mt-8 flex items-center justify-center">
           <StartNowLink
             variant="cta"
             initialHref={initialStartHref}
-            className="inline-flex min-w-[220px] items-center justify-center rounded-xl bg-primary-600 px-9 py-4 text-base font-bold text-white shadow-sm transition-colors hover:bg-primary-700"
+            className="inline-flex min-w-[190px] items-center justify-center rounded-xl bg-primary-500 px-8 py-3 text-sm font-semibold text-white shadow-sm transition-colors hover:bg-primary-600"
           >
             무료로 시작하기
           </StartNowLink>
