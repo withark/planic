@@ -6,7 +6,70 @@ import { GNB } from '@/components/GNB'
 import { apiFetch } from '@/lib/api/client'
 import { toUserMessage } from '@/lib/errors/toUserMessage'
 import type { PlanLimits, PlanType } from '@/lib/plans'
-import { PRICES_KRW } from '@/lib/plans'
+
+function ArrowIntoIcon({ className }: { className?: string }) {
+  return (
+    <svg
+      width="18"
+      height="18"
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="2"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      className={className}
+      aria-hidden
+    >
+      <path d="M5 12h14" />
+      <path d="M12 5l7 7-7 7" />
+    </svg>
+  )
+}
+
+const DOCUMENT_CARDS: {
+  href: string
+  title: string
+  desc: string
+  group: '견적·금액' | '기획·제안' | '운영·정리'
+}[] = [
+  {
+    href: '/estimate-generator',
+    title: '견적서',
+    desc: '단가표·기업정보를 반영하고, 과업지시서·기존 견적과 연결해 항목·금액이 갖춰진 견적서를 만듭니다.',
+    group: '견적·금액',
+  },
+  {
+    href: '/planning-generator',
+    title: '기획안',
+    desc: '콘셉트·진행 구조·투입 인력 등 행사를 설명하는 기획 문서 초안을 만듭니다.',
+    group: '기획·제안',
+  },
+  {
+    href: '/program-proposal-generator',
+    title: '프로그램 제안서',
+    desc: '프로그램 구성·타임라인·운영 포인트가 담긴 제안 형태로 정리합니다.',
+    group: '기획·제안',
+  },
+  {
+    href: '/scenario-generator',
+    title: '시나리오',
+    desc: '행사 진행·연출·촬영 흐름을 순서에 맞게 담은 시나리오 문서를 만듭니다.',
+    group: '기획·제안',
+  },
+  {
+    href: '/cue-sheet-generator',
+    title: '큐시트',
+    desc: '시나리오·프로그램·타임테이블을 이어 붙이거나 주제만으로 현장 운영 표를 만듭니다.',
+    group: '운영·정리',
+  },
+  {
+    href: '/task-order-summary',
+    title: '과업지시서 요약',
+    desc: '긴 과업지시서를 요약해 견적·기획 생성 시 그대로 활용할 수 있게 합니다.',
+    group: '운영·정리',
+  },
+]
 
 type MeResponse = {
   user: { id: string; email: string | null; name: string | null; image: string | null }
@@ -59,38 +122,60 @@ function DashboardContent() {
     <div className="flex h-screen overflow-hidden bg-gray-50/50">
       <GNB />
       <div className="flex-1 flex flex-col overflow-hidden">
-        <header className="flex items-center justify-between px-6 h-14 border-b border-gray-100 bg-white/90 flex-shrink-0">
+        <header className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between px-6 py-4 border-b border-gray-100 bg-white/90 flex-shrink-0">
           <div>
-            <h1 className="text-base font-semibold text-gray-900">홈</h1>
-            <p className="text-xs text-gray-500 mt-0.5">문서 생성으로 바로 이동하세요</p>
+            <h1 className="text-lg font-semibold tracking-tight text-gray-900">홈</h1>
+            <p className="text-sm text-slate-600 mt-1 max-w-xl">
+              플래닉 Planic — 행사 문서를 함께 기획하는 파트너. 아래에서 만들 문서를 고르세요.
+            </p>
           </div>
-          <div className="flex items-center gap-2">
+          <div className="flex flex-wrap items-center gap-2 sm:justify-end">
             <span className="text-xs text-gray-500">현재 플랜</span>
-            <span className="px-2 py-1 rounded-lg bg-primary-50 text-primary-700 text-xs font-semibold">
+            <span className="px-2.5 py-1 rounded-lg bg-primary-50 text-primary-700 text-xs font-semibold">
               {planLabel(plan)}
             </span>
-            <Link href="/plans" className="ml-2 text-xs font-semibold text-primary-700 hover:text-primary-800 underline">
-              업그레이드 →
+            <Link href="/plans" className="text-xs font-semibold text-primary-700 hover:text-primary-800 underline underline-offset-2">
+              업그레이드
             </Link>
           </div>
         </header>
 
-        <div className="flex-1 overflow-y-auto p-6 space-y-6 max-w-3xl">
+        <div className="flex-1 overflow-y-auto p-6 space-y-6 max-w-6xl mx-auto w-full">
           {err && (
             <div className="rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">
               {err}
             </div>
           )}
 
+          <div className="rounded-2xl border border-primary-100/90 bg-gradient-to-br from-white via-primary-50/40 to-slate-50/90 px-5 py-6 sm:px-8 sm:py-7 shadow-sm">
+            <p className="text-[11px] font-semibold uppercase tracking-[0.12em] text-primary-700">Planic</p>
+            <h2 className="mt-2 text-base sm:text-lg font-semibold text-gray-900 leading-snug">
+              행사 문서의 모든 것, 플래닉이 함께 기획하고 만듭니다
+            </h2>
+            <p className="mt-2 text-sm text-slate-600 leading-relaxed">
+              AI가 견적·제안·큐시트까지 문서별로 완성합니다. 견적부터 현장 운영표까지 한곳에서 이어집니다.
+            </p>
+            <p className="mt-3 text-xs text-slate-500 flex flex-wrap items-center gap-x-2 gap-y-1">
+              <span className="font-medium text-slate-600">권장 흐름</span>
+              <span className="hidden sm:inline text-slate-300">·</span>
+              <span>견적 → 기획·프로그램 → 시나리오 → 큐시트</span>
+            </p>
+          </div>
+
           {me && plan === 'FREE' && (
-            <div className="rounded-2xl border border-primary-200 bg-white px-5 py-4 shadow-card">
-              <p className="text-sm font-semibold text-gray-900">무료 플랜으로 시작되었습니다</p>
-              <p className="text-xs text-gray-500 mt-1">
-                지금 바로 첫 견적을 만들거나, 기업정보를 저장해 두면 PDF/엑셀 출력이 훨씬 빨라져요.
+            <div className="rounded-2xl border border-primary-200/80 bg-white px-5 py-5 shadow-card">
+              <p className="text-sm font-semibold text-gray-900">무료 플랜으로 시작했어요</p>
+              <p className="text-sm text-slate-600 mt-1.5 leading-relaxed">
+                첫 견적을 만들거나 기업정보를 저장해 두면 PDF·엑셀 출력과 문서 품질이 한층 좋아집니다.
               </p>
-              <div className="mt-3 flex flex-wrap gap-2">
-                <Link href="/estimate-generator" className="btn-primary px-4 py-2 text-xs font-semibold rounded-xl">첫 견적 만들기</Link>
-                <Link href="/settings" className="px-4 py-2 text-xs font-semibold rounded-xl border border-gray-200 bg-white hover:bg-gray-50">
+              <div className="mt-4 flex flex-wrap gap-2">
+                <Link href="/estimate-generator" className="btn-primary px-4 py-2.5 text-xs font-semibold rounded-xl">
+                  첫 견적 만들기
+                </Link>
+                <Link
+                  href="/settings"
+                  className="px-4 py-2.5 text-xs font-semibold rounded-xl border border-gray-200 bg-white text-gray-800 hover:bg-gray-50 transition-colors"
+                >
                   기업정보 등록하기
                 </Link>
               </div>
@@ -118,93 +203,51 @@ function DashboardContent() {
             ))}
           </section>
 
-          <section className="bg-white border border-gray-100 rounded-2xl p-5 shadow-card">
-            <h2 className="text-sm font-semibold text-gray-900">문서 만들기</h2>
-            <div className="mt-3 grid grid-cols-1 sm:grid-cols-2 gap-3">
-              <Link href="/estimate-generator" className="block rounded-2xl bg-white border border-gray-100 p-5 shadow-card hover:shadow-card-hover hover:border-primary-200 transition-shadow">
-                <div className="flex items-start justify-between gap-3">
-                  <div className="min-w-0">
-                    <div className="text-base font-bold text-gray-900 truncate">견적서 만들기</div>
-                    <div className="mt-1 text-sm text-gray-500 truncate">견적서 생성</div>
-                  </div>
-                  <div className="flex-shrink-0 w-10 h-10 rounded-xl bg-primary-50 border border-primary-100 flex items-center justify-center text-primary-700">
-                    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
-                      <path d="M5 12h14"></path>
-                      <path d="M12 5l7 7-7 7"></path>
-                    </svg>
+          <section className="bg-white border border-gray-100 rounded-2xl p-5 sm:p-6 shadow-card">
+            <div className="flex flex-col sm:flex-row sm:items-end sm:justify-between gap-2">
+              <div>
+                <h2 className="text-base font-semibold text-gray-900">문서 만들기</h2>
+                <p className="text-sm text-slate-600 mt-1">필요한 단계만 골라 생성합니다. 순서는 행사에 맞게 조정하세요.</p>
+              </div>
+              <Link
+                href="/create-documents"
+                className="text-xs font-semibold text-primary-700 hover:text-primary-800 shrink-0"
+              >
+                전체 보기 레이아웃 →
+              </Link>
+            </div>
+
+            <div className="mt-5 space-y-6">
+            {(['견적·금액', '기획·제안', '운영·정리'] as const).map((group) => {
+              const items = DOCUMENT_CARDS.filter((c) => c.group === group)
+              if (items.length === 0) return null
+              return (
+                <div key={group}>
+                  <p className="text-[11px] font-semibold uppercase tracking-wider text-slate-400">{group}</p>
+                  <div className="mt-3 grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
+                    {items.map((card) => (
+                      <Link
+                        key={card.href}
+                        href={card.href}
+                        className="group block rounded-2xl border border-gray-100 bg-slate-50/40 p-4 sm:p-5 shadow-sm hover:shadow-card-hover hover:border-primary-200/90 hover:bg-white transition-all"
+                      >
+                        <div className="flex items-start justify-between gap-3">
+                          <div className="min-w-0">
+                            <div className="text-[15px] font-bold text-gray-900 group-hover:text-primary-800 transition-colors">
+                              {card.title}
+                            </div>
+                            <p className="mt-2 text-sm text-slate-600 leading-relaxed line-clamp-4">{card.desc}</p>
+                          </div>
+                          <div className="flex-shrink-0 w-10 h-10 rounded-xl bg-primary-50 border border-primary-100 flex items-center justify-center text-primary-700 group-hover:bg-primary-100/80 transition-colors">
+                            <ArrowIntoIcon className="w-[18px] h-[18px]" />
+                          </div>
+                        </div>
+                      </Link>
+                    ))}
                   </div>
                 </div>
-              </Link>
-              <Link href="/planning-generator" className="block rounded-2xl bg-white border border-gray-100 p-5 shadow-card hover:shadow-card-hover hover:border-primary-200 transition-shadow">
-                <div className="flex items-start justify-between gap-3">
-                  <div className="min-w-0">
-                    <div className="text-base font-bold text-gray-900 truncate">기획안 만들기</div>
-                    <div className="mt-1 text-sm text-gray-500 truncate">기획 문서 생성</div>
-                  </div>
-                  <div className="flex-shrink-0 w-10 h-10 rounded-xl bg-primary-50 border border-primary-100 flex items-center justify-center text-primary-700">
-                    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
-                      <path d="M5 12h14"></path>
-                      <path d="M12 5l7 7-7 7"></path>
-                    </svg>
-                  </div>
-                </div>
-              </Link>
-              <Link href="/program-proposal-generator" className="block rounded-2xl bg-white border border-gray-100 p-5 shadow-card hover:shadow-card-hover hover:border-primary-200 transition-shadow">
-                <div className="flex items-start justify-between gap-3">
-                  <div className="min-w-0">
-                    <div className="text-base font-bold text-gray-900 truncate">프로그램 제안서 만들기</div>
-                    <div className="mt-1 text-sm text-gray-500 truncate">프로그램 제안서 생성</div>
-                  </div>
-                  <div className="flex-shrink-0 w-10 h-10 rounded-xl bg-primary-50 border border-primary-100 flex items-center justify-center text-primary-700">
-                    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
-                      <path d="M5 12h14"></path>
-                      <path d="M12 5l7 7-7 7"></path>
-                    </svg>
-                  </div>
-                </div>
-              </Link>
-              <Link href="/scenario-generator" className="block rounded-2xl bg-white border border-gray-100 p-5 shadow-card hover:shadow-card-hover hover:border-primary-200 transition-shadow">
-                <div className="flex items-start justify-between gap-3">
-                  <div className="min-w-0">
-                    <div className="text-base font-bold text-gray-900 truncate">시나리오 만들기</div>
-                    <div className="mt-1 text-sm text-gray-500 truncate">시나리오 생성</div>
-                  </div>
-                  <div className="flex-shrink-0 w-10 h-10 rounded-xl bg-primary-50 border border-primary-100 flex items-center justify-center text-primary-700">
-                    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
-                      <path d="M5 12h14"></path>
-                      <path d="M12 5l7 7-7 7"></path>
-                    </svg>
-                  </div>
-                </div>
-              </Link>
-              <Link href="/cue-sheet-generator" className="block rounded-2xl bg-white border border-gray-100 p-5 shadow-card hover:shadow-card-hover hover:border-primary-200 transition-shadow">
-                <div className="flex items-start justify-between gap-3">
-                  <div className="min-w-0">
-                    <div className="text-base font-bold text-gray-900 truncate">큐시트 만들기</div>
-                    <div className="mt-1 text-sm text-gray-500 truncate">큐시트 생성</div>
-                  </div>
-                  <div className="flex-shrink-0 w-10 h-10 rounded-xl bg-primary-50 border border-primary-100 flex items-center justify-center text-primary-700">
-                    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
-                      <path d="M5 12h14"></path>
-                      <path d="M12 5l7 7-7 7"></path>
-                    </svg>
-                  </div>
-                </div>
-              </Link>
-              <Link href="/task-order-summary" className="block rounded-2xl bg-white border border-gray-100 p-5 shadow-card hover:shadow-card-hover hover:border-primary-200 transition-shadow">
-                <div className="flex items-start justify-between gap-3">
-                  <div className="min-w-0">
-                    <div className="text-base font-bold text-gray-900 truncate">과업지시서 요약하기</div>
-                    <div className="mt-1 text-sm text-gray-500 truncate">과업지시서 요약</div>
-                  </div>
-                  <div className="flex-shrink-0 w-10 h-10 rounded-xl bg-primary-50 border border-primary-100 flex items-center justify-center text-primary-700">
-                    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
-                      <path d="M5 12h14"></path>
-                      <path d="M12 5l7 7-7 7"></path>
-                    </svg>
-                  </div>
-                </div>
-              </Link>
+              )
+            })}
             </div>
           </section>
         </div>
