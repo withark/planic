@@ -9,8 +9,8 @@ export const dynamic = 'force-dynamic'
 
 const WORKFLOW_STEPS = [
   {
-    title: '주제 또는 문서 선택',
-    body: '주제만 입력하거나 기존 문서를 선택합니다. 연결할수록 결과가 더 정교해집니다.',
+    title: '주제만 입력하거나 기존 문서를 선택합니다',
+    body: '연결할수록 더 정교한 초안이 나옵니다.',
     icon: (
       <svg viewBox="0 0 24 24" className="h-6 w-6" fill="none" stroke="currentColor" strokeWidth="2" aria-hidden>
         <path d="M12 20h9" strokeLinecap="round" />
@@ -19,8 +19,8 @@ const WORKFLOW_STEPS = [
     ),
   },
   {
-    title: '문서를 하나씩 생성',
-    body: '견적서·기획안·시나리오·큐시트 등 필요한 문서를 빠르게 만듭니다.',
+    title: '필요한 문서를 하나씩 생성합니다',
+    body: '견적서·기획안·시나리오·큐시트까지 순서대로.',
     icon: (
       <svg viewBox="0 0 24 24" className="h-6 w-6" fill="none" stroke="currentColor" strokeWidth="2" aria-hidden>
         <path d="M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8z" strokeLinejoin="round" />
@@ -29,8 +29,8 @@ const WORKFLOW_STEPS = [
     ),
   },
   {
-    title: '저장하고 다시 수정',
-    body: '저장한 문서는 이력에서 불러와 이어서 다듬을 수 있습니다.',
+    title: '저장하고 다시 불러와 수정합니다',
+    body: '이력에서 열어 보완·내보내기까지 한 흐름으로.',
     icon: (
       <svg viewBox="0 0 24 24" className="h-6 w-6" fill="none" stroke="currentColor" strokeWidth="2" aria-hidden>
         <path d="M19 21H5a2 2 0 01-2-2V5a2 2 0 012-2h11l5 5v11a2 2 0 01-2 2z" strokeLinejoin="round" />
