@@ -35,17 +35,17 @@ export function SiteFooter({ compact = false }: SiteFooterProps) {
           </nav>
 
           <address className="mt-5 space-y-1 not-italic text-slate-600">
-            <p className="font-medium text-slate-700">(주)시냇가에심은나무</p>
-            <p>사업자번호: 438-81-01028 · 대표자: 이다윗</p>
-            <p>주소: 광릉수목원로 600 A동</p>
+            <p>
+              <span className="font-medium text-slate-700">(주)시냇가에심은나무</span> · 사업자번호: 438-81-01028 · 대표자: 이다윗 ·
+              주소: 광릉수목원로 600 A동
+            </p>
             <p>
               대표 연락처:{' '}
               <a href="tel:07086661112" className="font-medium text-primary-700 hover:underline">
                 070-8666-1112
-              </a>
+              </a>{' '}
+              · 통신판매업 신고번호: 제2017-경기포천-0319호 · 고객센터 운영: 오전 10:00 ~ 16:00
             </p>
-            <p>통신판매업 신고번호: 제2017-경기포천-0319호</p>
-            <p>고객센터 운영: 오전 10:00 ~ 16:00</p>
           </address>
         </div>
       </div>
