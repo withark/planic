@@ -793,6 +793,20 @@ export async function generateQuoteWithMeta(input: GenerateInput): Promise<{ doc
   // 2차 refine LLM은 지연·비용이 커서 제거했습니다. 휴리스틱 보강(fillWeakOutputs)으로 실무 가능 수준을 맞춥니다.
   doc = fillWeakOutputs(doc, input)
 
+  // program 등 비-estimate 타깃은 AI가 quoteItems를 깨뜨리면 calcTotals 등에서 실패할 수 있어,
+  // 프롬프트상 보존 대상 필드는 existingDoc 기준으로 되돌립니다.
+  if (input.documentTarget === 'program' && input.existingDoc) {
+    const prev = input.existingDoc as QuoteDoc
+    if (Array.isArray(prev.quoteItems)) doc.quoteItems = structuredClone(prev.quoteItems)
+    doc.notes = prev.notes ?? doc.notes
+    doc.paymentTerms = prev.paymentTerms ?? doc.paymentTerms
+    doc.validDays = prev.validDays ?? doc.validDays
+    doc.quoteTemplate = prev.quoteTemplate ?? doc.quoteTemplate
+    if (prev.program?.timeline && doc.program) doc.program.timeline = prev.program.timeline
+    if (prev.scenario !== undefined) doc.scenario = prev.scenario
+    if (prev.planning !== undefined) doc.planning = prev.planning
+  }
+
   const stages = [
     { name: 'prompt.build', ms: promptBuildMs },
     { name: 'ai.call', ms: aiCallMs },

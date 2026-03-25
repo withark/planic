@@ -12,7 +12,7 @@ export interface QuoteTotals {
 export function calcTotals(doc: QuoteDoc): QuoteTotals {
   let sub = 0
   ;(doc.quoteItems || []).forEach(cat =>
-    cat.items.forEach(it => {
+    (cat.items || []).forEach(it => {
       it.total = Math.round((it.qty || 1) * (it.unitPrice || 0))
       sub += it.total
     })
