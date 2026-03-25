@@ -113,7 +113,23 @@ export async function POST(req: NextRequest) {
         headers: { 'Content-Type': 'application/json' },
       })
     }
-    const verified = await verifyTossWebhookPayment({ paymentKey, orderId, status: typeof data.status === 'string' ? data.status : undefined })
+    let verified: { ok: true } | { ok: false; reason: string }
+    try {
+      verified = await verifyTossWebhookPayment({
+        paymentKey,
+        orderId,
+        status: typeof data.status === 'string' ? data.status : undefined,
+      })
+    } catch (e) {
+      const msg = e instanceof Error ? e.message : String(e)
+      return new Response(
+        JSON.stringify({ error: '웹훅 검증 예외', reason: msg }),
+        {
+          status: 401,
+          headers: { 'Content-Type': 'application/json' },
+        },
+      )
+    }
     if (!verified.ok) {
       return new Response(JSON.stringify({ error: '웹훅 검증 실패', reason: verified.reason }), {
         status: 401,
