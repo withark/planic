@@ -30,7 +30,7 @@ export async function MainPageContent() {
           <StartNowLink
             variant="cta"
             initialHref={initialStartHref}
-            className="inline-flex min-w-[190px] items-center justify-center rounded-xl bg-primary-500 px-8 py-3 text-sm font-semibold text-white shadow-sm transition-colors hover:bg-primary-600"
+            className="inline-flex min-w-[190px] items-center justify-center rounded-xl bg-primary-600 px-8 py-3 text-sm font-semibold text-white shadow-sm transition-colors hover:bg-primary-700"
           >
             무료로 시작하기
           </StartNowLink>

@@ -40,7 +40,7 @@ export default function HelpPage() {
             </dl>
             <a
               href="tel:07086661112"
-              className="mt-4 inline-flex h-9 items-center justify-center rounded-lg bg-primary-500 px-4 text-sm font-semibold text-white transition-colors hover:bg-primary-600"
+              className="mt-4 inline-flex h-9 items-center justify-center rounded-lg bg-primary-600 px-4 text-sm font-semibold text-white transition-colors hover:bg-primary-700"
             >
               문의하기
             </a>

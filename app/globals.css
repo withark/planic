@@ -11,6 +11,13 @@
 
 body { font-family: 'Pretendard', system-ui, sans-serif; }
 
+/* 키보드 포커스 가시성 — 링크·버튼 위주 (폼 input은 각 컴포넌트 스타일 유지) */
+a:focus-visible,
+button:focus-visible {
+  outline: 2px solid #4f46e5;
+  outline-offset: 2px;
+}
+
 /* 숫자 input 화살표 제거 */
 input[type=number]::-webkit-inner-spin-button,
 input[type=number]::-webkit-outer-spin-button { -webkit-appearance: none; }
