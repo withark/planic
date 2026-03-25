@@ -1,150 +1,85 @@
-# Planic Release Risk Register (Draft)
+# Planic Release Blocking Issues (Draft)
 
-## 우선순위 표기
-- P0: 배포 시 사용자/결제/인증이 즉시 막힐 가능성(가장 먼저)
-- P1: 부분 장애 또는 보안/운영 리스크(중요)
-- P2: 회귀/사소한 장애 가능성(그래도 점검 권장)
-- P3: 성능/UX 저하 또는 간헐적 경미 이슈
+## 우선순위 기준
+- “배포 후 핵심 플로우가 멈추거나(로그인/문서생성/결제완료), 오류가 반복되어 운영이 불가능해지는” 쪽을 먼저 배치
 
-## 10대 위험 이슈(코드 근거 기반)
+- severity: critical
+- area: deployment
+- issue: Vercel preview에서도 `AI_MODE=mock`이 문서 생성에서 실질적으로 차단되어(실제 LLM 호출) 키가 없으면 `/api/generate`가 500
+- why_it_matters: 문서 생성이 제품 핵심 기능인데, preview에서 테스트가 불가능해질 수 있음. `app/api/generate/route.ts`는 실사용 LLM 키가 없고(mock이 허용되지 않으면) `errorResponse(500, 'NO_AI_KEY', ...)`로 종료합니다.
+- reproduction_steps: 1) Vercel preview 환경에서 `AI_MODE=mock` 설정 2) `OPENAI_API_KEY`/`ANTHROPIC_API_KEY` 미설정(또는 빈 값) 3) `/estimate-generator`(또는 다른 generator)에서 “견적 생성” 클릭 4) 네트워크에서 `/api/generate` 응답 500 확인
+- suspected_files: `lib/ai/mode.ts`, `app/api/generate/route.ts`, (클라이언트 전파) `lib/api/client.ts`, generator pages (예: `app/estimate-generator/page.tsx`)
+- recommended_fix: `lib/ai/mode.ts`의 `isProductionRuntime()` 조건을 Vercel preview를 “mock 허용 가능”으로 취급하도록 조정(예: `VERCEL_ENV === 'preview'`를 production에서 제외), 또는 preview에서 반드시 LLM API 키를 주입하도록 릴리즈 환경 정책을 문서화/검증.
 
-### 1) (P0) Toss 웹훅에서 “검증 이후” 로깅/아이템업데이트 실패가 500을 유발할 수 있음
-- 영역: `app/api/billing/webhook/route.ts`
-- 왜 위험한가
-  - 웹훅은 공급자가 재시도할 수 있으므로, DB/로깅 단계에서 500이 나면 동일 이벤트가 반복 처리/재시도될 위험이 커집니다.
-  - 현재는 `verifyTossWebhookPayment()` 호출부는 방어하지만, 이후 `logBillingWebhook()` 및 `recordBillingWebhookEventIfNew()` 호출이 try/catch로 감싸져 있지 않습니다.
-- 근거(핵심 흐름)
-  - `verifyTossWebhookPayment` 이후:
-    - `await logBillingWebhook(...)` 호출
-    - `await recordBillingWebhookEventIfNew(eventId, 'toss')`
-    - `handleTossPaymentStatusChanged(data)`는 별도 try/catch로 감싸져 있으나,
-    - 로깅/아이템업데이트 실패는 아직 500으로 전파될 수 있습니다.
-- 제안(구조 변경 최소화)
-  - `logBillingWebhook` / `recordBillingWebhookEventIfNew`를 try/catch로 감싸고,
-    - 로깅 실패는 “구독 처리 성공/실패”와 분리하여 웹훅 전체 500을 줄이는 방향으로 조정
-    - 예: 로깅 실패 시에도 구독 상태 갱신은 계속 수행(또는 로깅 단계 실패는 200으로 종료)
-- 검증
-  - `BILLING_MODE=live`에서 웹훅 요청을 1회(가능하면 Toss 테스트 모드 payload) 실행 후 200/DB 반영 확인
+- severity: critical
+- area: deployment
+- issue: NextAuth 비밀키 누락 시(특히 preview/호스트 불일치 케이스) 미들웨어에서 토큰 검증 실패 → 보호 라우트 접근 불가/리다이렉트 루프 가능
+- why_it_matters: `middleware.ts`가 보호 경로를 `/auth`로 강제 이동시키며, 토큰 검증이 실패하면 사용자 전체가 서비스 핵심(예: `/dashboard`, generator pages) 접근을 못 할 수 있음.
+- reproduction_steps: 1) Vercel 환경에서 `NEXTAUTH_SECRET` 미설정 2) `NEXTAUTH_URL`이 `planic.cloud`로 정확히 매칭되지 않게 설정(또는 누락) 3) 보호 페이지(`/dashboard` 또는 generator) 진입 4) `/auth`로 반복 리다이렉트 또는 접근 불가 확인
+- suspected_files: `middleware.ts`, `lib/nextauth-secret.ts`, `scripts/check-auth-env.mjs`
+- recommended_fix: Vercel preview/production 모두에서 `NEXTAUTH_SECRET`을 강제 검증하도록 `scripts/check-auth-env.mjs` 조건을 완화/재정의하거나, `lib/nextauth-secret.ts`에서 production에서 secret이 없으면 명시적 오류/중단 같은 방어 정책을 도입(보안 trade-off 검토).
 
-### 2) (P0) Preview/배포 환경에서 NextAuth secret 미설정 시 인증 토큰 검증이 실패할 수 있음
-- 영역: `middleware.ts`, `lib/nextauth-secret.ts`, `scripts/check-auth-env.mjs`
-- 왜 위험한가
-  - 인증/권한 게이트가 미들웨어에서 돌아가며, 토큰 검증 실패는 대량 리다이렉트 루프/접근 불가로 이어질 수 있습니다.
-  - `scripts/check-auth-env.mjs`는 `VERCEL_ENV === 'production'`에서만 `NEXTAUTH_SECRET` 누락을 강제 종료합니다.
-  - `resolveNextAuthSecret()`는 `NODE_ENV === 'production'`이면 `NEXTAUTH_SECRET`이 없을 때 undefined를 유지합니다.
-- 근거
-  - `check-auth-env.mjs`: production일 때만 필수 체크
-  - `lib/nextauth-secret.ts`: production이면 fallback secret을 쓰지 않음
-  - `middleware.ts`: `getToken({ secret })` 호출에 영향을 줌
-- 제안
-  - Preview에서도(또는 해당 도메인/host 조건일 때) `NEXTAUTH_SECRET`이 없으면 명확한 오류/기본값 정책을 두는 것이 안전
-- 검증
-  - Vercel Preview에서 로그인 시 토큰 검증이 정상인지(콘솔/네트워크 redirect 패턴 확인)
+- severity: critical
+- area: deployment
+- issue: 라이브 결제 성공 플로우에서 `/billing/success` → `/api/billing/confirm`이 `TOSS_PAYMENTS_SECRET_KEY` 누락 시 500으로 종료(구독 활성화 실패)
+- why_it_matters: 결제 승인(서버 확인) 단계가 실패하면 사용자는 “결제 성공 화면”에서 구독 활성화를 받지 못해 전환/운영이 깨짐.
+- reproduction_steps: 1) 라이브 모드로 결제 유도(또는 success 페이지 쿼리 형태로 접근) 2) `TOSS_PAYMENTS_SECRET_KEY` 미설정 3) `/billing/success?paymentKey=...&orderId=...&amount=...` 진입 4) `/api/billing/confirm`에서 500 확인 및 구독 미활성화 확인
+- suspected_files: `app/billing/success/page.tsx`, `app/api/billing/confirm/route.ts`, `lib/billing/toss-confirm.ts`, `lib/billing/toss-config.ts`
+- recommended_fix: preview에서도 최소한 결제 확인에 필요한 `TOSS_PAYMENTS_SECRET_KEY`/클라이언트 키 주입 또는 라이브 결제를 preview에서 비활성화(mock 고정)하고 success 페이지 접근 경로를 차단(환경 정책).
 
-### 3) (P1) Admin 보안 기본값/시크릿 fallback이 공격 표면을 넓힐 수 있음
-- 영역: `lib/admin-auth.ts`, `app/api/auth/admin-login/route.ts`, `scripts/hash-admin-password.js`
-- 왜 위험한가
-  - DB에 `admin_password_hash`가 없을 때 기본 비밀번호(`admin`)로 검증할 수 있습니다.
-  - 또한 admin 세션 HMAC 시크릿이 `NEXTAUTH_SECRET || ADMIN_SECRET || 'dev-admin-secret-min-32-chars'`로 fallback될 수 있어,
-    환경변수 미설정 시 쿠키 위변조 가능성이 커집니다.
-- 근거
-  - `DEFAULT_PASSWORD = 'admin'`
-  - `getSecret()`이 env 없을 때 dev 고정 문자열 사용
-- 제안
-  - 운영/preview에서 최소한 “dev fallback 차단” 또는 “DB 해시 미존재 시 로그인 차단” 같은 방어 정책 점검
-- 검증
-  - Vercel Preview에서 admin-login이 어떤 경로로 성공 가능한지(로컬/스테이징과 비교)
+- severity: critical
+- area: deployment
+- issue: Toss 웹훅 검증(`TOSS_PAYMENTS_WEBHOOK_VERIFY`)이 켜진 상태에서 키가 없으면, 검증 단계에서 401로 종료되고(현 코드 구조상 이후 DB 처리/상태 반영이 진행되지 않음) 주문이 승인되지 않을 수 있음
+- why_it_matters: 라이브 모드에서 웹훅은 구독 활성화의 주요 경로일 수 있음. 검증 예외/키 누락 시 주문 상태가 pending으로 남을 위험.
+- reproduction_steps: 1) `BILLING_MODE=live` 2) `TOSS_PAYMENTS_WEBHOOK_VERIFY=true` 3) `TOSS_PAYMENTS_SECRET_KEY`/필수 키 미설정 4) Toss에서 `PAYMENT_STATUS_CHANGED` 웹훅 POST 전송 5) 응답 401 및 DB `billing_orders` 상태 변화 없음 확인
+- suspected_files: `app/api/billing/webhook/route.ts`, `lib/billing/toss-webhook-verify.ts`, `lib/billing/toss-config.ts`
+- recommended_fix: 웹훅 검증을 켜는 운영 정책을 “필수 키 존재 여부 검증”과 묶어서 강제(배포 전 스크립트/CI), 또는 preview에서는 검증 비활성화(`TOSS_PAYMENTS_WEBHOOK_VERIFY=false`)로 고정.
 
-### 4) (P1) 미들웨어 보호 경로에 `/billing` 포함 → 결제 성공/실패 페이지 접근이 세션에 강하게 의존
-- 영역: `middleware.ts`
-- 왜 위험한가
-  - 결제 완료 시점에 사용자가 로그아웃/세션 만료 상태면 `/billing/success`에서도 `/auth`로 리다이렉트되어 사용자 흐름이 끊길 수 있습니다.
-- 근거
-  - `PROTECTED_PREFIXES`에 `'/billing'` 포함
-  - `/billing/success`는 `/api/billing/confirm` 호출(서버에서 세션 기반)
-- 제안
-  - 결제 성공/실패 페이지의 요구 세션 정책이 의도와 일치하는지 확인(운영 UX 관점)
-- 검증
-  - 결제 직전/직후 세션 만료 시나리오(가능하면)에서 UX가 어떻게 망가지는지 확인
+- severity: high
+- area: deployment
+- issue: Toss 웹훅 라우트에서 일부 단계(`logBillingWebhook`, `recordBillingWebhookEventIfNew`)는 try/catch가 없어서 DB/로깅 예외가 500으로 전파될 수 있음
+- why_it_matters: 웹훅은 재시도될 수 있어 500이 반복되면 운영 데이터가 쌓이거나 승인/활성화가 지연될 수 있음. 또한 web console/로그에서 원인 분석이 어려워짐.
+- reproduction_steps: 1) `BILLING_MODE=live` 2) DB 연결/스키마 오류 또는 로깅 insert 실패를 유발(예: DB 권한 문제) 3) `PAYMENT_STATUS_CHANGED` 웹훅 전송 4) 응답 500 확인(특히 verify 통과 후에도 500인지)
+- suspected_files: `app/api/billing/webhook/route.ts`, `lib/billing/webhook-log.ts`, `lib/billing/webhook-idempotency.ts`, `lib/db/client.ts`
+- recommended_fix: `app/api/billing/webhook/route.ts`에서 로깅/아이템업데이트를 분리 try/catch로 감싸고, “구독 상태 반영 실패만 500”처럼 실패 범위를 좁혀 500 전파를 최소화(구조 변경은 최소화 범위에서).
 
-### 5) (P1) 웹훅 이벤트 idempotency 키 생성에 payload 필드가 비어도 문자열이 만들어짐
-- 영역: `app/api/billing/webhook/route.ts`
-- 왜 위험한가
-  - `eventId = toss_${paymentKey ?? ''}_${orderId ?? ''}_${status ?? ''}_${createdAt ?? ''}` 형태라
-    일부 필드가 없으면 eventId가 동일/충돌하거나, 반대로 중복 억제가 약해질 가능성이 있습니다.
-- 근거
-  - payload에서 `paymentKey/orderId`가 검증 단계에서 존재를 확인하지만,
-    `status`, `createdAt`는 빈 값이 될 수 있음(현재 eventType이 PAYMENT_STATUS_CHANGED인 경우에만 검증 진입)
-- 제안
-  - createdAt/status 등 추가 필드 의존도를 낮추고, orderId 중심으로 안정 키를 구성하는지 점검
-- 검증
-  - Toss 테스트 모드에서 동일 orderId 이벤트를 반복 전송해 idempotency가 제대로 동작하는지 확인
+- severity: high
+- area: navigation
+- issue: 미들웨어 보호 범위에 `/billing`이 포함되어 있어 `/billing/success`, `/billing/fail`이 세션이 없으면 `/auth`로 리다이렉트될 수 있음
+- why_it_matters: 결제 직후 사용자 세션이 만료/유실되는 타이밍에선 성공/실패 페이지가 열리지 않고 결제 흐름이 끊겨 사용자 지원 비용이 증가.
+- reproduction_steps: 1) 결제 직전 로그아웃 또는 세션 만료 유발 2) Toss 리다이렉트로 `/billing/success` 또는 `/billing/fail` 접근 3) 미들웨어에 의해 `/auth`로 이동되는지 확인
+- suspected_files: `middleware.ts`, `app/billing/success/page.tsx`, `app/billing/fail/page.tsx`
+- recommended_fix: `/billing/success`와 `/billing/fail`에 대해 미들웨어에서 예외 처리(허용 list)하거나, 최소한 success/fail 페이지는 세션 없이도 결제 검증 쿼리 기반으로 처리 가능한 서버/API 정책을 정리(보안/권한검증은 유지).
 
-### 6) (P2) SEO metadataBase가 build 시점 env에 의존(placeholder risk)
-- 영역: `next.config.js`, `app/layout.tsx`, `lib/site-url.ts`
-- 왜 위험한가
-  - NEXTAUTH_URL이 build 시점에 비면 `next.config.js`에서 placeholder로 설정되며,
-    메타데이터의 절대 URL이 placeholder로 굳을 수 있습니다.
-  - Vercel 런타임 env가 build 이후에만 주입되는 특수 케이스에서는 OG/canonical이 어긋날 수 있습니다.
-- 근거
-  - `next.config.js`: NEXTAUTH_URL이 빈 값/유효하지 않으면 placeholder.build로 대체
-  - `app/layout.tsx`: `metadataBase`/openGraph.url에 baseUrl 존재 시만 반영
-- 제안
-  - Vercel build 단계에서 올바른 NEXTAUTH_URL이 주입되는지 확인
-- 검증
-  - Preview에서 `/_next` 관련이 아닌 실제 HTML head의 og:url/canonical 확인
+- severity: high
+- area: deployment
+- issue: Admin 인증에서 DB에 `admin_password_hash`가 없을 때 기본 비밀번호(`admin`)로 검증되며, admin 세션 HMAC 시크릿도 환경 미설정 시 dev fallback을 사용할 수 있음
+- why_it_matters: 관리 기능이 보호되어도 잘못된 초기화/DB 미구성 상태에서 무단 접근 가능성이 생길 수 있음(운영 안정성과 보안 컴플라이언스 리스크).
+- reproduction_steps: 1) DB/KV에 `admin_password_hash`가 없는 상태로 배포 2) `admin-login` 호출 3) 기본 비밀번호 `admin`으로 로그인 성공 여부 확인 4) 동시에 `ADMIN_SECRET`/`NEXTAUTH_SECRET` 미설정 상태에서 admin 쿠키 생성/검증 가능 여부 확인
+- suspected_files: `lib/admin-auth.ts`, `app/api/auth/admin-login/route.ts`, (해시 초기화 관련) `scripts/hash-admin-password.js`
+- recommended_fix: 운영/preview에서 “DB 해시 미존재 시 admin-login 차단” 같은 강제 방어 정책 추가, 그리고 admin HMAC secret fallback 제거(또는 배포 시 필수 env 검증을 더 강하게).
 
-### 7) (P2) OpenGraph 이미지가 Edge runtime으로 동작 → 특정 런타임/폴리필 이슈 시 500 가능
-- 영역: `app/opengraph-image.tsx`
-- 근거
-  - `export const runtime = 'edge'`
-  - ImageResponse 렌더 실패 시 OG 생성이 실패할 수 있음
-- 제안
-  - Preview에서 `/opengraph-image` 직접 호출 시 정상 응답/콘솔 에러 여부 확인
-- 검증
-  - 브라우저에서 OG 이미지 URL로 접속 후 다운로드/렌더 확인
+- severity: medium
+- area: form
+- issue: `/settings` 주소 검색에서 외부 Daum postcode 스크립트 로딩 실패 시 `onerror`/대체 UI가 없어서 콘솔 에러와 UX 저하가 발생할 수 있음
+- why_it_matters: 주소 입력이 핵심 입력일 수 있어 기능이 막히면 설정/결제 전환에 영향 가능.
+- reproduction_steps: 1) 네트워크 제한 또는 adblock/차단 환경에서 `t1.daumcdn.net/...postcode.v2.js` 요청 실패 2) `/settings`에서 “주소 찾기” 버튼 클릭 3) 주소가 입력되지 않고 콘솔에 에러가 발생하는지 확인
+- suspected_files: `app/settings/page.tsx` (DAUM 스크립트 삽입)
+- recommended_fix: script 태그에 `onerror` 처리 추가 + 사용자용 에러/대체 수단 제공(수동 주소 입력 유도 등).
 
-### 8) (P2) 스트림(NDJSON) 파서가 newline 기반 split에 의존
-- 영역: `lib/api/client.ts`의 `apiGenerateStream`
-- 왜 위험한가
-  - 서버가 chunk 경계에서 `\n`을 보장하지 않으면 파서가 완성 이벤트를 놓칠 수 있습니다(현재는 buffer 누적/trim으로 일부 완화).
-  - generation 실패가 “화면에서는 단순 실패”로 보이거나, 콘솔에서만 상세 원인 확인될 수 있습니다.
-- 근거
-  - `buffer.split('\n')` 후 라인 단위 JSON parse
-- 제안
-  - 스트리밍 응답 포맷이 실제로 NDJSON “줄 구분”을 준수하는지 서버 출력 코드와 함께 확인
-- 검증
-  - Preview에서 생성 플로우를 최소 1회 실행해 단계 이벤트/complete 수신 확인
+- severity: medium
+- area: seo
+- issue: OG 이미지/아이콘이 `edge` 런타임 기반(`next/og ImageResponse`)이라 런타임 제약/폴리필 이슈가 있으면 `/opengraph-image`, `/icon`, `/apple-icon` 요청이 500이 될 수 있음
+- why_it_matters: 공유 시 빈 썸네일/아이콘 깨짐은 전환과 신뢰도에 직접적 영향을 줄 수 있음(배포 직후 빠르게 눈에 띄는 회귀 포인트).
+- reproduction_steps: 1) 배포(Preview/Production)에서 `/opengraph-image`/`/icon`/`/apple-icon` 직접 호출 2) 200이 아닌 5xx 발생 여부 확인 3) 브라우저 콘솔/네트워크에서 에러 확인
+- suspected_files: `app/opengraph-image.tsx`, `app/icon.tsx`, `app/apple-icon.tsx`
+- recommended_fix: OG/아이콘 라우트의 에지 런타임 호환성 점검(필요 시 runtime 변경은 “구조 변경”이므로, 우선 관측 후 최소 수정 범위로 결정).
 
-### 9) (P3) Dashboard 레이아웃이 `h-screen overflow-hidden` 기반 → 모바일에서 스크롤/토스트 가림 가능
-- 영역: `app/dashboard/page.tsx`
-- 근거
-  - 최상단 컨테이너 `h-screen overflow-hidden`
-  - 내부 `overflow-y-auto`는 존재하나, 모바일 환경에서 토스트/헤더가 잘릴 수 있음
-- 제안
-  - 모바일에서 실제 스크롤/하단 컴포넌트 가림 여부 점검
-- 검증
-  - iPhone SE / 390px 폭에서 화면 스크롤 + 토스트 노출 시 가림 여부 확인
-
-### 10) (P3) Public 페이지 로딩의 클라이언트 컴포넌트 비중 증가 시 hydration warning 가능
-- 영역
-  - `SessionProvider`(root layout), 각 페이지의 `use client` 컴포넌트 구성
-- 제안
-  - Preview에서 React 콘솔 warning이 없는지 확인
-- 검증
-  - 마케팅 주요 페이지 3~5개 + 로그인/대시보드 1개에서 콘솔 확인
-
-## 지금 당장 수정해야 할 “1개만” (권장)
-### 선택: (P0) `app/api/billing/webhook/route.ts`의 “검증 이후 로깅/아이템업데이트” 500 전파 완화
-- 이유
-  - 근거가 매우 직접적입니다: 현재 웹훅 라우트는 검증 단계만 방어적이고,
-    `logBillingWebhook()` / `recordBillingWebhookEventIfNew()`는 try/catch가 없어 해당 단계에서 DB/네트워크 문제가 생기면 500으로 끝날 가능성이 있습니다.
-  - 웹훅은 재시도/중복 이벤트 이슈가 연결되기 쉬워 “한 번의 500”이 운영 리스크로 확대될 가능성이 큽니다.
-- 기대 효과
-  - 웹훅 이벤트의 구독 반영(핵심 기능)과 로깅/아이템업데이트(부가 기능)를 분리하여,
-    사소한 장애가 결제 전체 장애로 번지는 것을 줄입니다.
-- 브라우저 기준 재검증(코드 수정 후)
-  - 결제 성공/실패 페이지 동선
-  - `/dashboard?checkout=success`로 이동 시 `/api/me`가 정상인지
-  - 콘솔/네트워크에서 5xx가 줄었는지 확인
+- severity: low
+- area: analytics
+- issue: 코드베이스에서 GA/GTM/PostHog/Segment/Plausible 등 명시적 이벤트 트래킹 호출이 확인되지 않음
+- why_it_matters: 운영 관측 요구사항이 있다면 이벤트 누락으로 장애/전환 원인 분석이 어려울 수 있음.
+- reproduction_steps: 1) generator/결제 단계에서 콘솔/네트워크로 이벤트 호출 여부 확인 2) 추적 파라미터/태그 로딩이 없는지 확인
+- suspected_files: (명시적 추적 로직이 보이지 않는 상태) `lib/`/`components/` 전체(검색 기준), 관련 페이지: `app/*generator*`, `app/billing/*`
+- recommended_fix: 운영에서 요구하는 분석 도구에 맞춰 최소 set 이벤트(예: 문서 생성 시작/완료, 결제 성공/실패) 추적이 실제로 동작하는지 설정/가드 포함 여부를 검증(본 요청 범위에서는 코드 수정 보류).
 
