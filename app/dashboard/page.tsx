@@ -5,6 +5,7 @@ import { useSearchParams } from 'next/navigation'
 import { GNB } from '@/components/GNB'
 import { apiFetch } from '@/lib/api/client'
 import { toUserMessage } from '@/lib/errors/toUserMessage'
+import { LoadingState } from '@/components/ui/AsyncState'
 import { CREATE_DOCUMENT_HUB_ITEMS } from '@/lib/marketing-documents'
 import type { PlanLimits, PlanType } from '@/lib/plans'
 
@@ -251,8 +252,10 @@ export default function DashboardPage() {
       fallback={
         <div className="flex h-screen overflow-hidden bg-gray-50/50">
           <GNB />
-          <div className="flex-1 flex items-center justify-center">
-            <p className="text-sm text-gray-500">로딩 중...</p>
+          <div className="flex-1 flex items-center justify-center px-4">
+            <div className="w-full max-w-md">
+              <LoadingState label="로딩 중…" />
+            </div>
           </div>
         </div>
       }

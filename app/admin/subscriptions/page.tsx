@@ -3,6 +3,7 @@
 import { useEffect, useState } from 'react'
 import Link from 'next/link'
 import { AdminCard, AdminSection } from '@/components/admin/AdminCard'
+import { ErrorState, LoadingState } from '@/components/ui/AsyncState'
 
 type SubStats = {
   paidSubscribersActive?: number
@@ -46,21 +47,29 @@ export default function AdminSubscriptionsPage() {
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
 
+  async function loadSubscriptions() {
+    setLoading(true)
+    setError(null)
+    try {
+      const r = await fetch('/api/admin/subscriptions')
+      const res = await r.json()
+      if (res?.ok && res?.data) {
+        setStats(res.data.stats ?? null)
+        setRows(Array.isArray(res.data.rows) ? res.data.rows : [])
+      } else setError(res?.error?.message || '조회 실패')
+    } catch {
+      setError('요청 실패')
+    } finally {
+      setLoading(false)
+    }
+  }
+
   useEffect(() => {
-    fetch('/api/admin/subscriptions')
-      .then((r) => r.json())
-      .then((res) => {
-        if (res?.ok && res?.data) {
-          setStats(res.data.stats ?? null)
-          setRows(Array.isArray(res.data.rows) ? res.data.rows : [])
-        } else setError(res?.error?.message || '조회 실패')
-      })
-      .catch(() => setError('요청 실패'))
-      .finally(() => setLoading(false))
+    void loadSubscriptions()
   }, [])
 
-  if (loading) return <p className="text-sm text-slate-500">로딩 중…</p>
-  if (error) return <p className="text-sm text-red-600">{error}</p>
+  if (loading) return <LoadingState />
+  if (error) return <ErrorState message={error} onRetry={() => void loadSubscriptions()} />
 
   const fmt = (n: number) => (n ?? 0).toLocaleString('ko-KR')
   const paidRows = rows.filter((r) => r.planType !== 'FREE' && r.status === 'active')

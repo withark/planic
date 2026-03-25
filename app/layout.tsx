@@ -1,5 +1,6 @@
 import type { Metadata } from 'next'
 import './globals.css'
+import { pretendard } from './fonts'
 import { SessionProvider } from '@/components/auth/SessionProvider'
 import { SiteJsonLd } from '@/components/seo/SiteJsonLd'
 import { SITE_DESCRIPTION, SITE_NAME } from '@/lib/site-metadata'
@@ -30,12 +31,8 @@ export const metadata: Metadata = {
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {
   return (
-    <html lang="ko" className="scroll-smooth">
-      <head>
-        <link rel="preconnect" href="https://cdn.jsdelivr.net" />
-        <link href="https://cdn.jsdelivr.net/gh/orioncactus/pretendard/dist/web/static/pretendard.css" rel="stylesheet" />
-      </head>
-      <body className="bg-slate-50 text-gray-900 antialiased min-h-screen">
+    <html lang="ko" className={`scroll-smooth ${pretendard.variable}`}>
+      <body className={`${pretendard.className} bg-slate-50 text-gray-900 antialiased min-h-screen`}>
         <SiteJsonLd />
         <SessionProvider>{children}</SessionProvider>
       </body>

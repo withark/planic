@@ -3,6 +3,7 @@
 import { useEffect, useState, useMemo } from 'react'
 import Link from 'next/link'
 import { AdminCard, AdminSection } from '@/components/admin/AdminCard'
+import { ErrorState, LoadingState } from '@/components/ui/AsyncState'
 
 type UserRow = {
   userId: string
@@ -105,8 +106,8 @@ export default function AdminUsersPage() {
     else setSelectedUserIds([])
   }
 
-  if (loading) return <p className="text-sm text-slate-500">로딩 중…</p>
-  if (error) return <p className="text-sm text-red-600">{error}</p>
+  if (loading) return <LoadingState />
+  if (error) return <ErrorState message={error} onRetry={loadUsers} />
 
   return (
     <div className="space-y-6">
