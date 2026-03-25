@@ -2,9 +2,14 @@ import type { Metadata } from 'next'
 import { HelpFaqAccordion } from '@/components/public/HelpFaqAccordion'
 import { PublicPageShell } from '@/components/public/PublicPageShell'
 
+const title = '도움말 · 플래닉 Planic'
+const description = '플래닉 자주 묻는 질문과 사용 도움말입니다.'
+
 export const metadata: Metadata = {
-  title: '도움말 · 플래닉 Planic',
-  description: '플래닉 자주 묻는 질문과 사용 도움말입니다.',
+  title,
+  description,
+  openGraph: { title, description },
+  twitter: { title, description },
 }
 
 export default function HelpPage() {

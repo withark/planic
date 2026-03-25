@@ -2,7 +2,7 @@
 
 import Link from 'next/link'
 import { usePathname } from 'next/navigation'
-import { useEffect, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { EvQuoteLogo } from '@/components/EvQuoteLogo'
 
 type PublicSiteHeaderProps = {
@@ -43,6 +43,8 @@ export function PublicSiteHeader({ loginHref = '/auth', loginLabel = '로그인'
   const pathname = usePathname()
   const normalizedPath = pathname === '/' ? '/' : pathname.replace(/\/$/, '')
   const [mobileOpen, setMobileOpen] = useState(false)
+  const menuButtonRef = useRef<HTMLButtonElement>(null)
+  const firstMobileLinkRef = useRef<HTMLAnchorElement>(null)
 
   useEffect(() => {
     setMobileOpen(false)
@@ -54,6 +56,25 @@ export function PublicSiteHeader({ loginHref = '/auth', loginLabel = '로그인'
     document.body.style.overflow = 'hidden'
     return () => {
       document.body.style.overflow = prev
+    }
+  }, [mobileOpen])
+
+  useEffect(() => {
+    if (!mobileOpen) return
+    const onKeyDown = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') {
+        e.preventDefault()
+        setMobileOpen(false)
+        menuButtonRef.current?.focus()
+      }
+    }
+    window.addEventListener('keydown', onKeyDown)
+    const id = window.requestAnimationFrame(() => {
+      firstMobileLinkRef.current?.focus()
+    })
+    return () => {
+      window.removeEventListener('keydown', onKeyDown)
+      window.cancelAnimationFrame(id)
     }
   }, [mobileOpen])
 
@@ -86,6 +107,7 @@ export function PublicSiteHeader({ loginHref = '/auth', loginLabel = '로그인'
             {loginLabel}
           </Link>
           <button
+            ref={menuButtonRef}
             type="button"
             className="inline-flex h-9 w-9 items-center justify-center rounded-lg border border-slate-200 bg-white text-slate-700 transition-colors hover:bg-slate-50 md:hidden"
             aria-expanded={mobileOpen}
@@ -120,11 +142,12 @@ export function PublicSiteHeader({ loginHref = '/auth', loginLabel = '로그인'
             className="fixed inset-x-0 top-[58px] z-40 max-h-[min(70vh,calc(100vh-58px))] overflow-y-auto border-b border-slate-100 bg-white px-4 py-3 shadow-lg md:hidden"
           >
             <nav aria-label="공개 사이트 메뉴 모바일">
-              {NAV_LINKS.map((item) => {
+              {NAV_LINKS.map((item, index) => {
                 const isActive = item.activePaths.includes(normalizedPath)
                 return (
                   <Link
                     key={item.href}
+                    ref={index === 0 ? firstMobileLinkRef : undefined}
                     href={item.href}
                     className={mobileLinkClass(isActive)}
                     onClick={() => setMobileOpen(false)}

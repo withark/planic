@@ -1,9 +1,15 @@
 import type { Metadata } from 'next'
+import Link from 'next/link'
 import { LegalPageShell } from '@/components/legal/LegalPageShell'
 
+const title = '개인정보처리방침 · 플래닉 Planic'
+const description = '플래닉(Planic)의 개인정보 수집·이용·보관 및 이용자 권리에 관한 안내입니다.'
+
 export const metadata: Metadata = {
-  title: '개인정보처리방침 · 플래닉 Planic',
-  description: '플래닉(Planic)의 개인정보 수집·이용·보관 및 이용자 권리에 관한 안내입니다.',
+  title,
+  description,
+  openGraph: { title, description },
+  twitter: { title, description },
 }
 
 const section = 'mt-8 first:mt-0'
@@ -19,9 +25,35 @@ export default function PrivacyPage() {
       intro="플래닉(Planic)은 회원가입, 문서 생성, 결제 등 서비스 제공 과정에서 필요한 개인정보를 관련 법령에 따라 처리합니다."
     >
       <article className="pb-4">
-        <p className="text-xs text-slate-500">시행일: 2026년 3월 24일</p>
+        <div className="sticky top-[58px] z-[15] mb-6 space-y-3 border-b border-slate-100 bg-white/95 pb-3 pt-1 backdrop-blur">
+          <p id="privacy-effective" className="text-xs text-slate-500 sm:text-sm">
+            시행일: 2026년 3월 24일
+          </p>
+          <nav aria-label="개인정보처리방침 목차" className="flex flex-wrap gap-x-2 gap-y-1.5 text-[11px] sm:text-xs">
+            {[
+              ['수집 항목', '#privacy-items'],
+              ['수집 방법', '#privacy-method'],
+              ['이용 목적', '#privacy-purpose'],
+              ['보관 기간', '#privacy-retention'],
+              ['제3자 제공', '#privacy-third'],
+              ['처리 위탁', '#privacy-consign'],
+              ['이용자 권리', '#privacy-rights'],
+              ['쿠키·로그', '#privacy-cookies'],
+              ['안전성 조치', '#privacy-security'],
+              ['문의처', '#privacy-contact'],
+            ].map(([label, href]) => (
+              <Link
+                key={href}
+                href={href}
+                className="rounded-md px-1.5 py-0.5 text-primary-700 hover:bg-primary-50 hover:underline"
+              >
+                {label}
+              </Link>
+            ))}
+          </nav>
+        </div>
 
-        <section className={section}>
+        <section id="privacy-items" className={section}>
           <h2 className={h2}>수집하는 개인정보 항목</h2>
           <ol className={ol}>
             <li>회원가입/로그인 정보: 식별자, 이메일, 이름(표시명), 프로필 정보(로그인 제공 범위 내)</li>
@@ -32,7 +64,7 @@ export default function PrivacyPage() {
           </ol>
         </section>
 
-        <section className={section}>
+        <section id="privacy-method" className={section}>
           <h2 className={h2}>수집 방법</h2>
           <ul className={ul}>
             <li>회원이 직접 입력하는 가입/프로필/문서 작성 정보</li>
@@ -42,7 +74,7 @@ export default function PrivacyPage() {
           </ul>
         </section>
 
-        <section className={section}>
+        <section id="privacy-purpose" className={section}>
           <h2 className={h2}>이용 목적</h2>
           <ol className={ol}>
             <li>회원 식별, 로그인 유지, 계정 보안</li>
@@ -53,7 +85,7 @@ export default function PrivacyPage() {
           </ol>
         </section>
 
-        <section className={section}>
+        <section id="privacy-retention" className={section}>
           <h2 className={h2}>보관 기간</h2>
           <ol className={ol}>
             <li>회원 정보: 탈퇴 시까지 보관(관계 법령에 따른 보관 의무가 있는 경우 예외)</li>
@@ -63,7 +95,7 @@ export default function PrivacyPage() {
           </ol>
         </section>
 
-        <section className={section}>
+        <section id="privacy-third" className={section}>
           <h2 className={h2}>제3자 제공 여부</h2>
           <p className={p}>
             회사는 원칙적으로 이용자 동의 없이 개인정보를 제3자에게 제공하지 않습니다. 다만 법령에 따른 요청이 있거나,
@@ -71,7 +103,7 @@ export default function PrivacyPage() {
           </p>
         </section>
 
-        <section className={section}>
+        <section id="privacy-consign" className={section}>
           <h2 className={h2}>처리 위탁</h2>
           <ul className={ul}>
             <li>클라우드/데이터베이스 운영</li>
@@ -82,7 +114,7 @@ export default function PrivacyPage() {
           <p className={p}>위탁 시 관련 법령에 따라 계약 및 안전성 조치를 적용하며, 변경 시 본 방침에 반영합니다.</p>
         </section>
 
-        <section className={section}>
+        <section id="privacy-rights" className={section}>
           <h2 className={h2}>이용자 권리</h2>
           <p className={p}>
             이용자는 언제든지 개인정보 열람·정정·삭제·처리정지를 요청할 수 있으며, 법령이 허용하는 범위에서 지체 없이
@@ -90,7 +122,7 @@ export default function PrivacyPage() {
           </p>
         </section>
 
-        <section className={section}>
+        <section id="privacy-cookies" className={section}>
           <h2 className={h2}>쿠키 / 로그 / 접속기록</h2>
           <ul className={ul}>
             <li>로그인 유지, 보안, 성능 개선을 위해 쿠키를 사용할 수 있습니다.</li>
@@ -99,7 +131,7 @@ export default function PrivacyPage() {
           </ul>
         </section>
 
-        <section className={section}>
+        <section id="privacy-security" className={section}>
           <h2 className={h2}>안전성 확보 조치</h2>
           <ol className={ol}>
             <li>개인정보에 대한 접근 권한의 차등 부여 및 최소화</li>
@@ -109,7 +141,7 @@ export default function PrivacyPage() {
           </ol>
         </section>
 
-        <section className={`${section} border-t border-slate-100 pt-8 mt-10`}>
+        <section id="privacy-contact" className={`${section} border-t border-slate-100 pt-8 mt-10`}>
           <h2 className={h2}>문의처</h2>
           <p className={p}>
             주소: 광릉수목원로 600 A동

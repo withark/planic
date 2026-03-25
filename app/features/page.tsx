@@ -1,9 +1,14 @@
 import type { Metadata } from 'next'
 import { PublicPageShell } from '@/components/public/PublicPageShell'
 
+const title = '기능 소개 · 플래닉 Planic'
+const description = '플래닉의 행사 문서 생성 기능을 안내합니다.'
+
 export const metadata: Metadata = {
-  title: '기능 소개 · 플래닉 Planic',
-  description: '플래닉의 행사 문서 생성 기능을 안내합니다.',
+  title,
+  description,
+  openGraph: { title, description },
+  twitter: { title, description },
 }
 
 export default function FeaturesPage() {

@@ -1,14 +1,30 @@
 import type { Metadata } from 'next'
 import './globals.css'
 import { SessionProvider } from '@/components/auth/SessionProvider'
+import { SITE_DESCRIPTION, SITE_NAME } from '@/lib/site-metadata'
 
 const raw = process.env.NEXTAUTH_URL?.trim() ?? ''
 const baseUrl = raw.startsWith('http://') || raw.startsWith('https://') ? raw : null
 
+const defaultTitle = `${SITE_NAME} · 행사 문서 올인원`
+
 export const metadata: Metadata = {
   ...(baseUrl ? { metadataBase: new URL(baseUrl) } : {}),
-  title: '플래닉 Planic · 행사 문서 올인원',
-  description: '견적서, 제안 프로그램, 타임테이블, 큐시트를 한 번에. AI 기반 행사 문서 생성',
+  title: defaultTitle,
+  description: SITE_DESCRIPTION,
+  openGraph: {
+    type: 'website',
+    locale: 'ko_KR',
+    siteName: SITE_NAME,
+    title: defaultTitle,
+    description: SITE_DESCRIPTION,
+    ...(baseUrl ? { url: baseUrl } : {}),
+  },
+  twitter: {
+    card: 'summary_large_image',
+    title: defaultTitle,
+    description: SITE_DESCRIPTION,
+  },
 }
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {

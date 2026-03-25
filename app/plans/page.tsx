@@ -1,5 +1,6 @@
 'use client'
 import Link from 'next/link'
+import clsx from 'clsx'
 import { Suspense, useEffect, useMemo, useState } from 'react'
 import { useSearchParams } from 'next/navigation'
 import { PublicPageShell } from '@/components/public/PublicPageShell'
@@ -36,6 +37,11 @@ function PlansContent() {
   const [currentPlan, setCurrentPlan] = useState<PlanType>('FREE')
   const [loading, setLoading] = useState(false)
   const [toast, setToast] = useState('')
+  const [planDetailOpen, setPlanDetailOpen] = useState<Record<PlanType, boolean>>({
+    FREE: false,
+    BASIC: false,
+    PREMIUM: false,
+  })
 
   useEffect(() => {
     apiFetch<MeLite>('/api/me')
@@ -188,24 +194,66 @@ function PlansContent() {
                     <span className="text-slate-600">이력 보관</span>
                     <span className="font-semibold tabular-nums">{limits.historyRetentionDays == null ? '무제한' : `${limits.historyRetentionDays}일`}</span>
                   </li>
+                  <li className="list-none border-0 p-0 pt-1 md:hidden">
+                    <button
+                      type="button"
+                      onClick={() =>
+                        setPlanDetailOpen((prev) => ({ ...prev, [c.plan]: !prev[c.plan] }))
+                      }
+                      className="text-sm font-semibold text-primary-700 hover:underline"
+                    >
+                      {planDetailOpen[c.plan] ? '상세 접기' : '상세 혜택 더 보기'}
+                    </button>
+                  </li>
                   {c.plan === 'FREE' && (
                     <>
-                      <li className="text-xs text-slate-500 pt-2">- 기본 템플릿만</li>
-                      <li className="text-xs text-slate-500">- PDF/고급 다운로드 제한</li>
+                      <li
+                        className={clsx(
+                          'text-xs text-slate-500 pt-2',
+                          !planDetailOpen[c.plan] && 'max-md:hidden'
+                        )}
+                      >
+                        - 기본 템플릿만
+                      </li>
+                      <li className={clsx('text-xs text-slate-500', !planDetailOpen[c.plan] && 'max-md:hidden')}>
+                        - PDF/고급 다운로드 제한
+                      </li>
                     </>
                   )}
                   {c.plan === 'BASIC' && (
                     <>
-                      <li className="text-xs text-slate-500 pt-2">- PDF 다운로드</li>
-                      <li className="text-xs text-slate-500">- 견적 복제/재편집</li>
-                      <li className="text-xs text-slate-500">- 이메일 공유</li>
+                      <li
+                        className={clsx(
+                          'text-xs text-slate-500 pt-2',
+                          !planDetailOpen[c.plan] && 'max-md:hidden'
+                        )}
+                      >
+                        - PDF 다운로드
+                      </li>
+                      <li className={clsx('text-xs text-slate-500', !planDetailOpen[c.plan] && 'max-md:hidden')}>
+                        - 견적 복제/재편집
+                      </li>
+                      <li className={clsx('text-xs text-slate-500', !planDetailOpen[c.plan] && 'max-md:hidden')}>
+                        - 이메일 공유
+                      </li>
                     </>
                   )}
                   {c.plan === 'PREMIUM' && (
                     <>
-                      <li className="text-xs text-slate-500 pt-2">- 고급 브랜딩</li>
-                      <li className="text-xs text-slate-500">- 제안서/견적서 통합 출력(준비중)</li>
-                      <li className="text-xs text-slate-500">- 팀 기능 확장 구조(준비중)</li>
+                      <li
+                        className={clsx(
+                          'text-xs text-slate-500 pt-2',
+                          !planDetailOpen[c.plan] && 'max-md:hidden'
+                        )}
+                      >
+                        - 고급 브랜딩
+                      </li>
+                      <li className={clsx('text-xs text-slate-500', !planDetailOpen[c.plan] && 'max-md:hidden')}>
+                        - 제안서/견적서 통합 출력(준비중)
+                      </li>
+                      <li className={clsx('text-xs text-slate-500', !planDetailOpen[c.plan] && 'max-md:hidden')}>
+                        - 팀 기능 확장 구조(준비중)
+                      </li>
                     </>
                   )}
                 </ul>
