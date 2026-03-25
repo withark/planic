@@ -6,26 +6,50 @@ import { SiteJsonLd } from '@/components/seo/SiteJsonLd'
 import { SITE_DESCRIPTION, SITE_NAME } from '@/lib/site-metadata'
 
 const raw = process.env.NEXTAUTH_URL?.trim() ?? ''
-const baseUrl = raw.startsWith('http://') || raw.startsWith('https://') ? raw : null
+const baseUrl =
+  raw.startsWith('http://') || raw.startsWith('https://') ? raw : null
+
+// next.config.js에서 NEXTAUTH_URL이 비어 있으면 빌드 시 placeholder.build로 치환될 수 있습니다.
+// 이 상태에서 canonical/OG url까지 placeholder로 박히는 것을 방지합니다.
+const isPlaceholderBaseUrl = Boolean(baseUrl && baseUrl.includes('placeholder.build'))
+const safeBaseUrl = isPlaceholderBaseUrl ? null : baseUrl
 
 const defaultTitle = `${SITE_NAME} · 행사 문서 올인원`
 
 export const metadata: Metadata = {
-  ...(baseUrl ? { metadataBase: new URL(baseUrl) } : {}),
+  ...(safeBaseUrl ? { metadataBase: new URL(safeBaseUrl) } : {}),
   title: defaultTitle,
   description: SITE_DESCRIPTION,
+  icons: {
+    icon: '/icon',
+    apple: '/apple-icon',
+  },
+  ...(safeBaseUrl ? { alternates: { canonical: `${safeBaseUrl}/` } } : {}),
   openGraph: {
     type: 'website',
     locale: 'ko_KR',
     siteName: SITE_NAME,
     title: defaultTitle,
     description: SITE_DESCRIPTION,
-    ...(baseUrl ? { url: baseUrl } : {}),
+    ...(safeBaseUrl
+      ? {
+          url: safeBaseUrl,
+          images: [
+            {
+              url: `${safeBaseUrl}/opengraph-image`,
+              width: 1200,
+              height: 630,
+              alt: defaultTitle,
+            },
+          ],
+        }
+      : {}),
   },
   twitter: {
     card: 'summary_large_image',
     title: defaultTitle,
     description: SITE_DESCRIPTION,
+    ...(safeBaseUrl ? { images: [`${safeBaseUrl}/opengraph-image`] } : {}),
   },
 }
 
