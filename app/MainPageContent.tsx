@@ -24,12 +24,30 @@ const featureCards = [
 ]
 
 const templateCards = [
-  { id: 'template-plan', label: '행사 기획서' },
-  { id: 'template-sponsor', label: '협찬 제안서' },
-  { id: 'template-report', label: '결과 보고서' },
-  { id: 'template-manual', label: '운영 매뉴얼' },
-  { id: 'template-timetable', label: '타임테이블' },
-  { id: 'template-invite', label: '초청/안내문' },
+  {
+    label: '견적서',
+    description: '행사 예산·항목·금액 기준을 빠르게 정리해야 할 때',
+  },
+  {
+    label: '기획안',
+    description: '행사 목적과 구성 흐름을 문서로 정리해야 할 때',
+  },
+  {
+    label: '프로그램 제안서',
+    description: '세션·순서 중심의 프로그램 구성을 제안해야 할 때',
+  },
+  {
+    label: '시나리오',
+    description: '시간 흐름과 진행 멘트까지 포함한 실행안이 필요할 때',
+  },
+  {
+    label: '큐시트',
+    description: '현장 운영 순서와 역할 분담을 시간축으로 맞출 때',
+  },
+  {
+    label: '과업지시서 요약',
+    description: '긴 요구사항 문서에서 핵심만 빠르게 추려야 할 때',
+  },
 ]
 
 function fmtKRW(n: number) {
@@ -144,7 +162,7 @@ export async function MainPageContent() {
             플래닉으로 더 빠르게
           </h1>
           <p className="mx-auto mt-4 max-w-2xl text-sm leading-relaxed text-slate-600 sm:text-[15px]">
-            행사 기획서, 협찬 제안서, 결과 보고서까지 플래닉에서 빠르게 만들고 바로 활용하세요.
+            견적서, 기획안, 프로그램 제안서, 시나리오, 큐시트까지 실무 문서를 빠르게 만들고 바로 활용하세요.
           </p>
           <p className="mt-2 text-sm font-medium text-slate-600">가입 후 무료로 시작 가능합니다.</p>
 
@@ -156,24 +174,6 @@ export async function MainPageContent() {
             >
               무료로 시작하기
             </StartNowLink>
-            <Link
-              href="/features"
-              className="inline-flex min-w-[190px] items-center justify-center rounded-xl border border-slate-200 bg-white px-8 py-3 text-sm font-semibold text-slate-700 transition-colors hover:bg-slate-50"
-            >
-              기능 자세히 보기
-            </Link>
-          </div>
-
-          <div className="mt-8 grid grid-cols-1 gap-3 sm:grid-cols-3">
-            {templateCards.slice(0, 3).map((item) => (
-              <Link
-                key={item.id}
-                href={`#${item.id}`}
-                className="rounded-xl border border-slate-200 bg-white/90 p-4 text-center transition-colors hover:bg-white"
-              >
-                <p className="text-sm font-semibold text-slate-900">{item.label}</p>
-              </Link>
-            ))}
           </div>
         </div>
       </section>
@@ -201,17 +201,13 @@ export async function MainPageContent() {
         <div className="mx-auto max-w-5xl">
           <div className="text-center">
             <p className="text-xs font-semibold tracking-wide text-primary-600">Document Templates</p>
-            <h2 className="mt-2.5 text-[22px] font-bold text-slate-900 sm:text-[30px]">행사 라이프사이클 전체를 커버</h2>
+            <h2 className="mt-2.5 text-[22px] font-bold text-slate-900 sm:text-[30px]">플래닉이 만들 수 있는 문서 종류</h2>
           </div>
           <div className="mt-6 grid gap-3.5 sm:grid-cols-2 lg:grid-cols-3">
             {templateCards.map((template) => (
-              <article
-                id={template.id}
-                key={template.id}
-                className="scroll-mt-24 rounded-xl border border-slate-200 bg-white p-5 transition-colors duration-300 target:border-primary-300 target:bg-primary-50/40 target:ring-1 target:ring-primary-200"
-              >
+              <article key={template.label} className="rounded-xl border border-slate-200 bg-white p-5">
                 <h3 className="text-base font-semibold text-slate-900">{template.label}</h3>
-                <p className="mt-2 text-sm text-slate-600">실무에서 바로 사용할 수 있는 구조로 빠르게 생성합니다.</p>
+                <p className="mt-2 text-sm text-slate-600">{template.description}</p>
               </article>
             ))}
           </div>
