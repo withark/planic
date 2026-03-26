@@ -5,7 +5,7 @@ import { isEmailPasswordAuthEnabled } from '@/lib/auth-email-password'
 import { createCredentialUser } from '@/lib/db/users-db'
 
 const schema = z.object({
-  login: z.string().min(1).max(200),
+  username: z.string().min(1).max(200),
   password: z.string().min(6).max(200),
   name: z.string().max(100).optional(),
 })
@@ -24,11 +24,11 @@ export async function POST(request: Request) {
   if (!parsed.success) {
     return NextResponse.json({ error: 'validation_failed' }, { status: 400 })
   }
-  const { login, password, name } = parsed.data
+  const { username, password, name } = parsed.data
   try {
     const hash = await bcrypt.hash(password, 10)
-    const user = await createCredentialUser({ login, passwordHash: hash, name })
-    return NextResponse.json({ ok: true, email: user.email })
+    const user = await createCredentialUser({ login: username, passwordHash: hash, name })
+    return NextResponse.json({ ok: true, username: user.email.split('@')[0] })
   } catch (e) {
     const msg = e instanceof Error ? e.message : ''
     if (msg === 'duplicate_email') {

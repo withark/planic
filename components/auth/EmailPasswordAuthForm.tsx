@@ -28,17 +28,17 @@ export function EmailPasswordAuthForm({ tab, callbackUrl }: Props) {
         const res = await fetch('/api/auth/register', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ login, password, name: name.trim() || undefined }),
+          body: JSON.stringify({ username: login, password, name: name.trim() || undefined }),
         })
         const data = (await res.json().catch(() => ({}))) as { error?: string }
         if (!res.ok) {
-          if (data.error === 'duplicate') setError('이미 사용 중인 아이디·이메일이에요.')
+          if (data.error === 'duplicate') setError('이미 사용 중인 아이디예요.')
           else setError('가입에 실패했어요. 잠시 후 다시 시도해 주세요.')
           return
         }
         setMessage('가입되었어요. 로그인 중…')
         const sign = await signIn('email-password', {
-          email: login,
+          username: login,
           password,
           callbackUrl,
           redirect: false,
@@ -52,7 +52,7 @@ export function EmailPasswordAuthForm({ tab, callbackUrl }: Props) {
       }
 
       const sign = await signIn('email-password', {
-        email: login,
+        username: login,
         password,
         callbackUrl,
         redirect: false,
@@ -71,7 +71,7 @@ export function EmailPasswordAuthForm({ tab, callbackUrl }: Props) {
     <form onSubmit={onSubmit} className="space-y-3">
       <div>
         <label htmlFor="ep-login" className="block text-xs font-medium text-slate-600 mb-1">
-          아이디 또는 이메일
+          아이디
         </label>
         <input
           id="ep-login"
@@ -81,7 +81,7 @@ export function EmailPasswordAuthForm({ tab, callbackUrl }: Props) {
           value={login}
           onChange={(e) => setLogin(e.target.value)}
           className="w-full rounded-xl border border-slate-200 px-3 py-2.5 text-sm text-gray-900 placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-primary-500/30 focus:border-primary-400"
-          placeholder="billingtest 또는 you@example.com"
+          placeholder="billingtest"
           required
         />
       </div>
@@ -126,7 +126,7 @@ export function EmailPasswordAuthForm({ tab, callbackUrl }: Props) {
         disabled={loading}
         className="w-full min-h-[48px] rounded-xl bg-primary-600 text-white text-sm font-semibold hover:bg-primary-700 disabled:opacity-60 transition-colors"
       >
-        {loading ? '처리 중…' : tab === 'signup' ? '이메일로 가입' : '이메일로 로그인'}
+        {loading ? '처리 중…' : tab === 'signup' ? '아이디로 가입' : '아이디로 로그인'}
       </button>
       <p className="text-[11px] text-slate-400 text-center leading-relaxed">
         결제 테스트용: 아이디 <span className="text-slate-600">billingtest</span> / 비밀번호{' '}

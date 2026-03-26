@@ -12,12 +12,13 @@ export function emailPasswordCredentialsProvider(): NextAuthOptions['providers']
     id: 'email-password',
     name: 'EmailPassword',
     credentials: {
-      email: { label: '아이디 또는 이메일', type: 'text' },
+      username: { label: '아이디', type: 'text' },
       password: { label: '비밀번호', type: 'password' },
     },
     async authorize(credentials) {
       if (!isEmailPasswordAuthEnabled()) return null
-      const email = normalizeCredentialLogin((credentials?.email || '').toString())
+      const rawLogin = (credentials?.username || '').toString()
+      const email = normalizeCredentialLogin(rawLogin)
       const password = (credentials?.password || '').toString()
       if (!email || !password) return null
       const row = await findCredentialUserForAuth(email)
