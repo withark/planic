@@ -1,5 +1,6 @@
 import bcrypt from 'bcryptjs'
 import { randomUUID } from 'crypto'
+import { isCredentialAuthEnabled } from '@/lib/credential-auth-env'
 import { getDb, initDb } from './client'
 import { ensureFreeSubscription } from '@/lib/db/subscriptions-db'
 
@@ -80,15 +81,9 @@ export async function createCredentialUser(input: {
 
 const BILLING_TEST_USER_ID = 'cred_billingtest'
 
-function isCredentialAuthEnabledForSeed(): boolean {
-  const flag = (process.env.ENABLE_EMAIL_PASSWORD_AUTH || '').trim() === '1'
-  const devDefault = process.env.NODE_ENV === 'development'
-  return flag || devDefault
-}
-
 /** 로컬/테스트용 결제 테스트 계정이 없으면 생성 */
 export async function ensureBillingTestUser(): Promise<void> {
-  if (!isCredentialAuthEnabledForSeed()) return
+  if (!isCredentialAuthEnabled()) return
   await initDb()
   const sql = getDb()
   const email = normalizeCredentialLogin('billingtest')

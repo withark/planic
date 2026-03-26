@@ -7,6 +7,9 @@ import { isEmailPasswordAuthEnabled } from '@/lib/auth-email-password'
 import { sanitizeCallbackUrl } from '@/lib/auth-callback'
 import { authOptions } from '@/lib/auth'
 
+/** 빌드 시점 NODE_ENV로 폼 노출이 고정되지 않도록 런타임 렌더 */
+export const dynamic = 'force-dynamic'
+
 type SearchParams = { error?: string; errorDescription?: string; callbackUrl?: string; reason?: string }
 
 function resolveCallbackUrl(searchParams: SearchParams): string {

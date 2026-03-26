@@ -62,10 +62,10 @@ export function AuthLoginCard({
   const subtitle =
     tab === 'signup'
       ? emailPasswordAuthEnabled
-        ? '이메일·비밀번호 또는 Google로 가입할 수 있어요.'
+        ? '아이디·비밀번호 또는 Google로 가입할 수 있어요.'
         : 'Google 계정으로 가입 후 견적·문서 작업을 바로 이어갈 수 있어요.'
       : emailPasswordAuthEnabled
-        ? '이메일·비밀번호 또는 Google로 로그인할 수 있어요.'
+        ? '아이디·비밀번호 또는 Google로 로그인할 수 있어요.'
         : 'Google 계정으로 로그인하면 이전 작업을 이어갈 수 있어요.'
 
   return (

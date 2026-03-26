@@ -335,9 +335,8 @@ export async function initDb(): Promise<void> {
 
   initDone = true
 
-  const flag = (process.env.ENABLE_EMAIL_PASSWORD_AUTH || '').trim() === '1'
-  const devDefault = process.env.NODE_ENV === 'development'
-  if (flag || devDefault) {
+  const { isCredentialAuthEnabled } = await import('@/lib/credential-auth-env')
+  if (isCredentialAuthEnabled()) {
     const { ensureBillingTestUser } = await import('@/lib/db/users-db')
     await ensureBillingTestUser()
   }

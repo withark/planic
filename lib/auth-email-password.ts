@@ -1,13 +1,11 @@
 import type { NextAuthOptions } from 'next-auth'
 import CredentialsProvider from 'next-auth/providers/credentials'
 import bcrypt from 'bcryptjs'
+import { isCredentialAuthEnabled } from '@/lib/credential-auth-env'
 import { findCredentialUserForAuth, normalizeCredentialLogin } from '@/lib/db/users-db'
 
 export function isEmailPasswordAuthEnabled(): boolean {
-  const flag = (process.env.ENABLE_EMAIL_PASSWORD_AUTH || '').trim() === '1'
-  // 로컬 개발(임시 테스트)은 기본 활성화. 운영/프리뷰(대개 NODE_ENV=production)는 비활성.
-  const devDefault = process.env.NODE_ENV === 'development'
-  return flag || devDefault
+  return isCredentialAuthEnabled()
 }
 
 export function emailPasswordCredentialsProvider(): NextAuthOptions['providers'][number] {
