@@ -80,9 +80,15 @@ export async function createCredentialUser(input: {
 
 const BILLING_TEST_USER_ID = 'cred_billingtest'
 
-/** ENABLE_EMAIL_PASSWORD_AUTH=1 일 때 결제 테스트용 계정이 없으면 생성 */
+function isCredentialAuthEnabledForSeed(): boolean {
+  const flag = (process.env.ENABLE_EMAIL_PASSWORD_AUTH || '').trim() === '1'
+  const devDefault = process.env.NODE_ENV === 'development'
+  return flag || devDefault
+}
+
+/** 로컬/테스트용 결제 테스트 계정이 없으면 생성 */
 export async function ensureBillingTestUser(): Promise<void> {
-  if ((process.env.ENABLE_EMAIL_PASSWORD_AUTH || '').trim() !== '1') return
+  if (!isCredentialAuthEnabledForSeed()) return
   await initDb()
   const sql = getDb()
   const email = normalizeCredentialLogin('billingtest')

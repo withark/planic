@@ -335,7 +335,9 @@ export async function initDb(): Promise<void> {
 
   initDone = true
 
-  if ((process.env.ENABLE_EMAIL_PASSWORD_AUTH || '').trim() === '1') {
+  const flag = (process.env.ENABLE_EMAIL_PASSWORD_AUTH || '').trim() === '1'
+  const devDefault = process.env.NODE_ENV === 'development'
+  if (flag || devDefault) {
     const { ensureBillingTestUser } = await import('@/lib/db/users-db')
     await ensureBillingTestUser()
   }
