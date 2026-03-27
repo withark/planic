@@ -1,5 +1,5 @@
 'use client'
-import { useState, useEffect, useRef } from 'react'
+import { Fragment, useState, useEffect, useRef } from 'react'
 import type { QuoteDoc, CompanySettings, QuoteItemKind, PriceCategory, PriceItem, ProgramTableRow, TimelineRow } from '@/lib/types'
 import { KIND_ORDER, subtotalsByKind } from '@/lib/quoteGroup'
 import { QUOTE_TEMPLATES, QUOTE_TEMPLATE_IDS, type QuoteTemplateId } from '@/lib/quoteTemplates'
@@ -77,6 +77,71 @@ function isTimetableReady(doc: QuoteDoc) {
   return Array.isArray(doc.program?.timeline) && doc.program.timeline.length > 0
 }
 
+function parseHHmm(value: string): number | null {
+  const m = /^([01]\d|2[0-3]):([0-5]\d)$/.exec((value || '').trim())
+  if (!m) return null
+  return Number(m[1]) * 60 + Number(m[2])
+}
+
+function durationLabel(current: string, next?: string): string {
+  const curr = parseHHmm(current)
+  const nxt = parseHHmm(next || '')
+  if (curr == null) return '-'
+  if (nxt == null) return '-'
+  const diff = nxt - curr
+  if (diff <= 0) return '-'
+  return `${diff}분`
+}
+
+function toHHmm(minute: number): string {
+  const h = Math.floor(minute / 60)
+  const m = minute % 60
+  return `${String(h).padStart(2, '0')}:${String(m).padStart(2, '0')}`
+}
+
+function buildPartMeta(rows: TimelineRow[]): { splitIndex: number | null; part1Label: string; part2Label: string } {
+  if (!Array.isArray(rows) || rows.length < 4) {
+    return { splitIndex: null, part1Label: '', part2Label: '' }
+  }
+
+  const lunchIndex = rows.findIndex((r) => /점심|중식|휴식|break/i.test(`${r.content} ${r.detail}`))
+  let splitIndex = lunchIndex >= 0 && lunchIndex + 1 < rows.length ? lunchIndex + 1 : Math.floor(rows.length / 2)
+  if (splitIndex <= 0 || splitIndex >= rows.length) {
+    return { splitIndex: null, part1Label: '', part2Label: '' }
+  }
+
+  const first = parseHHmm(rows[0]?.time || '')
+  const split = parseHHmm(rows[splitIndex]?.time || '')
+  const last = parseHHmm(rows[rows.length - 1]?.time || '')
+
+  const part1Start = first != null ? first : null
+  const part1End = split != null ? split : null
+  const part2Start = split != null ? split : null
+  const part2End = last != null ? last : null
+
+  const part1Label = part1Start != null && part1End != null
+    ? `1부 — 오전 (${toHHmm(part1Start)} ~ ${toHHmm(part1End)})`
+    : '1부 — 오전'
+  const part2Label = part2Start != null && part2End != null
+    ? `2부 — 오후 (${toHHmm(part2Start)} ~ ${toHHmm(part2End)})`
+    : '2부 — 오후'
+
+  return { splitIndex, part1Label, part2Label }
+}
+
+function inferTimelineSection(row: TimelineRow, index: number, total: number): string {
+  const manager = (row.manager || '').trim()
+  if (manager) return manager
+  const content = `${row.content} ${row.detail}`.toLowerCase()
+  if (/준비|세팅|setup/.test(content)) return '행사 준비'
+  if (/오프닝|개회|개회사/.test(content)) return '오프닝'
+  if (/점심|중식|휴식|break/.test(content)) return '점심/휴식'
+  if (/마무리|시상|폐회|종료/.test(content)) return '마무리'
+  if (index === 0) return '행사 준비'
+  if (index === total - 1) return '종료'
+  return '본행사'
+}
+
 function isPlanningReady(doc: QuoteDoc) {
   const overview = doc.planning?.overview
   return !!doc.planning && typeof overview === 'string' && overview.trim().length > 0
@@ -113,6 +178,7 @@ export function QuoteResult({
   const initial = visibleTabs.includes(initialTab) ? initialTab : 'estimate'
   const [tab, setTab] = useState<DocTab>(initial)
   const [openPriceForKind, setOpenPriceForKind] = useState<QuoteItemKind | null>(null)
+  const [timetableLayoutMode, setTimetableLayoutMode] = useState<'single' | 'split'>('single')
   const priceDropdownRef = useRef<HTMLDivElement>(null)
   const totals = calcTotals(doc)
   const budgetConstraint = doc.budgetConstraint
@@ -793,7 +859,20 @@ export function QuoteResult({
         {/* 타임테이블 — controlled, on demand */}
         {tab === 'timetable' && (
           <div className="quote-wrapper max-w-3xl mx-auto space-y-3 pt-2">
-            <h3 className="text-base font-semibold">{doc.eventName} — 타임테이블</h3>
+            <div className="flex items-center justify-between gap-3 bg-slate-50 border border-slate-200 rounded-xl px-3 py-2">
+              <div>
+                <p className="text-xs font-semibold text-slate-700">타임테이블 레이아웃</p>
+                <p className="text-[11px] text-slate-500">통합형 또는 1부·2부 분할형으로 표시할 수 있습니다.</p>
+              </div>
+              <select
+                value={timetableLayoutMode}
+                onChange={(e) => setTimetableLayoutMode(e.target.value as 'single' | 'split')}
+                className="px-2.5 py-1.5 text-xs border border-gray-200 rounded-lg bg-white focus:outline-none focus:border-primary-400 focus:ring-1 focus:ring-primary-100"
+              >
+                <option value="single">통합형 (한 번에)</option>
+                <option value="split">1부 · 2부 분할형</option>
+              </select>
+            </div>
             {!isTimetableReady(doc) ? (
               <div className="bg-gray-50 border border-gray-200 rounded-2xl p-4 text-sm text-gray-600 space-y-2">
                 <p className="text-xs text-gray-500">아직 생성되지 않았습니다.</p>
@@ -805,43 +884,111 @@ export function QuoteResult({
               </div>
             ) : (
               <>
-                <p className="text-xs text-gray-500">시간 열은 생성 시 입력한 시작·종료 시각 사이로 맞춰졌습니다. 수정하면 즉시 반영됩니다.</p>
-                <table className="w-full text-xs border-collapse border border-gray-200">
-                  <thead>
-                    <tr className="bg-gray-100">
-                      {['시간 (HH:mm)', '내용', '세부', '담당', ''].map(h => (
-                        <th key={h} className="border border-gray-200 px-2 py-2 text-left">{h}</th>
-                      ))}
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {(program.timeline || []).map((row: TimelineRow, i: number) => (
-                      <tr key={`tl-${i}-${row.content}`} className="border-b border-gray-100">
-                        <td className="border border-gray-100 p-1">
-                          <input
-                            value={row.time}
-                            onChange={e => patchDoc(base => { base.program.timeline[i].time = e.target.value; return base })}
-                            className="w-20 font-mono tabular-nums bg-amber-50/50 rounded px-1"
-                            placeholder="19:00"
-                          />
-                        </td>
-                        <td className="border border-gray-100 p-1">
-                          <input value={row.content} onChange={e => patchDoc(base => { base.program.timeline[i].content = e.target.value; return base })} className="w-full min-w-[120px]" />
-                        </td>
-                        <td className="border border-gray-100 p-1">
-                          <input value={row.detail} onChange={e => patchDoc(base => { base.program.timeline[i].detail = e.target.value; return base })} className="w-full text-gray-600" />
-                        </td>
-                        <td className="border border-gray-100 p-1">
-                          <input value={row.manager} onChange={e => patchDoc(base => { base.program.timeline[i].manager = e.target.value; return base })} className="w-20" />
-                        </td>
-                        <td className="border border-gray-100 p-1">
-                          <button type="button" className="text-red-400" onClick={() => patchDoc(base => { base.program.timeline.splice(i, 1); return base })}>✕</button>
-                        </td>
+                {(() => {
+                  const partMeta = buildPartMeta(program.timeline || [])
+                  return (
+                <div className="rounded-2xl border border-indigo-100 bg-white overflow-hidden shadow-sm">
+                  <div className="mx-4 mt-4 mb-3 rounded-2xl border border-indigo-200 bg-indigo-50/60 px-4 py-3 text-center">
+                    <h3 className="text-[15px] font-semibold text-slate-800">{doc.eventName || '행사'} 타임테이블</h3>
+                    <p className="text-[13px] font-semibold text-indigo-700 mt-0.5">
+                      {program.timeline[0]?.time || '--:--'} ~ {program.timeline[program.timeline.length - 1]?.time || '--:--'}
+                    </p>
+                  </div>
+                  <table className="w-full text-xs border-collapse">
+                    <thead>
+                      <tr className="bg-gray-50/80 text-slate-700">
+                        {['구분', '시간', '소요', '내용', ''].map((h, idx) => (
+                          <th
+                            key={h}
+                            className={clsx(
+                              'border border-gray-200 px-3 py-2 font-semibold text-center',
+                              idx === 3 ? 'text-left' : '',
+                            )}
+                          >
+                            {h}
+                          </th>
+                        ))}
                       </tr>
-                    ))}
-                  </tbody>
-                </table>
-                <Button size="sm" onClick={() => patchDoc(base => { base.program.timeline.push({ time: '', content: '', detail: '', manager: '' }); return base })}>+ 일정 추가</Button>
+                    </thead>
+                    <tbody>
+                      {timetableLayoutMode === 'split' && partMeta.splitIndex != null && (
+                        <tr className="bg-indigo-50/70">
+                          <td className="border border-gray-200 px-3 py-1.5" />
+                          <td className="border border-gray-200 px-3 py-1.5" />
+                          <td colSpan={3} className="border border-gray-200 px-3 py-1.5 text-[20px] text-indigo-900 font-semibold">
+                            {partMeta.part1Label}
+                          </td>
+                        </tr>
+                      )}
+                      {(program.timeline || []).map((row: TimelineRow, i: number) => {
+                        const next = program.timeline[i + 1]
+                        const section = inferTimelineSection(row, i, program.timeline.length)
+                        return (
+                          <Fragment key={`timeline-row-group-${i}`}>
+                          {timetableLayoutMode === 'split' && partMeta.splitIndex != null && i === partMeta.splitIndex && (
+                            <tr className="bg-rose-50/60">
+                              <td className="border border-gray-200 px-3 py-1.5" />
+                              <td className="border border-gray-200 px-3 py-1.5" />
+                              <td colSpan={3} className="border border-gray-200 px-3 py-1.5 text-[20px] text-rose-900 font-semibold">
+                                {partMeta.part2Label}
+                              </td>
+                            </tr>
+                          )}
+                          <tr key={`tl-${i}-${row.content}`} className="align-top">
+                            <td className="border border-gray-200 p-2">
+                              <input
+                                value={row.manager || section}
+                                onChange={e => patchDoc(base => { base.program.timeline[i].manager = e.target.value; return base })}
+                                className="w-full bg-transparent text-center font-semibold text-gray-700 outline-none"
+                                placeholder="구분"
+                              />
+                            </td>
+                            <td className="border border-gray-200 p-2">
+                              <input
+                                value={row.time}
+                                onChange={e => patchDoc(base => { base.program.timeline[i].time = e.target.value; return base })}
+                                className="w-full bg-transparent text-center font-mono tabular-nums outline-none"
+                                placeholder="09:00"
+                              />
+                            </td>
+                            <td className="border border-gray-200 p-2 text-center text-gray-700 whitespace-nowrap">
+                              {durationLabel(row.time, next?.time)}
+                            </td>
+                            <td className="border border-gray-200 p-2">
+                              <input
+                                value={row.content}
+                                onChange={e => patchDoc(base => { base.program.timeline[i].content = e.target.value; return base })}
+                                className="w-full bg-transparent outline-none font-medium text-gray-800"
+                                placeholder="프로그램 내용"
+                              />
+                              <textarea
+                                value={row.detail}
+                                onChange={e => patchDoc(base => { base.program.timeline[i].detail = e.target.value; return base })}
+                                rows={2}
+                                className="mt-1 w-full bg-transparent outline-none resize-y text-gray-600"
+                                placeholder="세부 진행 내용"
+                              />
+                            </td>
+                            <td className="border border-gray-200 p-2 text-center">
+                              <button type="button" className="text-red-400 hover:text-red-600" onClick={() => patchDoc(base => { base.program.timeline.splice(i, 1); return base })}>✕</button>
+                            </td>
+                          </tr>
+                          </Fragment>
+                        )
+                      })}
+                    </tbody>
+                  </table>
+                  {timetableLayoutMode === 'split' && partMeta.splitIndex != null && (
+                    <div className="px-4 pt-3 text-[11px] text-center text-gray-500">
+                      ※ {partMeta.part1Label.replace('1부 — 오전 ', '')} · {partMeta.part2Label.replace('2부 — 오후 ', '')}
+                    </div>
+                  )}
+                  <div className="px-4 py-3 border-t border-gray-100 flex justify-end">
+                    <Button size="sm" onClick={() => patchDoc(base => { base.program.timeline.push({ time: '', content: '', detail: '', manager: '' }); return base })}>+ 일정 추가</Button>
+                  </div>
+                </div>
+                  )
+                })()}
               </>
             )}
           </div>
