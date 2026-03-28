@@ -112,9 +112,18 @@ export async function POST(req: NextRequest) {
 
     if (body.streamProgress) {
       const encoder = new TextEncoder()
+      /** LLM 대기(수십 초~분) 동안 바이트가 없으면 일부 프록시가 유휴 연결을 끊습니다. 주기적 pulse로 연결을 유지합니다. */
+      const STREAM_HEARTBEAT_MS = 12_000
       const stream = new ReadableStream({
         async start(controller) {
           const send = (obj: object) => controller.enqueue(encoder.encode(`${JSON.stringify(obj)}\n`))
+          const heartbeat = setInterval(() => {
+            try {
+              send({ type: 'pulse', t: Date.now() })
+            } catch {
+              clearInterval(heartbeat)
+            }
+          }, STREAM_HEARTBEAT_MS)
           try {
             const result = await executeGeneratePipeline({
               ...pipelineArgs,
@@ -134,6 +143,7 @@ export async function POST(req: NextRequest) {
               send({ type: 'error', code: 'INTERNAL_ERROR', message: msg, status: 500 })
             }
           } finally {
+            clearInterval(heartbeat)
             controller.close()
           }
         },
@@ -142,6 +152,8 @@ export async function POST(req: NextRequest) {
         headers: {
           'Content-Type': 'application/x-ndjson; charset=utf-8',
           'Cache-Control': 'no-store',
+          // nginx 등이 스트림을 버퍼링해 클라이언트로 단계가 늦게 가는 것을 완화
+          'X-Accel-Buffering': 'no',
         },
       })
     }

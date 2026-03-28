@@ -130,6 +130,15 @@ function getOpenAIClient(): OpenAI {
   return new OpenAI({ apiKey: key })
 }
 
+/** assistant 텍스트만 추출(첫 블록이 비텍스트인 경우 대비) */
+function anthropicAssistantPlainText(message: Anthropic.Message): string {
+  const parts: string[] = []
+  for (const b of message.content ?? []) {
+    if (b.type === 'text') parts.push(b.text)
+  }
+  return parts.join('\n\n').trim()
+}
+
 export async function callLLM(prompt: string, opts: CallLLMOptions = {}): Promise<string> {
   const effective = opts.engine ?? (await getEffectiveEngineConfig())
   const provider = effective.provider
@@ -174,7 +183,9 @@ export async function callLLM(prompt: string, opts: CallLLMOptions = {}): Promis
       id: (message as { id?: string }).id ?? null,
       anthropic: { id: (message as { id?: string }).id ?? null },
     })
-    return message.content[0].type === 'text' ? message.content[0].text : ''
+    const text = anthropicAssistantPlainText(message)
+    if (!text) throw new Error('Anthropic 응답에 본문 텍스트가 없습니다.')
+    return text
   } catch (e) {
     throw readableLLMError(e, provider)
   } finally {

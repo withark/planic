@@ -134,6 +134,9 @@ export async function apiGenerateStream(
     }
   }
 
-  throw new ApiError('생성 응답이 완료되지 않았습니다.', 500)
+  throw new ApiError(
+    '생성 응답이 끝나기 전에 연결이 끊겼습니다. 네트워크·VPN을 확인하거나 잠시 후 다시 시도해 주세요.',
+    500,
+  )
 }
 
