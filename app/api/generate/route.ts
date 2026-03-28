@@ -6,7 +6,7 @@ import { logError } from '@/lib/utils/logger'
 import { getUserIdFromSession } from '@/lib/auth-server'
 import { ensureFreeSubscription, getActiveSubscription } from '@/lib/db/subscriptions-db'
 import { getOrCreateUsage } from '@/lib/db/usage-db'
-import { assertQuoteGenerateAllowed } from '@/lib/entitlements'
+import { assertQuoteGenerateAllowed, EntitlementError } from '@/lib/entitlements'
 import type { PlanType } from '@/lib/plans'
 import { isAiModeMockRaw, isMockGenerationEnabled, isProductionRuntime } from '@/lib/ai/mode'
 import {
@@ -154,6 +154,9 @@ export async function POST(req: NextRequest) {
     }
   } catch (e) {
     logError('generate', e)
+    if (e instanceof EntitlementError) {
+      return errorResponse(403, e.code, e.message)
+    }
     const msg = toServerUserMessage(e, '문서 생성에 실패했습니다.')
     const status = msg.includes('로그인') ? 401 : msg.includes('월') ? 403 : 500
     return errorResponse(status, 'INTERNAL_ERROR', msg)

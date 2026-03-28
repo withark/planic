@@ -1,3 +1,5 @@
+import { EntitlementError } from '@/lib/entitlements'
+
 function asText(input: unknown): string {
   if (input instanceof Error) return input.message || ''
   if (typeof input === 'string') return input
@@ -16,6 +18,9 @@ export function toServerUserMessage(
   input: unknown,
   fallback = '요청 처리 중 오류가 발생했습니다. 잠시 후 다시 시도해 주세요.',
 ): string {
+  if (input instanceof EntitlementError) {
+    return input.message
+  }
   const lowered = asText(input).toLowerCase()
 
   if (
