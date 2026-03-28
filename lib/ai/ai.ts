@@ -161,13 +161,405 @@ function fillWeakOutputs(doc: QuoteDoc, input: GenerateInput): QuoteDoc {
       const venue = input.venue || ''
       const headcount = parseHeadcount(input.headcount || '')
       const budget = parseMoney(input.budget || '')
+      const hc = headcount || 100
 
       const rE = (input.settings.expenseRate || 0) / 100
       const rP = (input.settings.profitRate || 0) / 100
-      const subTarget = budget > 0 ? budget / ((1 + rE) * (1 + rP) * 1.1) : Math.max(8_000_000, headcount * 80_000)
+      const subTarget =
+        budget > 0 ? budget / ((1 + rE) * (1 + rP) * 1.1) : Math.max(5_000_000, hc * 60_000)
 
-      const weightsByEventType =
-        /(런칭|쇼케이스)/.test(eventType)
+      const allText = `${eventType} ${eventName}`.toLowerCase()
+      const isSports = /(체육대회|운동회|스포츠|달리기|줄다리기|운동장)/.test(allText)
+
+      if (isSports) {
+        const requirements = (input.requirements || '').toLowerCase()
+
+        const hasTugOfWar = /줄다리기/.test(requirements)
+        const hasHula = /훌라/.test(requirements)
+        const hasBallpit = /볼풀/.test(requirements)
+        const hasRugby = /럭비/.test(requirements)
+        const hasAirBaton = /에어봉|장대봉/.test(requirements)
+        const hasDalgona = /달고나/.test(requirements)
+        const hasJegi = /제기/.test(requirements)
+        const hasJumpRope = /줄넘기/.test(requirements)
+        const hasThreeLeg = /2인3각/.test(requirements)
+        const hasBigBall = /큰공|비닐봉투|파도/.test(requirements)
+        const hasTowerBuild = /비전탑|탑/.test(requirements)
+
+        const venueStr = venue ? `(${venue})` : ''
+        const staffCount = Math.max(4, Math.round(hc / 50))
+        const photographerCount = hc > 300 ? 2 : 1
+
+        doc.quoteItems = [
+          {
+            category: '운영 인력',
+            items: [
+              {
+                name: '행사 진행 MC',
+                spec: `행사 전체 진행 및 종목 안내${venueStr}`,
+                qty: 1,
+                unit: '명',
+                unitPrice: 300_000,
+                total: 300_000,
+                kind: '인건비' as const,
+                note: '오프닝~시상식 전체 진행',
+              },
+              {
+                name: '현장 진행요원/심판',
+                spec: `종목별 심판 및 진행 보조${venueStr}`,
+                qty: staffCount,
+                unit: '명',
+                unitPrice: 120_000,
+                total: staffCount * 120_000,
+                kind: '인건비' as const,
+                note: '각 종목 심판 및 안전 관리',
+              },
+              {
+                name: '촬영 기사',
+                spec: `행사 전체 사진·영상 촬영${venueStr}`,
+                qty: photographerCount,
+                unit: '명',
+                unitPrice: 300_000,
+                total: photographerCount * 300_000,
+                kind: '필수' as const,
+                note: '단체사진 포함',
+              },
+              {
+                name: '의무/안전 요원',
+                spec: `현장 응급처치 및 안전 관리${venueStr}`,
+                qty: hc > 200 ? 2 : 1,
+                unit: '명',
+                unitPrice: 150_000,
+                total: (hc > 200 ? 2 : 1) * 150_000,
+                kind: '필수' as const,
+                note: '구급함 지참',
+              },
+            ],
+          },
+          {
+            category: '음향/방송 장비',
+            items: [
+              {
+                name: '야외 PA 스피커 시스템',
+                spec: `야외 행사용 좌우 스피커 세트${venueStr}`,
+                qty: 1,
+                unit: '세트',
+                unitPrice: 400_000,
+                total: 400_000,
+                kind: '필수' as const,
+                note: '앰프/믹서 포함',
+              },
+              {
+                name: '무선 마이크',
+                spec: `핸드 마이크 2개 + 헤드셋 1개`,
+                qty: 3,
+                unit: '개',
+                unitPrice: 50_000,
+                total: 150_000,
+                kind: '필수' as const,
+                note: 'MC 및 개회사용',
+              },
+              {
+                name: '현수막 (행사명)',
+                spec: `행사명 현수막 3m×1m${venueStr}`,
+                qty: Math.max(1, Math.ceil(hc / 150)),
+                unit: '개',
+                unitPrice: 80_000,
+                total: Math.max(1, Math.ceil(hc / 150)) * 80_000,
+                kind: '필수' as const,
+                note: '디자인 포함',
+              },
+            ],
+          },
+          {
+            category: '종목 진행 물품',
+            items: [
+              ...(hasTowerBuild
+                ? [
+                    {
+                      name: '비전탑 세우기 세트',
+                      spec: '비전탑 블록/구조물 세트',
+                      qty: 1,
+                      unit: '식',
+                      unitPrice: 150_000,
+                      total: 150_000,
+                      kind: '필수' as const,
+                      note: '조립식 블록 구조물',
+                    },
+                  ]
+                : []),
+              ...(hasBigBall
+                ? [
+                    {
+                      name: '대형 공 (큰공 굴리기/파도타기)',
+                      spec: '지름 80cm 이상 대형 공',
+                      qty: 2,
+                      unit: '개',
+                      unitPrice: 80_000,
+                      total: 160_000,
+                      kind: '필수' as const,
+                      note: '파도타기 겸용',
+                    },
+                  ]
+                : []),
+              ...(hasBallpit
+                ? [
+                    {
+                      name: '볼풀공 + 네트/바구니 세트',
+                      spec: '볼풀공 200개 + 투입용 네트',
+                      qty: 1,
+                      unit: '세트',
+                      unitPrice: 200_000,
+                      total: 200_000,
+                      kind: '필수' as const,
+                      note: '하늘높이슛 종목용',
+                    },
+                  ]
+                : []),
+              ...(hasTugOfWar
+                ? [
+                    {
+                      name: '줄다리기 로프',
+                      spec: '두꺼운 로프 20m 이상',
+                      qty: 2,
+                      unit: '개',
+                      unitPrice: 60_000,
+                      total: 120_000,
+                      kind: '필수' as const,
+                      note: '팀 수에 따라 수량 조정',
+                    },
+                  ]
+                : []),
+              ...(hasHula
+                ? [
+                    {
+                      name: '훌라우프',
+                      spec: '성인용 훌라우프',
+                      qty: 20,
+                      unit: '개',
+                      unitPrice: 8_000,
+                      total: 160_000,
+                      kind: '필수' as const,
+                      note: '도전 99초 종목용',
+                    },
+                  ]
+                : []),
+              ...(hasRugby
+                ? [
+                    {
+                      name: '럭비공',
+                      spec: '표준 럭비공',
+                      qty: 8,
+                      unit: '개',
+                      unitPrice: 15_000,
+                      total: 120_000,
+                      kind: '필수' as const,
+                      note: '릴레이 종목용',
+                    },
+                  ]
+                : []),
+              ...(hasAirBaton
+                ? [
+                    {
+                      name: '에어봉 (1.5m 장대봉)',
+                      spec: '길이 1.5m 에어 장대봉',
+                      qty: 15,
+                      unit: '개',
+                      unitPrice: 12_000,
+                      total: 180_000,
+                      kind: '필수' as const,
+                      note: '던지기 종목용',
+                    },
+                  ]
+                : []),
+              ...(hasDalgona
+                ? [
+                    {
+                      name: '달고나 세트',
+                      spec: '달고나 틀 + 설탕 + 버너 세트',
+                      qty: 1,
+                      unit: '식',
+                      unitPrice: 100_000,
+                      total: 100_000,
+                      kind: '선택1' as const,
+                      note: '도전 99초 종목용',
+                    },
+                  ]
+                : []),
+              ...(hasJegi
+                ? [
+                    {
+                      name: '제기',
+                      spec: '제기차기용 제기',
+                      qty: 20,
+                      unit: '개',
+                      unitPrice: 3_000,
+                      total: 60_000,
+                      kind: '선택1' as const,
+                      note: '도전 99초 종목용',
+                    },
+                  ]
+                : []),
+              ...(hasJumpRope
+                ? [
+                    {
+                      name: '단체 줄넘기 (긴 줄)',
+                      spec: '긴 줄 단체 줄넘기용 로프 5m',
+                      qty: 3,
+                      unit: '개',
+                      unitPrice: 15_000,
+                      total: 45_000,
+                      kind: '선택1' as const,
+                      note: '도전 99초 종목용',
+                    },
+                  ]
+                : []),
+              ...(hasThreeLeg
+                ? [
+                    {
+                      name: '2인3각 묶음 밴드',
+                      spec: '발목 묶음용 신축성 밴드',
+                      qty: 20,
+                      unit: '세트',
+                      unitPrice: 3_000,
+                      total: 60_000,
+                      kind: '선택1' as const,
+                      note: '도전 99초 종목용',
+                    },
+                  ]
+                : []),
+              ...(!hasTugOfWar && !hasHula && !hasRugby
+                ? [
+                    {
+                      name: '기본 체육대회 종목 도구 세트',
+                      spec: '공·줄·도구 기본 세트',
+                      qty: 1,
+                      unit: '식',
+                      unitPrice: 300_000,
+                      total: 300_000,
+                      kind: '필수' as const,
+                      note: '종목 확정 후 세부 조정',
+                    },
+                  ]
+                : []),
+            ].filter(it => it.qty > 0),
+          },
+          {
+            category: '시설/설치',
+            items: [
+              {
+                name: '본부석 텐트/차양',
+                spec: `본부석 및 심판석용 텐트${venueStr}`,
+                qty: Math.max(1, Math.ceil(hc / 100)),
+                unit: '동',
+                unitPrice: 100_000,
+                total: Math.max(1, Math.ceil(hc / 100)) * 100_000,
+                kind: '필수' as const,
+                note: '설치/철수 포함',
+              },
+              {
+                name: '의자 및 테이블 (선수 대기)',
+                spec: `선수 및 관람 대기용 의자/테이블${venueStr}`,
+                qty: 1,
+                unit: '식',
+                unitPrice: 150_000,
+                total: 150_000,
+                kind: '필수' as const,
+                note: '규모에 따라 수량 조정',
+              },
+              {
+                name: '라인 마킹 / 결승선 테이프',
+                spec: `운동장 종목별 라인 마킹 및 결승선`,
+                qty: 1,
+                unit: '식',
+                unitPrice: 80_000,
+                total: 80_000,
+                kind: '필수' as const,
+                note: '석회 또는 라인 테이프',
+              },
+            ],
+          },
+          {
+            category: '시상/기념품',
+            items: [
+              {
+                name: '트로피 / 메달',
+                spec: `1등·2등·3등 트로피 및 메달`,
+                qty: Math.max(3, Math.ceil(hc / 30)),
+                unit: '개',
+                unitPrice: 15_000,
+                total: Math.max(3, Math.ceil(hc / 30)) * 15_000,
+                kind: '필수' as const,
+                note: '시상식용',
+              },
+              {
+                name: '협동상 / 응원상 상품',
+                spec: `협동상·응원상 등 특별상 상품`,
+                qty: 3,
+                unit: '식',
+                unitPrice: 30_000,
+                total: 90_000,
+                kind: '선택1' as const,
+                note: '상품 내용 협의',
+              },
+            ],
+          },
+          {
+            category: '기타/운영',
+            items: [
+              {
+                name: '구급용품 / 응급처치 키트',
+                spec: `현장 응급처치용 구급함`,
+                qty: 2,
+                unit: '개',
+                unitPrice: 30_000,
+                total: 60_000,
+                kind: '필수' as const,
+                note: '안전요원 지참',
+              },
+              {
+                name: '인쇄물 (프로그램표/번호표)',
+                spec: `행사 순서지 및 선수 번호표 인쇄`,
+                qty: hc,
+                unit: '매',
+                unitPrice: 500,
+                total: hc * 500,
+                kind: '필수' as const,
+                note: '컬러 인쇄',
+              },
+              {
+                name: '운반비 (장비 이동)',
+                spec: `행사 장비 운반 및 설치 철수`,
+                qty: 1,
+                unit: '식',
+                unitPrice: 150_000,
+                total: 150_000,
+                kind: '필수' as const,
+                note: '거리에 따라 조정',
+              },
+            ],
+          },
+        ]
+
+        if (budget > 0) {
+          const currentTotal = doc.quoteItems.reduce(
+            (sum, cat) => sum + cat.items.reduce((s, it) => s + it.total, 0),
+            0,
+          )
+          const targetSub = budget / ((1 + rE) * (1 + rP) * 1.1)
+          const ratio = currentTotal > 0 ? targetSub / currentTotal : 1
+          if (ratio !== 1 && ratio > 0.3 && ratio < 3) {
+            doc.quoteItems = doc.quoteItems.map(cat => ({
+              ...cat,
+              items: cat.items.map(it => {
+                const newUnitPrice = Math.round((it.unitPrice * ratio) / 1000) * 1000
+                return { ...it, unitPrice: newUnitPrice, total: newUnitPrice * it.qty }
+              }),
+            }))
+          }
+        }
+      } else {
+        const weightsByEventType = /(런칭|쇼케이스)/.test(eventType)
           ? { ops: 0.3, stage: 0.3, facility: 0.1, production: 0.3 }
           : /(포럼|컨퍼런스|세미나)/.test(eventType)
             ? { ops: 0.45, stage: 0.25, facility: 0.15, production: 0.15 }
@@ -175,137 +567,145 @@ function fillWeakOutputs(doc: QuoteDoc, input: GenerateInput): QuoteDoc {
               ? { ops: 0.4, stage: 0.2, facility: 0.2, production: 0.2 }
               : { ops: 0.38, stage: 0.25, facility: 0.17, production: 0.2 }
 
-      const rawCats = categoryOrder.slice(0, 4)
-      const cats = rawCats.length >= 3 ? rawCats : aiCategoryOrder
-      const typedWeights = cats.map(cat => {
-        const ty = classifyCategoryType(cat)
-        const w =
-          ty === 'ops'
-            ? weightsByEventType.ops
-            : ty === 'stage'
-              ? weightsByEventType.stage
-              : ty === 'facility'
-                ? weightsByEventType.facility
-                : ty === 'production'
-                  ? weightsByEventType.production
-                  : 0.2
-        return { cat, ty, w }
-      })
-      const sumW = typedWeights.reduce((a, b) => a + b.w, 0) || 1
-
-      const buildItemsForType = (ty: 'ops' | 'stage' | 'facility' | 'production' | 'other') => {
-        const commonVenue = venue ? `(${venue})` : ''
-        const hc = headcount || 120
-        if (ty === 'ops')
-          return [
-            {
-              name: '총괄 PM',
-              spec: `${eventName} 행사 총괄 운영${commonVenue}`,
-              unit: '식',
-              qty: 1,
-              kind: '인건비' as const,
-              note: '사전 운영안 확정/현장 총괄/사후 정산'
-            },
-            {
-              name: '현장 진행요원',
-              spec: `등록/전환 지원 및 관객 동선 관리${commonVenue}`,
-              unit: '명',
-              qty: Math.max(2, Math.round(hc / 90)),
-              kind: '필수' as const,
-              note: '세션 전환 큐 호출/대기 동선 통제'
-            },
-          ]
-        if (ty === 'stage')
-          return [
-            {
-              name: '음향 오퍼레이터',
-              spec: `메인 마이크/믹싱 운용 및 레벨 점검${commonVenue}`,
-              unit: '식',
-              qty: 1,
-              kind: '필수' as const,
-              note: '오프닝~클로징 음향 큐 고정'
-            },
-            {
-              name: '기본 조명/전환 기술',
-              spec: `조명 세팅 및 전환 구간 동기 큐${commonVenue}`,
-              unit: '식',
-              qty: 1,
-              kind: '필수' as const,
-              note: '전환 시 스위치/페이드 타이밍 관리'
-            },
-          ]
-        if (ty === 'facility')
-          return [
-            {
-              name: '리허설/공간 세팅',
-              spec: `무대/좌석/동선 세팅 및 리허설 운영${commonVenue}`,
-              unit: '식',
-              qty: 1,
-              kind: '필수' as const,
-              note: '장비 반입/세팅/동선 사전 점검'
-            },
-            {
-              name: '안전/동선 운영',
-              spec: `인원 흐름 관리 및 비상 동선 운영${commonVenue}`,
-              unit: '회',
-              qty: 1,
-              kind: '선택1' as const,
-              note: '혼잡 시간대 모니터링/대체 동선 안내'
-            },
-          ]
-        if (ty === 'production')
-          return [
-            {
-              name: '현장 안내물/프로그램',
-              spec: `프로그램 북/안내 카드 제작 및 배포${commonVenue}`,
-              unit: '식',
-              qty: 1,
-              kind: '선택1' as const,
-              note: '오프닝 전 배치/현장 배포'
-            },
-            {
-              name: '제작/홍보물 운영',
-              spec: `배너/포토존/핵심 안내물 설치 및 철수${commonVenue}`,
-              unit: '식',
-              qty: 1,
-              kind: '선택1' as const,
-              note: '설치/철수 일정 고정 및 사전 체크'
-            },
-          ]
-        return [
-          {
-            name: '운영 항목',
-            spec: `${eventType} 행사 운영 지원${commonVenue}`,
-            unit: '식',
-            qty: 1,
-            kind: '선택1' as const,
-            note: '운영 항목(세부 범위 협의)'
-          },
-        ]
-      }
-
-      const quoteItems = typedWeights.map(({ cat, ty, w }) => {
-        const items = buildItemsForType(ty)
-        const catSub = (subTarget * w) / sumW
-        const itemTotalEach = items.length ? catSub / items.length : 0
-        const enriched = items.map((it: any) => {
-          const total = Math.round(itemTotalEach)
-          const unitPrice = Math.max(0, Math.round(total / (it.qty || 1)))
-          return { ...it, unitPrice, total: (it.qty || 1) * unitPrice }
+        const rawCats = categoryOrder.slice(0, 4)
+        const cats = rawCats.length >= 3 ? rawCats : aiCategoryOrder
+        const typedWeights = cats.map(cat => {
+          const ty = classifyCategoryType(cat)
+          const w =
+            ty === 'ops'
+              ? weightsByEventType.ops
+              : ty === 'stage'
+                ? weightsByEventType.stage
+                : ty === 'facility'
+                  ? weightsByEventType.facility
+                  : ty === 'production'
+                    ? weightsByEventType.production
+                    : 0.2
+          return { cat, ty, w }
         })
-        return { category: cat, items: enriched }
-      })
+        const sumW = typedWeights.reduce((a, b) => a + b.w, 0) || 1
 
-      doc.quoteItems = quoteItems
+        const buildItemsForType = (ty: 'ops' | 'stage' | 'facility' | 'production' | 'other') => {
+          const commonVenue = venue ? `(${venue})` : ''
+          const hcLocal = headcount || 120
+          if (ty === 'ops')
+            return [
+              {
+                name: '총괄 PM',
+                spec: `${eventName} 행사 총괄 운영${commonVenue}`,
+                unit: '식',
+                qty: 1,
+                kind: '인건비' as const,
+                note: '사전 운영안 확정/현장 총괄/사후 정산',
+              },
+              {
+                name: '현장 진행요원',
+                spec: `등록/전환 지원 및 관객 동선 관리${commonVenue}`,
+                unit: '명',
+                qty: Math.max(2, Math.round(hcLocal / 90)),
+                kind: '필수' as const,
+                note: '세션 전환 큐 호출/대기 동선 통제',
+              },
+            ]
+          if (ty === 'stage')
+            return [
+              {
+                name: '음향 오퍼레이터',
+                spec: `메인 마이크/믹싱 운용 및 레벨 점검${commonVenue}`,
+                unit: '식',
+                qty: 1,
+                kind: '필수' as const,
+                note: '오프닝~클로징 음향 큐 고정',
+              },
+              {
+                name: '기본 조명/전환 기술',
+                spec: `조명 세팅 및 전환 구간 동기 큐${commonVenue}`,
+                unit: '식',
+                qty: 1,
+                kind: '필수' as const,
+                note: '전환 시 스위치/페이드 타이밍 관리',
+              },
+            ]
+          if (ty === 'facility')
+            return [
+              {
+                name: '리허설/공간 세팅',
+                spec: `무대/좌석/동선 세팅 및 리허설 운영${commonVenue}`,
+                unit: '식',
+                qty: 1,
+                kind: '필수' as const,
+                note: '장비 반입/세팅/동선 사전 점검',
+              },
+              {
+                name: '안전/동선 운영',
+                spec: `인원 흐름 관리 및 비상 동선 운영${commonVenue}`,
+                unit: '회',
+                qty: 1,
+                kind: '선택1' as const,
+                note: '혼잡 시간대 모니터링/대체 동선 안내',
+              },
+            ]
+          if (ty === 'production')
+            return [
+              {
+                name: '현장 안내물/프로그램',
+                spec: `프로그램 북/안내 카드 제작 및 배포${commonVenue}`,
+                unit: '식',
+                qty: 1,
+                kind: '선택1' as const,
+                note: '오프닝 전 배치/현장 배포',
+              },
+              {
+                name: '제작/홍보물 운영',
+                spec: `배너/포토존/핵심 안내물 설치 및 철수${commonVenue}`,
+                unit: '식',
+                qty: 1,
+                kind: '선택1' as const,
+                note: '설치/철수 일정 고정 및 사전 체크',
+              },
+            ]
+          return [
+            {
+              name: '운영 항목',
+              spec: `${eventType} 행사 운영 지원${commonVenue}`,
+              unit: '식',
+              qty: 1,
+              kind: '선택1' as const,
+              note: '운영 항목(세부 범위 협의)',
+            },
+          ]
+        }
+
+        const quoteItems = typedWeights.map(({ cat, ty, w }) => {
+          const items = buildItemsForType(ty)
+          const catSub = (subTarget * w) / sumW
+          const itemTotalEach = items.length ? catSub / items.length : 0
+          const enriched = items.map((it: any) => {
+            const total = Math.round(itemTotalEach)
+            const unitPrice = Math.max(0, Math.round(total / (it.qty || 1)))
+            return { ...it, unitPrice, total: (it.qty || 1) * unitPrice }
+          })
+          return { category: cat, items: enriched }
+        })
+
+        doc.quoteItems = quoteItems
+      }
     }
 
+    const allText2 = `${input.eventType || ''} ${input.eventName || ''}`.toLowerCase()
+    const isSports2 = /(체육대회|운동회|스포츠|달리기|줄다리기)/.test(allText2)
     if (isBlankish(doc.notes)) {
-      const eventType = input.eventType || ''
-      const venue = input.venue || ''
-      doc.notes =
-        `포함 범위: ${eventType} 진행 운영(사전 리허설/현장 큐 호출/세션 전환 지원) + ${venue ? `(${venue})` : '장소'} 기준 운영.\n` +
-        `제외/제약: 추가 음향/조명 커스텀, 행사 후 추가 리셋 작업 등은 별도 협의(현장 여건에 따라 조정).\n` +
-        `산출물/운영 조건: 프로그램표/큐시트 기반 운영 및 당일 실행 기준으로 정리, 일정 확정 후 최종본 배포.`
+      if (isSports2) {
+        doc.notes =
+          `포함 범위: 행사 진행 운영(사전 준비/현장 운영/종목 심판/시상식) + ${input.venue ? `(${input.venue})` : '장소'} 기준.\n` +
+          `제외/제약: 식사 제공은 별도 협의. 우천 시 일정 조정 및 추가 비용 발생 가능.\n` +
+          `산출물/운영 조건: 타임테이블/큐시트 기반 운영, 종목 확정 후 최종 도구 수량 조정.`
+      } else {
+        doc.notes =
+          `포함 범위: ${input.eventType || ''} 진행 운영(사전 리허설/현장 큐 호출/세션 전환 지원) + ${input.venue ? `(${input.venue})` : '장소'} 기준 운영.\n` +
+          `제외/제약: 추가 음향/조명 커스텀, 행사 후 추가 리셋 작업 등은 별도 협의.\n` +
+          `산출물/운영 조건: 프로그램표/큐시트 기반 운영 및 당일 실행 기준.`
+      }
     }
   }
 
