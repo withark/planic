@@ -87,6 +87,10 @@ export default function FeaturesPage() {
               <p className="mt-1 text-sm text-slate-600">시간 흐름과 진행 멘트까지 포함한 실행안이 필요할 때</p>
             </div>
             <div className="rounded-xl border border-slate-100 bg-slate-50 p-4">
+              <p className="text-sm font-semibold text-slate-900">사회자 멘트</p>
+              <p className="mt-1 text-sm text-slate-600">행사 흐름에 맞춘 MC 대본(구간별 멘트)이 필요할 때</p>
+            </div>
+            <div className="rounded-xl border border-slate-100 bg-slate-50 p-4">
               <p className="text-sm font-semibold text-slate-900">큐시트</p>
               <p className="mt-1 text-sm text-slate-600">현장 운영 순서와 역할 분담을 시간축으로 맞출 때</p>
             </div>
