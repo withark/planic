@@ -28,6 +28,7 @@ const DOC_TARGET_KO: Record<string, string> = {
   planning: '기획안',
   scenario: '시나리오',
   cuesheet: '큐시트',
+  emceeScript: '사회자 멘트',
 }
 
 function documentTargetLabel(s: Record<string, unknown> | undefined): string {
