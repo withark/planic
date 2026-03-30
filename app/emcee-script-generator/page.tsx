@@ -1,0 +1,416 @@
+'use client'
+
+import { useCallback, useEffect, useMemo, useState } from 'react'
+import { GNB } from '@/components/GNB'
+import QuoteResult from '@/components/quote/QuoteResult'
+import SimpleGeneratorWizard from '@/components/generators/SimpleGeneratorWizard'
+import { Input, Textarea, Toast } from '@/components/ui'
+import type { CompanySettings, PriceCategory, QuoteDoc } from '@/lib/types'
+import { apiFetch, apiGenerateStream } from '@/lib/api/client'
+import { toUserMessage } from '@/lib/errors/toUserMessage'
+import { exportToExcel } from '@/lib/exportExcel'
+import { exportToPdf } from '@/lib/exportPdf'
+import type { PlanType } from '@/lib/plans'
+
+type MeLite = {
+  subscription: { planType: PlanType }
+}
+
+type GeneratedDocListRow = {
+  id: string
+  docType: 'estimate' | 'program' | 'timetable' | 'planning' | 'scenario' | 'cuesheet' | 'emceeScript'
+  createdAt: string
+  total: number
+  eventName: string
+  clientName: string
+  quoteDate: string
+  eventDate: string
+}
+
+type SourceMode = 'fromTopic' | 'fromProgram' | 'fromScenario'
+
+function todayStr() {
+  return new Date().toISOString().slice(0, 10)
+}
+
+function makeDummyEmceeBaseDoc({
+  topic,
+  headcount,
+  venue,
+}: {
+  topic: string
+  headcount: string
+  venue: string
+}): QuoteDoc {
+  const quoteDate = todayStr()
+  return {
+    eventName: topic,
+    clientName: '',
+    clientManager: '',
+    clientTel: '',
+    quoteDate,
+    eventDate: '',
+    eventDuration: '',
+    venue: venue.trim(),
+    headcount: headcount.trim(),
+    eventType: '기타',
+    quoteItems: [
+      {
+        category: '기타',
+        items: [
+          {
+            name: '기본 컨텍스트',
+            spec: '',
+            qty: 1,
+            unit: '식',
+            unitPrice: 0,
+            total: 0,
+            note: '',
+            kind: '필수',
+          },
+        ],
+      },
+    ],
+    expenseRate: 0,
+    profitRate: 0,
+    cutAmount: 0,
+    notes: '',
+    paymentTerms: '',
+    validDays: 7,
+    program: {
+      concept: '',
+      programRows: [],
+      timeline: [],
+      staffing: [],
+      tips: [],
+      cueRows: [],
+      cueSummary: '',
+    },
+    quoteTemplate: 'default',
+  } as QuoteDoc
+}
+
+export default function EmceeScriptGeneratorPage() {
+  const [toast, setToast] = useState<string | null>(null)
+  const showToast = useCallback((m: string) => {
+    setToast(m)
+    setTimeout(() => setToast(null), 3000)
+  }, [])
+
+  const [me, setMe] = useState<MeLite | null>(null)
+  const [companySettings, setCompanySettings] = useState<CompanySettings | null>(null)
+  const [prices, setPrices] = useState<PriceCategory[]>([])
+
+  const [sourceMode, setSourceMode] = useState<SourceMode>('fromTopic')
+  const [baseDocList, setBaseDocList] = useState<GeneratedDocListRow[]>([])
+  const [selectedBaseDocId, setSelectedBaseDocId] = useState<string | null>(null)
+
+  const [topic, setTopic] = useState('')
+  const [goal, setGoal] = useState('')
+  const [headcount, setHeadcount] = useState('')
+  const [venue, setVenue] = useState('')
+  const [notes, setNotes] = useState('')
+
+  const [doc, setDoc] = useState<QuoteDoc | null>(null)
+  const [generatedDocId, setGeneratedDocId] = useState<string | null>(null)
+  const [generating, setGenerating] = useState(false)
+  const [generationProgressLabel, setGenerationProgressLabel] = useState<string | null>(null)
+  const [saving, setSaving] = useState(false)
+  const generatingTabs = useMemo(() => ({ emceeScript: generating }), [generating])
+
+  useEffect(() => {
+    apiFetch<MeLite>('/api/me').then(setMe).catch(() => {})
+    apiFetch<CompanySettings>('/api/settings').then(setCompanySettings).catch(() => {})
+    apiFetch<PriceCategory[]>('/api/prices').then(setPrices).catch(() => setPrices([]))
+  }, [])
+
+  useEffect(() => {
+    if (sourceMode === 'fromTopic') {
+      setBaseDocList([])
+      setSelectedBaseDocId(null)
+      return
+    }
+    const target = sourceMode === 'fromProgram' ? 'program' : 'scenario'
+    apiFetch<GeneratedDocListRow[]>(`/api/generated-docs?docType=${target}&limit=20`)
+      .then(setBaseDocList)
+      .catch(() => setBaseDocList([]))
+  }, [sourceMode])
+
+  useEffect(() => {
+    if (sourceMode === 'fromTopic') return
+    if (!selectedBaseDocId) {
+      setDoc(null)
+      setGeneratedDocId(null)
+      return
+    }
+    apiFetch<{ doc: QuoteDoc }>(`/api/generated-docs/${selectedBaseDocId}`)
+      .then(res => {
+        setDoc(res.doc)
+        setGeneratedDocId(null)
+      })
+      .catch(() => {
+        setDoc(null)
+        setGeneratedDocId(null)
+      })
+  }, [sourceMode, selectedBaseDocId])
+
+  const requestBaseFromDoc = useCallback((d: QuoteDoc, requirementsText: string) => {
+    return {
+      clientName: d.clientName,
+      clientManager: d.clientManager,
+      clientTel: d.clientTel,
+      eventName: d.eventName,
+      quoteDate: d.quoteDate,
+      eventDate: d.eventDate,
+      eventDuration: d.eventDuration,
+      headcount: d.headcount,
+      venue: d.venue,
+      eventType: d.eventType,
+      budget: '',
+      requirements: requirementsText,
+      styleMode: 'userStyle' as const,
+    }
+  }, [])
+
+  const handleGenerate = useCallback(async () => {
+    const docForGenerate =
+      sourceMode === 'fromTopic'
+        ? doc ?? makeDummyEmceeBaseDoc({ topic: topic.trim() || '행사', headcount, venue })
+        : doc
+    if (!docForGenerate) {
+      showToast('생성에 필요한 문서 컨텍스트가 없습니다. 소스 문서를 선택했는지 확인해 주세요.')
+      return
+    }
+    setGenerating(true)
+    setGenerationProgressLabel('입력 확인 중')
+    try {
+      const promptRequirements = [goal.trim(), notes.trim() ? `추가 메모: ${notes.trim()}` : ''].filter(Boolean).join('\n')
+      const requirementsText = sourceMode === 'fromTopic' ? promptRequirements : ''
+      const baseBody = requestBaseFromDoc(docForGenerate, requirementsText)
+      const data = await apiGenerateStream(
+        {
+          ...baseBody,
+          documentTarget: 'emceeScript',
+          existingDoc: docForGenerate,
+        },
+        { onStage: ({ label }) => setGenerationProgressLabel(label) },
+      )
+      setDoc(data.doc)
+      setGeneratedDocId(data.id)
+      showToast('사회자 멘트 문서가 생성되었습니다!')
+    } catch (e) {
+      showToast(toUserMessage(e, '사회자 멘트 생성에 실패했습니다.'))
+    } finally {
+      setGenerating(false)
+      setGenerationProgressLabel(null)
+    }
+  }, [doc, requestBaseFromDoc, showToast, sourceMode, topic, goal, notes, headcount, venue])
+
+  const handleSaveDoc = useCallback(
+    async (nextDoc: QuoteDoc) => {
+      if (!generatedDocId) return
+      setSaving(true)
+      try {
+        await apiFetch(`/api/generated-docs/${generatedDocId}`, {
+          method: 'PATCH',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ doc: nextDoc }),
+        })
+        showToast('저장이 완료되었습니다.')
+      } catch (e) {
+        showToast(toUserMessage(e, '저장에 실패했습니다.'))
+      } finally {
+        setSaving(false)
+      }
+    },
+    [generatedDocId, showToast],
+  )
+
+  const generateDisabled =
+    sourceMode === 'fromTopic' ? !topic.trim() || !goal.trim() : !selectedBaseDocId || !doc
+
+  const validationMessage = useMemo(() => {
+    if (!generateDisabled) return null
+    if (sourceMode === 'fromTopic') {
+      if (!topic.trim()) return '행사 주제를 입력해 주세요.'
+      if (!goal.trim()) return '멘트 톤·목표를 입력해 주세요. (예: 격식 있게, 가볍게 등)'
+      return null
+    }
+    if (!selectedBaseDocId) {
+      return sourceMode === 'fromProgram'
+        ? '프로그램 제안서를 선택해 주세요.'
+        : '시나리오 문서를 선택해 주세요.'
+    }
+    if (!doc) return '선택한 문서를 불러오는 중이거나 불러오지 못했습니다.'
+    return null
+  }, [generateDisabled, sourceMode, topic, goal, selectedBaseDocId, doc])
+
+  return (
+    <div className="flex h-screen overflow-hidden bg-gray-50/50">
+      <GNB />
+      <div className="flex-1 flex flex-col overflow-hidden">
+        <header className="flex items-center justify-between px-6 h-14 border-b border-gray-100 bg-white/90 flex-shrink-0">
+          <div>
+            <h1 className="text-base font-semibold text-gray-900">사회자 멘트 만들기</h1>
+            <p className="text-xs text-gray-500 mt-0.5">현장에서 읽을 MC 대본을 생성합니다</p>
+          </div>
+          {me?.subscription?.planType === 'FREE' && (
+            <span className="text-xs text-amber-700 bg-amber-50 border border-amber-200 rounded-lg px-3 py-1">
+              무료
+            </span>
+          )}
+        </header>
+
+        <div className="flex-1 overflow-y-auto p-6 space-y-6">
+          <SimpleGeneratorWizard
+            title="사회자 멘트 만들기"
+            subtitle=""
+            modes={[
+              { id: 'fromTopic', title: '주제만 입력' },
+              { id: 'fromProgram', title: '프로그램 제안서 기준' },
+              { id: 'fromScenario', title: '시나리오 기준' },
+            ]}
+            modeId={sourceMode}
+            onModeChange={(id) => {
+              const next = id as SourceMode
+              setSourceMode(next)
+              setSelectedBaseDocId(null)
+              setTopic('')
+              setGoal('')
+              setHeadcount('')
+              setVenue('')
+              setNotes('')
+              setDoc(null)
+              setGeneratedDocId(null)
+            }}
+            requiredInput={
+              sourceMode === 'fromProgram' || sourceMode === 'fromScenario' ? (
+                <select
+                  value={selectedBaseDocId || ''}
+                  onChange={(e) => {
+                    setSelectedBaseDocId(e.target.value || null)
+                    setGeneratedDocId(null)
+                  }}
+                  className="w-full px-3 py-2 text-sm border border-gray-200 rounded-lg bg-white focus:outline-none focus:border-primary-400 focus:ring-1 focus:ring-primary-100"
+                >
+                  <option value="" disabled>
+                    {sourceMode === 'fromProgram' ? '프로그램 제안서를 선택하세요' : '시나리오 문서를 선택하세요'}
+                  </option>
+                  {baseDocList.slice(0, 20).map(r => (
+                    <option key={r.id} value={r.id}>
+                      {r.eventName || '행사명 없음'}
+                    </option>
+                  ))}
+                </select>
+              ) : (
+                <div className="space-y-3">
+                  <div className="text-[11px] text-gray-500">
+                    필수: 행사 주제, 멘트 목표 / 선택: 인원, 장소, 추가 메모
+                  </div>
+                  <Input
+                    label="행사 주제"
+                    value={topic}
+                    onChange={(e) => setTopic(e.target.value)}
+                    placeholder="예) 기업 체육대회 / 신제품 론칭"
+                  />
+                  <Textarea
+                    label="멘트 목표·톤"
+                    value={goal}
+                    onChange={(e) => setGoal(e.target.value)}
+                    placeholder="예) 격식 있게, VIP 인사 직후 바로 본행사로 넘어가게"
+                    rows={3}
+                  />
+                  <div className="grid grid-cols-2 gap-3">
+                    <Input
+                      label="참석 인원(선택)"
+                      value={headcount}
+                      onChange={(e) => setHeadcount(e.target.value)}
+                      placeholder="예) 200"
+                      inputMode="numeric"
+                    />
+                    <Input
+                      label="장소(선택)"
+                      value={venue}
+                      onChange={(e) => setVenue(e.target.value)}
+                      placeholder="예) 잠실 실내체육관"
+                    />
+                  </div>
+                  <Textarea
+                    label="추가 메모(선택)"
+                    value={notes}
+                    onChange={(e) => setNotes(e.target.value)}
+                    placeholder="예) 시상 순서 강조, 방송용 약어 금지 등"
+                    rows={3}
+                  />
+                </div>
+              )
+            }
+            generateLabel="멘트 문서 생성"
+            onGenerate={handleGenerate}
+            generating={generating}
+            generationProgressLabel={generationProgressLabel}
+            generateDisabled={generateDisabled}
+            validationMessage={validationMessage}
+          />
+
+          {doc && generatedDocId ? (
+            <section className="rounded-2xl border border-gray-100 bg-white shadow-card overflow-hidden">
+              <div className="p-4 border-b border-gray-100 bg-slate-50/50">
+                <div className="text-sm font-semibold text-gray-900">사회자 멘트 결과</div>
+                <div className="text-xs text-gray-500 mt-1">생성 후 구간별로 편집할 수 있습니다.</div>
+              </div>
+              <div className="h-[calc(100vh-280px)] min-h-[420px]">
+                <QuoteResult
+                  doc={doc}
+                  docId={generatedDocId}
+                  onSaveDoc={handleSaveDoc}
+                  saving={saving}
+                  companySettings={companySettings}
+                  prices={prices}
+                  planType={me?.subscription?.planType ?? 'FREE'}
+                  onChange={setDoc}
+                  generatingTabs={generatingTabs}
+                  visibleTabs={['emceeScript']}
+                  initialTab="emceeScript"
+                  showTabButtons={false}
+                  disableAutoGenerate
+                  hideOnDemandGenerate
+                  onExcel={(view) => {
+                    exportToExcel(doc, companySettings ?? undefined, view)
+                    showToast('엑셀 다운로드 완료!')
+                  }}
+                  onPdf={async () => {
+                    if (me?.subscription?.planType === 'FREE') {
+                      showToast('PDF 다운로드는 베이직 플랜부터 이용할 수 있어요.')
+                      return
+                    }
+                    try {
+                      await exportToPdf(doc, companySettings ?? undefined)
+                      showToast('PDF 저장 완료!')
+                    } catch (e) {
+                      showToast(toUserMessage(e, '저장 실패'))
+                    }
+                  }}
+                />
+              </div>
+            </section>
+          ) : (
+            <section className="rounded-2xl border border-dashed border-gray-200 bg-white p-8 text-center">
+              <div className="text-sm font-semibold text-gray-900">
+                {doc ? '문서를 선택한 뒤 생성하세요' : '입력 후 생성하세요'}
+              </div>
+              <div className="text-xs text-gray-500 mt-2">
+                {doc
+                  ? '생성 후 편집 영역이 열립니다.'
+                  : sourceMode === 'fromTopic'
+                    ? '주제와 멘트 목표만 입력하면 됩니다'
+                    : '저장된 문서를 선택해야 합니다'}
+              </div>
+            </section>
+          )}
+        </div>
+      </div>
+      {toast && <Toast message={toast} onClose={() => setToast('')} />}
+    </div>
+  )
+}

@@ -77,6 +77,27 @@ export interface ScenarioDoc {
   directionNotes: string
 }
 
+/** 사회자(MC) 멘트 원고 — 구간별 대본 */
+export interface EmceeScriptLine {
+  order: string
+  /** HH:mm 또는 구간 라벨 */
+  time: string
+  /** 구간명 (오프닝, 본행사, 전환, 시상 등) */
+  segment: string
+  /** 실제 멘트(구어체, 현장에서 그대로 읽을 수 있게) */
+  script: string
+  /** 음향·영상·동선 등 큐 */
+  notes: string
+}
+
+export interface EmceeScriptDoc {
+  /** 한 줄 요약 */
+  summaryTop: string
+  /** 호칭·톤·금지어·진행 원칙 등 MC 지침 */
+  hostGuidelines: string
+  lines: EmceeScriptLine[]
+}
+
 // ─── 기획 문서(Planning) ─────────────────────────
 export interface PlanningDoc {
   overview: string
@@ -111,6 +132,8 @@ export interface QuoteDoc {
   program: ProgramPlan
   /** 시나리오·연출 흐름 (PPT 샘플 반영) */
   scenario?: ScenarioDoc
+  /** 사회자 멘트 원고 */
+  emceeScript?: EmceeScriptDoc
   /** 기획 문서(계획/운영/산출물) */
   planning?: PlanningDoc
   /** 견적서 스타일 템플릿 (구독/판매용) */

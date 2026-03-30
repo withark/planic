@@ -1,5 +1,5 @@
 // lib/ai/prompts.ts
-// 6개 문서(estimate·program·timetable·planning·scenario·cuesheet) ×
+// 7개 문서(estimate·program·timetable·planning·scenario·cuesheet·emceeScript) ×
 // 모든 행사 유형(sports·corporate·festival·wedding·conference·launch·school·general)
 
 import type { GenerateInput } from './types'
@@ -143,7 +143,7 @@ function getCategoryGuide(category: EventCategory, headcount: number): string {
 }
 
 // ─────────────────────────────────────────────────────────────
-//  행사 유형별 진행 흐름 (program·timetable·scenario·cuesheet 공통)
+//  행사 유형별 진행 흐름 (program·timetable·scenario·cuesheet·emceeScript 공통)
 // ─────────────────────────────────────────────────────────────
 
 function getProgramFlowGuide(category: EventCategory, input: GenerateInput): string {
@@ -414,6 +414,32 @@ ${category === 'sports' ? '- 체육대회: 종목별 행, 심판 큐, 시상식 
 }`
   }
 
+  if (target === 'emceeScript') {
+    return `
+[출력 규칙 — 사회자(MC) 멘트 원고]
+- JSON만 출력.
+- emceeScript.hostGuidelines: 호칭(예: 여러분, VIP 귀빈 여러분), 말투(존댓말/격식), 금지어·주의사항, 시간 제한 시 축약 원칙.
+- emceeScript.lines: 최소 12행. 현장에서 그대로 읽을 수 있는 **구어체 멘트**로 script를 작성.
+  - time: HH:mm 또는 "1부 시작 전" 등 구간 라벨
+  - segment: 오프닝/전환/종목소개/시상/클로징 등
+  - script: 실제 대본(1~4문장 단위로 끊어 가독성 유지)
+  - notes: 음향 큐·영상 큐·대기 위치·돌발 시 한 줄 멘트 등
+${category === 'sports' ? '- 체육대회: 팀 소개·종목 설명·시상 멘트·응원 유도 멘트 포함.' : ''}
+
+{
+  "eventName":"","clientName":"","quoteDate":"","eventDate":"","eventDuration":"","venue":"","headcount":"","eventType":"",
+  "quoteItems":[],"expenseRate":0,"profitRate":0,"cutAmount":0,"notes":"","paymentTerms":"","validDays":7,
+  "program":{"concept":"","programRows":[],"timeline":[],"staffing":[],"tips":[],"cueRows":[],"cueSummary":""},
+  "emceeScript":{
+    "summaryTop":"MC 멘트 전체 톤 한 줄",
+    "hostGuidelines":"호칭·톤·금지어·진행 원칙",
+    "lines":[
+      {"order":"1","time":"HH:mm","segment":"오프닝","script":"여러분 안녕하십니까. ...","notes":"BGM 업"}
+    ]
+  }
+}`
+  }
+
   return ''
 }
 
@@ -627,7 +653,7 @@ export function buildGeneratePrompt(input: GenerateInput): string {
 
   const docLabel: Record<string, string> = {
     estimate: '견적서', program: '프로그램 제안서', timetable: '타임테이블',
-    planning: '기획안', scenario: '시나리오', cuesheet: '큐시트',
+    planning: '기획안', scenario: '시나리오', cuesheet: '큐시트', emceeScript: '사회자 멘트 원고',
   }
   const label = docLabel[target] ?? '문서'
 
@@ -674,7 +700,9 @@ export function buildGeneratePrompt(input: GenerateInput): string {
     '4. time 필드는 반드시 HH:mm 실제 시간.',
     target === 'estimate'
       ? '5. spec에 산출 근거 필수 (예: "MC 1명×6시간", "300인 기준").'
-      : '5. content는 구체적 진행 내용 (예: "명랑운동회 1부 — 비전탑 세우기·도전99초").',
+      : target === 'emceeScript'
+        ? '5. emceeScript.lines[].script는 현장에서 그대로 읽을 구어체 멘트로 작성.'
+        : '5. content는 구체적 진행 내용 (예: "명랑운동회 1부 — 비전탑 세우기·도전99초").',
     '6. requirements에 언급된 내용 반드시 반영.',
     '7. 항목/행은 최소 기준 이상으로 작성. 누락보다 과잉이 낫습니다.',
     '8. 결과물은 내부 메모 수준이 아니라 고객에게 바로 전달 가능한 실무 문서 품질이어야 합니다.',
@@ -730,6 +758,7 @@ export function buildRepairPrompt(
     planning: '기획안',
     scenario: '시나리오',
     cuesheet: '큐시트',
+    emceeScript: '사회자 멘트 원고',
   }
   const outputSchema = getOutputSchema(target, detectEventCategory(input.eventType || '', input.eventName || ''))
   const draftJson = JSON.stringify(draft)

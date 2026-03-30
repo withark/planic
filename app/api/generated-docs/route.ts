@@ -9,7 +9,7 @@ import { z } from 'zod'
 export const dynamic = 'force-dynamic'
 
 const QuerySchema = z.object({
-  docType: z.enum(['estimate', 'program', 'timetable', 'planning', 'scenario', 'cuesheet']),
+  docType: z.enum(['estimate', 'program', 'timetable', 'planning', 'scenario', 'cuesheet', 'emceeScript']),
   limit: z.string().optional(),
 })
 

@@ -1,4 +1,12 @@
-import type { QuoteDoc, ProgramPlan, ProgramTableRow, CueSheetRow, ScenarioDoc, TimelineRow } from '../types'
+import type {
+  QuoteDoc,
+  ProgramPlan,
+  ProgramTableRow,
+  CueSheetRow,
+  ScenarioDoc,
+  TimelineRow,
+  EmceeScriptDoc,
+} from '../types'
 import { redistributeTimelineTimes } from './timeline-utils'
 
 function extractCodeFence(text: string): string | null {
@@ -211,6 +219,25 @@ export function normalizeQuoteDoc(
     }
   }
 
+  let emceeScript = doc.emceeScript as EmceeScriptDoc | undefined
+  if (!emceeScript || typeof emceeScript !== 'object') {
+    emceeScript = undefined
+  } else {
+    emceeScript = {
+      summaryTop: typeof emceeScript.summaryTop === 'string' ? emceeScript.summaryTop : '',
+      hostGuidelines: typeof emceeScript.hostGuidelines === 'string' ? emceeScript.hostGuidelines : '',
+      lines: Array.isArray(emceeScript.lines)
+        ? emceeScript.lines.map((l, i) => ({
+            order: String((l as { order?: string })?.order ?? i + 1),
+            time: typeof (l as { time?: string })?.time === 'string' ? (l as { time: string }).time : '',
+            segment: typeof (l as { segment?: string })?.segment === 'string' ? (l as { segment: string }).segment : '',
+            script: typeof (l as { script?: string })?.script === 'string' ? (l as { script: string }).script : '',
+            notes: typeof (l as { notes?: string })?.notes === 'string' ? (l as { notes: string }).notes : '',
+          }))
+        : [],
+    }
+  }
+
   if (fillScenarioDefaults && scenario) {
     const tl = program.timeline
     if (!scenario.summaryTop.trim()) scenario.summaryTop = `${eventName} 연출·진행 요약`
@@ -237,6 +264,7 @@ export function normalizeQuoteDoc(
     ...doc,
     program: program as ProgramPlan,
     scenario,
+    emceeScript,
   }
 }
 

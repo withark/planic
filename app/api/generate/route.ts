@@ -39,7 +39,7 @@ const GenerateRequestSchema = z.object({
   generationMode: z.enum(['normal', 'taskOrderBase']).optional().default('normal'),
   taskOrderBaseId: z.string().optional().default(''),
   documentTarget: z
-    .enum(['estimate', 'program', 'timetable', 'planning', 'scenario', 'cuesheet'])
+    .enum(['estimate', 'program', 'timetable', 'planning', 'scenario', 'cuesheet', 'emceeScript'])
     .optional()
     .default('estimate'),
   styleMode: z.enum(['userStyle', 'aiTemplate']).optional().default('userStyle'),

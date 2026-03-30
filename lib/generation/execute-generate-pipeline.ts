@@ -55,7 +55,7 @@ export type GeneratePipelineBody = {
   briefNotes?: string
   generationMode?: 'normal' | 'taskOrderBase'
   taskOrderBaseId?: string
-  documentTarget?: 'estimate' | 'program' | 'timetable' | 'planning' | 'scenario' | 'cuesheet'
+  documentTarget?: 'estimate' | 'program' | 'timetable' | 'planning' | 'scenario' | 'cuesheet' | 'emceeScript'
   styleMode?: 'userStyle' | 'aiTemplate'
   existingDoc?: unknown
   scenarioRefIds?: string[]

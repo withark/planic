@@ -4,7 +4,7 @@ import type { QuoteDoc } from '@/lib/types'
 import { uid } from '@/lib/calc'
 import { readDataJson, writeDataJson } from '@/lib/db/file-persistence'
 
-export type GeneratedDocType = 'estimate' | 'program' | 'timetable' | 'planning' | 'scenario' | 'cuesheet'
+export type GeneratedDocType = 'estimate' | 'program' | 'timetable' | 'planning' | 'scenario' | 'cuesheet' | 'emceeScript'
 
 type GeneratedDocRow = {
   id: string

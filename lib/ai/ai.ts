@@ -88,6 +88,11 @@ function buildRetrySuffix(target: GenerateInput['documentTarget']): string {
 [재시도 지시] markdown·설명 없이 완전한 단일 JSON 객체만 출력하세요. program.cueSummary는 비어 있으면 안 됩니다. program.cueRows는 비어 있으면 안 됩니다.
 program.cueRows의 각 row에서 time/content/staff/prep/script/special은 비어 있으면 안 됩니다.`
   }
+  if (t === 'emceeScript') {
+    return `
+
+[재시도 지시] markdown·설명 없이 완전한 단일 JSON 객체만 출력하세요. emceeScript.summaryTop·hostGuidelines는 비어 있으면 안 됩니다. emceeScript.lines는 최소 12행이며 각 segment·script는 비어 있으면 안 됩니다.`
+  }
   return `
 
 [재시도 지시] markdown·설명 없이 완전한 단일 JSON 객체만 출력하세요. scenario.summaryTop은 비어 있으면 안 됩니다.`
@@ -1255,6 +1260,58 @@ function fillWeakOutputs(doc: QuoteDoc, input: GenerateInput): QuoteDoc {
     }
   }
 
+  // ───────── emceeScript ─────────
+  if (t === 'emceeScript') {
+    doc.emceeScript = doc.emceeScript || {
+      summaryTop: '',
+      hostGuidelines: '',
+      lines: [],
+    }
+    const e = doc.emceeScript
+    const ev = input.eventName || ''
+    const eventType = input.eventType || ''
+    const venue = input.venue || ''
+    if (isBlankish(e.summaryTop)) {
+      e.summaryTop = `${ev} ${eventType} 사회자 멘트: ${venue ? `${venue} ` : ''}오프닝부터 클로징까지 현장용 대본`
+    }
+    if (isBlankish(e.hostGuidelines)) {
+      e.hostGuidelines =
+        `호칭: “여러분”, VIP 구간은 “귀빈 여러분”. 말투는 격식 있는 존댓말. 금지: 과도한 농담·특정 단체 비하. 지연 시 30초 요약 멘트로 전환.`
+    }
+    const lines = Array.isArray(e.lines) ? e.lines : []
+    const ensure = 12
+    if (lines.length < ensure) {
+      const pad = [
+        { segment: '오프닝', script: `안녕하십니까. ${ev}에 오신 여러분을 진심으로 환영합니다. 오늘 진행 순서와 주의사항을 간단히 안내드리겠습니다.` },
+        { segment: '주최 인사 연결', script: `이어서 주최 측 대표님의 인사 말씀이 있겠습니다. 큰 박수로 맞이해 주시기 바랍니다.` },
+        { segment: '본행사 도입', script: `본격적인 행사를 시작합니다. 참가자 여러분께서는 안내에 따라 이동해 주시고, 질서를 유지해 주시면 감사하겠습니다.` },
+        { segment: '전환', script: `잠시 후 다음 순서로 넘어가겠습니다. 자리에서 일어나실 때는 주변을 살피며 천천히 이동해 주세요.` },
+        { segment: '하이라이트', script: `지금부터 ${eventType}의 하이라이트 순서입니다. 현장 스태프의 신호에 맞춰 진행되오니 잠시만 기다려 주세요.` },
+        { segment: '시상·축하(해당 시)', script: `수상자분들께는 축하의 박수를 부탁드립니다. 시상 후에는 사진 촬영을 위해 잠시 대기해 주세요.` },
+        { segment: '클로징', script: `오늘 ${ev}의 마지막 순서입니다. 참여해 주신 모든 분께 감사드리며, 마무리 인사를 전하겠습니다.` },
+        { segment: '퇴장 안내', script: `퇴장 시에는 지정된 동선을 따라 이동해 주시고, 개인 물품을 다시 한번 확인해 주시기 바랍니다.` },
+      ]
+      for (let i = lines.length; i < ensure; i++) {
+        const p = pad[i % pad.length]
+        lines.push({
+          order: String(i + 1),
+          time: '',
+          segment: p.segment,
+          script: p.script,
+          notes: i === 0 ? 'BGM 다운 후 시작' : '음향/진행 스태프와 호흡 맞추기',
+        })
+      }
+      e.lines = lines
+    }
+    e.lines = e.lines.map((row, i) => ({
+      order: row.order || String(i + 1),
+      time: row.time || '',
+      segment: row.segment || `구간 ${i + 1}`,
+      script: row.script || `(${e.summaryTop})에 맞는 멘트를 이어갑니다.`,
+      notes: row.notes || '',
+    }))
+  }
+
   return doc
 }
 
@@ -1766,6 +1823,15 @@ export async function generateQuoteWithMeta(input: GenerateInput): Promise<{ doc
           closing: '클로징',
           directionNotes: '연출 메모',
         },
+        emceeScript: {
+          summaryTop: input.eventName + ' 사회자 멘트(모의)',
+          hostGuidelines: '격식 있는 존댓말, 여러분 호칭',
+          lines: [
+            { order: '1', time: start, segment: '오프닝', script: '안녕하십니까. 오늘 행사를 시작하겠습니다.', notes: 'BGM 페이드아웃' },
+            { order: '2', time: '', segment: '본행사', script: '이어서 본 행사를 진행합니다.', notes: '' },
+            { order: '3', time: end, segment: '클로징', script: '마무리 인사를 드리겠습니다. 참여해 주셔서 감사합니다.', notes: '' },
+          ],
+        },
         planning: {
           overview: `${input.eventName} 운영 목적과 기대효과를 중심으로 한 기획 개요`,
           scope: '사전 준비, 현장 운영, 사후 정리까지 전 구간 포함',
@@ -1986,6 +2052,22 @@ export async function generateQuoteWithMeta(input: GenerateInput): Promise<{ doc
   // 프롬프트상 보존 대상 필드는 existingDoc 기준으로 되돌립니다.
   if (input.documentTarget === 'program' && input.existingDoc) {
     doc = mergeProgramTargetWithExistingDoc(doc, input.existingDoc as QuoteDoc)
+  }
+
+  if (input.documentTarget === 'emceeScript' && input.existingDoc) {
+    const prev = input.existingDoc as QuoteDoc
+    if (Array.isArray(prev.quoteItems)) doc.quoteItems = structuredClone(prev.quoteItems)
+    doc.notes = prev.notes ?? doc.notes
+    doc.paymentTerms = prev.paymentTerms ?? doc.paymentTerms
+    doc.validDays = prev.validDays ?? doc.validDays
+    doc.quoteTemplate = prev.quoteTemplate ?? doc.quoteTemplate
+    if (prev.program && doc.program) {
+      doc.program.concept = prev.program.concept ?? doc.program.concept
+      if (prev.program.timeline?.length) doc.program.timeline = structuredClone(prev.program.timeline)
+      if (prev.program.programRows?.length) doc.program.programRows = structuredClone(prev.program.programRows)
+    }
+    if (prev.scenario !== undefined) doc.scenario = prev.scenario
+    if (prev.planning !== undefined) doc.planning = prev.planning
   }
 
   const stages = [

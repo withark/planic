@@ -10,6 +10,7 @@ const PROTECTED_PREFIXES = [
   '/planning-generator',
   '/program-proposal-generator',
   '/scenario-generator',
+  '/emcee-script-generator',
   '/cue-sheet-generator',
   '/task-order-summary',
   '/reference-estimate',

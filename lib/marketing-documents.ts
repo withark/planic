@@ -34,6 +34,12 @@ export const MARKETING_DOCUMENTS: MarketingDocumentItem[] = [
     category: '기획·제안',
   },
   {
+    href: '/emcee-script-generator',
+    title: '사회자 멘트 만들기',
+    desc: '행사 흐름에 맞춘 MC 대본(구간별 멘트)을 만듭니다.',
+    category: '운영·정리',
+  },
+  {
     href: '/cue-sheet-generator',
     title: '큐시트 만들기',
     desc: '시나리오·프로그램을 바탕으로 하거나, 주제만으로 현장 운영 표를 만듭니다.',

@@ -10,7 +10,7 @@ import type { PlanType } from '@/lib/plans'
 import { allowedQuoteTemplates } from '@/lib/plan-entitlements'
 import type { ExcelExportView } from '@/lib/exportExcel'
 
-type DocTab = 'estimate' | 'program' | 'timetable' | 'planning' | 'scenario'
+type DocTab = 'estimate' | 'program' | 'timetable' | 'planning' | 'scenario' | 'emceeScript'
 
 function emptyRow(): ProgramTableRow {
   return { kind: '', content: '', tone: '', image: '(이미지 슬롯)', time: '', audience: '', notes: '' }
@@ -157,6 +157,11 @@ function isEstimateReady(doc: QuoteDoc) {
   return (doc.quoteItems || []).some((category) => (category.items || []).length > 0)
 }
 
+function isEmceeScriptReady(doc: QuoteDoc) {
+  const e = doc.emceeScript
+  return !!e && typeof e.summaryTop === 'string' && e.summaryTop.trim().length > 0 && Array.isArray(e.lines) && e.lines.length > 0
+}
+
 export function QuoteResult({
   doc,
   companySettings,
@@ -196,6 +201,7 @@ export function QuoteResult({
   const planningReady = isPlanningReady(doc)
   const scenarioReady = isScenarioReady(doc)
   const estimateReady = isEstimateReady(doc)
+  const emceeScriptReady = isEmceeScriptReady(doc)
 
   // 미생성 상태의 on-demand 생성 버튼을 카드 안쪽보다 상단의 주요 액션 영역에 모아 가시성을 높인다.
   const showTopGenerateActions =
@@ -204,7 +210,8 @@ export function QuoteResult({
     ((visibleTabs.includes('program') && !programReady) ||
       (visibleTabs.includes('timetable') && !timetableReady) ||
       (visibleTabs.includes('planning') && !planningReady) ||
-      (visibleTabs.includes('scenario') && !scenarioReady))
+      (visibleTabs.includes('scenario') && !scenarioReady) ||
+      (visibleTabs.includes('emceeScript') && !emceeScriptReady))
 
   useEffect(() => {
     if (disableAutoGenerate) return
@@ -216,7 +223,8 @@ export function QuoteResult({
       (tab === 'program' && !isProgramProposalReady(doc)) ||
       (tab === 'timetable' && !isTimetableReady(doc)) ||
       (tab === 'planning' && !isPlanningReady(doc)) ||
-      (tab === 'scenario' && !isScenarioReady(doc))
+      (tab === 'scenario' && !isScenarioReady(doc)) ||
+      (tab === 'emceeScript' && !isEmceeScriptReady(doc))
 
     if (shouldGenerate) {
       requestedTabsRef.current.add(tab)
@@ -258,9 +266,13 @@ export function QuoteResult({
         ? (showCueSheetEditor ? '큐시트' : '프로그램 제안')
         : tab === 'timetable'
           ? '타임테이블'
-      : tab === 'planning'
-        ? '기획 문서'
-        : '시나리오'
+          : tab === 'planning'
+            ? '기획 문서'
+            : tab === 'scenario'
+              ? '시나리오'
+              : tab === 'emceeScript'
+                ? '사회자 멘트'
+                : '문서'
   const tabReady =
     tab === 'estimate'
       ? estimateReady
@@ -270,7 +282,11 @@ export function QuoteResult({
           ? timetableReady
           : tab === 'planning'
             ? planningReady
-            : scenarioReady
+            : tab === 'scenario'
+              ? scenarioReady
+              : tab === 'emceeScript'
+                ? emceeScriptReady
+                : false
   const currentTabGenerating = !!generatingTabs[tab]
   const exportDisabled = !tabReady || currentTabGenerating
   const exportDisabledReason = currentTabGenerating
@@ -346,7 +362,8 @@ export function QuoteResult({
                 id === 'program' ? '프로그램 제안' :
                 id === 'timetable' ? '타임테이블' :
                 id === 'planning' ? '기획 문서' :
-                '시나리오'
+                id === 'scenario' ? '시나리오' :
+                '사회자 멘트'
               return (
                 <button
                   key={id}
@@ -435,6 +452,7 @@ export function QuoteResult({
         {tab === 'timetable' && '생성 시 입력한 시작·종료 시각에 맞춰 배치됩니다. 수정 시 즉시 반영됩니다.'}
         {tab === 'planning' && '기획/운영/산출물 계획을 섹션별로 편집할 수 있습니다.'}
         {tab === 'scenario' && '연출/진행 흐름을 문장 형태로 확인하고 편집할 수 있습니다.'}
+        {tab === 'emceeScript' && '사회자가 현장에서 읽을 멘트 원고를 구간별로 편집할 수 있습니다.'}
       </p>
       {exportDisabled ? (
         <p className="flex-shrink-0 px-4 pb-3 text-xs font-medium text-amber-700">{exportDisabledReason}</p>
@@ -491,6 +509,17 @@ export function QuoteResult({
                 disabled={!!generatingTabs.scenario}
               >
                 {generatingTabs.scenario ? '시나리오 생성 중...' : '시나리오 생성'}
+              </Button>
+            )}
+            {visibleTabs.includes('emceeScript') && !emceeScriptReady && (
+              <Button
+                size="md"
+                variant="primary"
+                className="w-full sm:w-auto justify-start"
+                onClick={() => void onGenerateTab?.('emceeScript')}
+                disabled={!!generatingTabs.emceeScript}
+              >
+                {generatingTabs.emceeScript ? '사회자 멘트 생성 중...' : '사회자 멘트 생성'}
               </Button>
             )}
           </div>
@@ -1159,6 +1188,92 @@ export function QuoteResult({
                         <div className="text-[10px] text-gray-500 font-semibold mb-1">진행 메모/방향성</div>
                         <textarea value={s.directionNotes} rows={4} onChange={e => update({ directionNotes: e.target.value })} className="w-full bg-white border border-gray-200 rounded-lg p-2 text-xs resize-none" />
                       </div>
+                    </div>
+                  </>
+                )
+              })()
+            )}
+          </div>
+        )}
+
+        {/* 사회자 멘트 */}
+        {tab === 'emceeScript' && (
+          <div className="quote-wrapper max-w-3xl mx-auto space-y-3 pt-2">
+            <h3 className="text-base font-semibold">{doc.eventName} — 사회자 멘트</h3>
+            {!isEmceeScriptReady(doc) ? (
+              <div className="bg-gray-50 border border-gray-200 rounded-2xl p-4 text-sm text-gray-600 space-y-2">
+                <p className="text-xs text-gray-500">아직 생성되지 않았습니다.</p>
+                {!hideOnDemandGenerate && !showTopGenerateActions && (
+                  <Button size="sm" variant="primary" onClick={() => onGenerateTab?.('emceeScript')} disabled={!!generatingTabs.emceeScript}>
+                    {generatingTabs.emceeScript ? '사회자 멘트 생성 중...' : '사회자 멘트 생성'}
+                  </Button>
+                )}
+              </div>
+            ) : (
+              (() => {
+                const e = doc.emceeScript!
+                const update = (patch: Partial<typeof e>) =>
+                  patchDoc(base => ({ ...base, emceeScript: { ...(base.emceeScript || e), ...patch } as any }))
+                const updateLine = (idx: number, patch: Partial<(typeof e.lines)[0]>) =>
+                  patchDoc(base => {
+                    const cur = base.emceeScript || e
+                    const lines = [...(cur.lines || [])]
+                    lines[idx] = { ...lines[idx], ...patch }
+                    return { ...base, emceeScript: { ...cur, lines } }
+                  })
+                return (
+                  <>
+                    <div className="bg-gray-50 rounded-xl p-3">
+                      <div className="text-[10px] text-gray-500 font-semibold mb-1">한 줄 요약</div>
+                      <textarea value={e.summaryTop} rows={2} onChange={ev => update({ summaryTop: ev.target.value })} className="w-full bg-white border border-gray-200 rounded-lg p-2 text-xs resize-none" />
+                    </div>
+                    <div className="bg-gray-50 rounded-xl p-3">
+                      <div className="text-[10px] text-gray-500 font-semibold mb-1">MC 지침 (호칭·톤·주의)</div>
+                      <textarea value={e.hostGuidelines} rows={4} onChange={ev => update({ hostGuidelines: ev.target.value })} className="w-full bg-white border border-gray-200 rounded-lg p-2 text-xs resize-none" />
+                    </div>
+                    <div className="space-y-2">
+                      <div className="text-[10px] text-gray-500 font-semibold px-1">구간별 멘트</div>
+                      {e.lines.map((row, idx) => (
+                        <div key={idx} className="bg-gray-50 rounded-xl p-3 space-y-2 border border-gray-100">
+                          <div className="flex flex-wrap gap-2">
+                            <input
+                              value={row.order}
+                              onChange={ev => updateLine(idx, { order: ev.target.value })}
+                              className="w-14 px-2 py-1 text-xs border border-gray-200 rounded"
+                              placeholder="순서"
+                              aria-label="순서"
+                            />
+                            <input
+                              value={row.time}
+                              onChange={ev => updateLine(idx, { time: ev.target.value })}
+                              className="w-24 px-2 py-1 text-xs border border-gray-200 rounded"
+                              placeholder="시간"
+                              aria-label="시간"
+                            />
+                            <input
+                              value={row.segment}
+                              onChange={ev => updateLine(idx, { segment: ev.target.value })}
+                              className="flex-1 min-w-[120px] px-2 py-1 text-xs border border-gray-200 rounded"
+                              placeholder="구간명"
+                              aria-label="구간명"
+                            />
+                          </div>
+                          <textarea
+                            value={row.script}
+                            onChange={ev => updateLine(idx, { script: ev.target.value })}
+                            rows={4}
+                            className="w-full bg-white border border-gray-200 rounded-lg p-2 text-xs resize-none"
+                            placeholder="멘트 원고"
+                          />
+                          <textarea
+                            value={row.notes}
+                            onChange={ev => updateLine(idx, { notes: ev.target.value })}
+                            rows={2}
+                            className="w-full bg-white border border-gray-200 rounded-lg p-2 text-xs resize-none"
+                            placeholder="음향·진행 큐 등"
+                          />
+                        </div>
+                      ))}
                     </div>
                   </>
                 )
