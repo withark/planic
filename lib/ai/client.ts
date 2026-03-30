@@ -147,7 +147,18 @@ function anthropicAssistantPlainText(message: Anthropic.Message): string {
   return parts.join('\n\n').trim()
 }
 
-export async function callLLM(prompt: string, opts: CallLLMOptions = {}): Promise<string> {
+export type LLMUsage = {
+  promptTokens?: number
+  completionTokens?: number
+  inputTokens?: number
+  outputTokens?: number
+}
+
+export async function callLLMWithUsage(
+  prompt: string,
+  opts: CallLLMOptions = {},
+): Promise<{ text: string; usage?: LLMUsage; latencyMs: number }> {
+  const t0 = Date.now()
   const effective = opts.engine ?? (await getEffectiveEngineConfig())
   const provider = effective.provider
   const maxTokens = opts.maxTokens ?? effective.maxTokens
@@ -178,7 +189,12 @@ export async function callLLM(prompt: string, opts: CallLLMOptions = {}): Promis
       if (text == null) throw new Error('OpenAI 응답이 비어 있습니다.')
       logInfo('ai.call.ok', { provider, model, id: res.id ?? null, openai: { id: res.id ?? null } })
       const usage = res.usage
+      let outUsage: LLMUsage | undefined
       if (usage) {
+        outUsage = {
+          promptTokens: usage.prompt_tokens,
+          completionTokens: usage.completion_tokens,
+        }
         const logTok = readEnvBool('AI_LOG_TOKENS', false)
         const logCost = readEnvBool('AI_LOG_COST_ESTIMATE', false)
         const promptTokens = usage.prompt_tokens ?? 0
@@ -197,7 +213,7 @@ export async function callLLM(prompt: string, opts: CallLLMOptions = {}): Promis
           logInfo('ai.usage.costEstimateUsd', { provider, model, ...est, note: 'approximate' })
         }
       }
-      return text
+      return { text, usage: outUsage, latencyMs: Date.now() - t0 }
     }
 
     const client = getAnthropicClient()
@@ -217,7 +233,12 @@ export async function callLLM(prompt: string, opts: CallLLMOptions = {}): Promis
       anthropic: { id: (message as { id?: string }).id ?? null },
     })
     const usage = (message as { usage?: { input_tokens?: number; output_tokens?: number } }).usage
+    let outUsage: LLMUsage | undefined
     if (usage) {
+      outUsage = {
+        inputTokens: usage.input_tokens,
+        outputTokens: usage.output_tokens,
+      }
       const logTok = readEnvBool('AI_LOG_TOKENS', false)
       const logCost = readEnvBool('AI_LOG_COST_ESTIMATE', false)
       const inputTokens = usage.input_tokens ?? 0
@@ -238,10 +259,15 @@ export async function callLLM(prompt: string, opts: CallLLMOptions = {}): Promis
     }
     const text = anthropicAssistantPlainText(message)
     if (!text) throw new Error('Anthropic 응답에 본문 텍스트가 없습니다.')
-    return text
+    return { text, usage: outUsage, latencyMs: Date.now() - t0 }
   } catch (e) {
     throw readableLLMError(e, provider)
   } finally {
     clearTimeout(timeoutId)
   }
+}
+
+export async function callLLM(prompt: string, opts: CallLLMOptions = {}): Promise<string> {
+  const { text } = await callLLMWithUsage(prompt, opts)
+  return text
 }

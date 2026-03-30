@@ -2,13 +2,14 @@
 // 7개 문서(estimate·program·timetable·planning·scenario·cuesheet·emceeScript) ×
 // 모든 행사 유형(sports·corporate·festival·wedding·conference·launch·school·general)
 
-import type { GenerateInput } from './types'
+import type { GenerateInput } from '../types'
+import { taskOrderSummaryPromptFragment } from './taskOrderSummaryPrompt'
 
 // ─────────────────────────────────────────────────────────────
 //  행사 유형 감지
 // ─────────────────────────────────────────────────────────────
 
-type EventCategory =
+export type EventCategory =
   | 'sports'      // 체육대회, 운동회
   | 'corporate'   // 워크숍, 기업행사, 세미나, 포럼
   | 'festival'    // 축제, 문화행사, 공연
@@ -18,7 +19,7 @@ type EventCategory =
   | 'launch'      // 런칭, 쇼케이스
   | 'general'     // 기타
 
-function detectEventCategory(eventType: string, eventName: string): EventCategory {
+export function detectEventCategory(eventType: string, eventName: string): EventCategory {
   const text = `${eventType} ${eventName}`.toLowerCase()
   if (/(체육대회|운동회|스포츠|달리기|이어달리기|줄다리기|운동장)/.test(text)) return 'sports'
   if (/(웨딩|결혼|혼례|브라이덜)/.test(text)) return 'wedding'
@@ -239,7 +240,7 @@ function getProgramItemsHint(requirements: string, programs?: string[]): string 
 //  문서별 출력 스키마
 // ─────────────────────────────────────────────────────────────
 
-function getOutputSchema(target: GenerateInput['documentTarget'], category: EventCategory): string {
+export function getOutputSchema(target: GenerateInput['documentTarget'], category: EventCategory): string {
   if (target === 'estimate') {
     return `
 [출력 규칙 — 견적서]
@@ -471,7 +472,7 @@ function buildTaskOrderContext(input: GenerateInput): string {
   const text = input.taskOrderDoc?.rawText?.trim() ||
     (input.taskOrderRefs || []).map(r => r.rawText?.trim()).filter(Boolean).join('\n\n')
   if (!text) return ''
-  return `\n=== 과업지시서 / 기획안 참고 (반드시 반영) ===\n${text.slice(0, 3000)}\n`
+  return `\n=== 과업지시서 / 기획안 참고 (반드시 반영) ===\n${taskOrderSummaryPromptFragment()}\n\n${text.slice(0, 3000)}\n`
 }
 
 function buildScenarioRefContext(input: GenerateInput): string {
@@ -578,7 +579,7 @@ function buildEngineQualityContext(input: GenerateInput): string {
   return lines.length > 1 ? `\n${lines.join('\n')}\n` : ''
 }
 
-function buildDocumentExcellenceGuide(target: GenerateInput['documentTarget']): string {
+export function buildDocumentExcellenceGuide(target: GenerateInput['documentTarget']): string {
   switch (target) {
     case 'estimate':
       return `
@@ -625,7 +626,7 @@ function buildDocumentExcellenceGuide(target: GenerateInput['documentTarget']): 
   }
 }
 
-function buildSelfCheckGuide(target: GenerateInput['documentTarget']): string {
+export function buildSelfCheckGuide(target: GenerateInput['documentTarget']): string {
   const common = [
     '- 출력 전 내부적으로 최소 조건 누락이 없는지 스스로 점검합니다.',
     '- 같은 문장을 반복하거나 의미 없는 추상어로 채우지 않습니다.',

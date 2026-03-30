@@ -1,5 +1,5 @@
 import type { GenerateInput, QuoteDoc, PriceCategory } from './types'
-import { callLLM, getEffectiveEngineConfig } from './client'
+import { callLLM, callLLMWithUsage, getEffectiveEngineConfig, type LLMUsage } from './client'
 import { buildGeneratePrompt, buildRepairPrompt } from './prompts'
 import { getEnv, readEnvBool } from '../env'
 import { isMockGenerationEnabled } from './mode'
@@ -11,8 +11,10 @@ import {
   extractSuggestedPrices,
   applySuggestedPrices,
 } from './parsers'
-import { resolveGenerateMaxTokens } from './generate-config'
+import { resolveGenerateMaxTokens, resolveDraftMaxTokensForDocumentTarget } from './generate-config'
 import { getHybridPipelineEngines } from './hybrid-pipeline'
+import { runDocumentRefinementPass, shouldSkipDocumentRefinementPass } from './services/documentRefiner'
+import { aggregateGenerationCostUsd } from './services/pricingCalculator'
 import { hhmmToMinutes, minutesToHHMM } from './timeline-utils'
 
 export type { GenerateInput, QuoteDoc, PriceCategory }
@@ -25,6 +27,8 @@ export type GenerateTimingMeta = {
   totalMs: number
   llmPrimaryMs: number
   llmRetryMs: number
+  /** Claude 2차 문장·톤 다듬기(hybrid) */
+  llmDocumentRefineMs: number
   llmRefineMs: number
   timedOut: boolean
   slowestStage: string
@@ -36,6 +40,26 @@ export type GenerateTimingMeta = {
   repairAttempts: number
   repairFocusHistory: RepairFocus[]
   qualityIssuesAfterTop: string[]
+  startedAt: string
+  finishedAt: string
+  draftProvider: string
+  draftModel: string
+  refineProvider?: string
+  refineModel?: string
+  documentRefineProvider?: string
+  documentRefineModel?: string
+  documentRefineSkipped?: boolean
+  documentRefineSkipReason?: string
+  tokenUsage?: {
+    draft?: LLMUsage
+    documentRefine?: LLMUsage
+    repair?: LLMUsage
+  }
+  costEstimateUsd?: number
+  usedReferenceSources: string[]
+  styleMode?: GenerateInput['styleMode']
+  premiumMode: boolean
+  hybridPipeline: boolean
 }
 
 function shouldUseHeuristicFallback(): boolean {
@@ -1857,6 +1881,7 @@ export async function generateQuoteWithMeta(input: GenerateInput): Promise<{ doc
     mockDoc = fillWeakOutputs(mockDoc, input)
     const mockQualityIssues = listQualityIssues(mockDoc, input)
     const mockQualityScore = scoreQualityIssues(mockQualityIssues)
+    const mockNow = new Date().toISOString()
     return {
       doc: mockDoc,
       meta: {
@@ -1868,6 +1893,7 @@ export async function generateQuoteWithMeta(input: GenerateInput): Promise<{ doc
         totalMs: Date.now() - totalStart,
         llmPrimaryMs: 0,
         llmRetryMs: 0,
+        llmDocumentRefineMs: 0,
         llmRefineMs: 0,
         timedOut: false,
         slowestStage: 'mock',
@@ -1879,15 +1905,28 @@ export async function generateQuoteWithMeta(input: GenerateInput): Promise<{ doc
         repairAttempts: 0,
         repairFocusHistory: [],
         qualityIssuesAfterTop: prioritizeQualityIssues(mockQualityIssues).slice(0, 3),
+        startedAt: mockNow,
+        finishedAt: mockNow,
+        draftProvider: 'mock',
+        draftModel: 'mock',
+        usedReferenceSources: (input.references || []).map((r) => r.filename || r.id || '').filter(Boolean),
+        styleMode: input.styleMode,
+        premiumMode: false,
+        hybridPipeline: false,
       },
     }
   }
 
+  const startedAt = new Date().toISOString()
+  const premiumMode = readEnvBool('AI_ENABLE_PREMIUM_MODE', true)
   const eff = input.cachedEngineConfig ?? (await getEffectiveEngineConfig())
   const hybrid = getHybridPipelineEngines(input.userPlan)
   const primaryEff = hybrid?.draft ?? eff
   const refineEff = hybrid?.refine
-  const maxOut = resolveGenerateMaxTokens(primaryEff.maxTokens, primaryEff.provider)
+  const maxOut = resolveGenerateMaxTokens(
+    resolveDraftMaxTokensForDocumentTarget(primaryEff.maxTokens, input.documentTarget ?? 'estimate'),
+    primaryEff.provider,
+  )
   const promptStart = Date.now()
   input.pipelineEmit?.({ stage: 'prompt', label: '프롬프트 구성 중' })
   const prompt = buildGeneratePrompt(input)
@@ -1895,31 +1934,78 @@ export async function generateQuoteWithMeta(input: GenerateInput): Promise<{ doc
   let aiCallMs = 0
   let llmPrimaryMs = 0
   let llmRetryMs = 0
+  let llmDocumentRefineMs = 0
   let llmRefineMs = 0
   let timedOut = false
   let parseNormalizeMs = 0
   let stagedRefineMs = 0
   let retries = 0
+  let draftUsageMerged: LLMUsage | undefined
+  let documentRefineUsage: LLMUsage | undefined
+  let repairUsageLast: LLMUsage | undefined
+  let documentRefineSkipped = true
+  let documentRefineSkipReason: string | undefined
 
   async function runOnce(extra = '', kind: 'primary' | 'retry'): Promise<string> {
-    const started = Date.now()
     try {
-      const out = await callLLM(prompt + extra, { maxTokens: maxOut, timeoutMs: 90_000, engine: primaryEff })
-      const ms = Date.now() - started
-      aiCallMs += ms
-      if (kind === 'primary') llmPrimaryMs += ms
-      else llmRetryMs += ms
-      return out
+      const { text, usage, latencyMs } = await callLLMWithUsage(prompt + extra, {
+        maxTokens: maxOut,
+        timeoutMs: 90_000,
+        engine: primaryEff,
+      })
+      aiCallMs += latencyMs
+      if (kind === 'primary') llmPrimaryMs += latencyMs
+      else llmRetryMs += latencyMs
+      if (usage) {
+        const pt = usage.promptTokens ?? usage.inputTokens ?? 0
+        const ct = usage.completionTokens ?? usage.outputTokens ?? 0
+        const p0 = draftUsageMerged?.promptTokens ?? draftUsageMerged?.inputTokens ?? 0
+        const c0 = draftUsageMerged?.completionTokens ?? draftUsageMerged?.outputTokens ?? 0
+        draftUsageMerged = {
+          promptTokens: p0 + pt,
+          completionTokens: c0 + ct,
+        }
+      }
+      return text
     } catch (e) {
-      const ms = Date.now() - started
-      aiCallMs += ms
-      if (kind === 'primary') llmPrimaryMs += ms
-      else llmRetryMs += ms
       const err = e as any
       if (err?.timedOut || err?.code === 'ETIMEDOUT' || String(err?.message || '').toLowerCase().includes('timeout')) {
         timedOut = true
       }
       throw e
+    }
+  }
+
+  async function applyHybridDocumentRefineIfNeeded(jsonTextIn: string): Promise<string> {
+    if (!hybrid?.refine || !refineEff) {
+      documentRefineSkipReason = hybrid ? undefined : 'no_hybrid_engines'
+      return jsonTextIn
+    }
+    const sk = shouldSkipDocumentRefinementPass(input, jsonTextIn)
+    if (sk.skip) {
+      documentRefineSkipReason = sk.reason
+      return jsonTextIn
+    }
+    input.pipelineEmit?.({ stage: 'polish', label: '문장·톤 다듬는 중' })
+    try {
+      const refined = await runDocumentRefinementPass({
+        input,
+        draftJsonText: jsonTextIn,
+        engine: refineEff,
+      })
+      llmDocumentRefineMs += refined.latencyMs
+      documentRefineUsage = refined.usage
+      try {
+        const out = extractQuoteJson(refined.text)
+        documentRefineSkipped = false
+        return out
+      } catch {
+        documentRefineSkipReason = 'refine_parse_failed'
+        return jsonTextIn
+      }
+    } catch {
+      documentRefineSkipReason = 'refine_failed'
+      return jsonTextIn
     }
   }
 
@@ -1939,6 +2025,8 @@ export async function generateQuoteWithMeta(input: GenerateInput): Promise<{ doc
     }
   }
 
+  jsonText = await applyHybridDocumentRefineIfNeeded(jsonText)
+
   let doc: QuoteDoc
   try {
     doc = safeParseQuoteJson(jsonText)
@@ -1947,6 +2035,7 @@ export async function generateQuoteWithMeta(input: GenerateInput): Promise<{ doc
     text = await runOnce(buildRetrySuffix(target), 'retry')
     try {
       jsonText = extractQuoteJson(text)
+      jsonText = await applyHybridDocumentRefineIfNeeded(jsonText)
       doc = safeParseQuoteJson(jsonText)
     } catch {
       throw new Error('플래닉 JSON 파싱에 실패했습니다. 다시 생성해 주세요.')
@@ -1968,7 +2057,7 @@ export async function generateQuoteWithMeta(input: GenerateInput): Promise<{ doc
   })
   parseNormalizeMs += Date.now() - parseStart
 
-  // 2차 refine LLM은 지연·비용이 커서 제거했습니다. 휴리스틱 보강(fillWeakOutputs)으로 실무 가능 수준을 맞춥니다.
+  // hybrid 시 Claude 문장 다듬기는 위에서 수행. 이후 휴리스틱 보강(fillWeakOutputs)으로 실무 수준을 맞춥니다.
   doc = fillWeakOutputs(doc, input)
 
   let qualityIssues = listQualityIssues(doc, input)
@@ -2004,16 +2093,15 @@ export async function generateQuoteWithMeta(input: GenerateInput): Promise<{ doc
           focus,
         })
         try {
-          const llmStarted = Date.now()
           const repairEngine = refineEff ?? eff
           const repairMax = resolveGenerateMaxTokens(repairEngine.maxTokens, repairEngine.provider)
-          const refinedText = await callLLM(repairPrompt, {
+          const { text: refinedText, usage: repairU, latencyMs: repairMs } = await callLLMWithUsage(repairPrompt, {
             maxTokens: repairMax,
             timeoutMs: 90_000,
             engine: repairEngine,
           })
-          const llmMs = Date.now() - llmStarted
-          llmRefineMs += llmMs
+          llmRefineMs += repairMs
+          if (repairU) repairUsageLast = repairU
 
           let refinedDoc = safeParseQuoteJson(extractQuoteJson(refinedText))
           refinedDoc = normalizeQuoteDoc(refinedDoc, {
@@ -2084,6 +2172,7 @@ export async function generateQuoteWithMeta(input: GenerateInput): Promise<{ doc
   const stages = [
     { name: 'prompt.build', ms: promptBuildMs },
     { name: 'ai.call', ms: aiCallMs },
+    { name: 'document.polish', ms: llmDocumentRefineMs },
     { name: 'parse/normalize', ms: parseNormalizeMs },
     { name: 'staged.refine', ms: stagedRefineMs },
   ]
@@ -2092,6 +2181,14 @@ export async function generateQuoteWithMeta(input: GenerateInput): Promise<{ doc
   const slowestStageMs = stages[0]?.ms || 0
   const qualityIssueCountAfter = qualityIssues.length
   const qualityScoreAfter = scoreQualityIssues(qualityIssues)
+
+  const finishedAt = new Date().toISOString()
+  const costStages = [
+    { model: primaryEff.model, usage: draftUsageMerged },
+    ...(hybrid?.refine && refineEff ? [{ model: refineEff.model, usage: documentRefineUsage }] : []),
+    ...(repairUsageLast ? [{ model: (refineEff ?? eff).model, usage: repairUsageLast }] : []),
+  ]
+  const { totalUsd: costEstimateUsd } = aggregateGenerationCostUsd(costStages)
 
   return {
     doc,
@@ -2104,6 +2201,7 @@ export async function generateQuoteWithMeta(input: GenerateInput): Promise<{ doc
       totalMs: Date.now() - totalStart,
       llmPrimaryMs,
       llmRetryMs,
+      llmDocumentRefineMs,
       llmRefineMs,
       timedOut,
       slowestStage,
@@ -2115,6 +2213,26 @@ export async function generateQuoteWithMeta(input: GenerateInput): Promise<{ doc
       repairAttempts,
       repairFocusHistory,
       qualityIssuesAfterTop: prioritizeQualityIssues(qualityIssues).slice(0, 3),
+      startedAt,
+      finishedAt,
+      draftProvider: primaryEff.provider,
+      draftModel: primaryEff.model,
+      refineProvider: refineEff?.provider,
+      refineModel: refineEff?.model,
+      documentRefineProvider: hybrid?.refine && refineEff ? refineEff.provider : undefined,
+      documentRefineModel: hybrid?.refine && refineEff ? refineEff.model : undefined,
+      documentRefineSkipped,
+      documentRefineSkipReason,
+      tokenUsage: {
+        draft: draftUsageMerged,
+        documentRefine: documentRefineUsage,
+        repair: repairUsageLast,
+      },
+      costEstimateUsd,
+      usedReferenceSources: (input.references || []).map((r) => r.filename || r.id || '').filter(Boolean),
+      styleMode: input.styleMode,
+      premiumMode,
+      hybridPipeline: hybrid != null,
     },
   }
 }

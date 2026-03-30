@@ -387,6 +387,7 @@ export async function executeGeneratePipeline(
     retries: genMeta?.retries ?? 0,
     llmPrimaryMs: genMeta?.llmPrimaryMs ?? 0,
     llmRetryMs: genMeta?.llmRetryMs ?? 0,
+    llmDocumentRefineMs: genMeta?.llmDocumentRefineMs ?? 0,
     llmRefineMs: genMeta?.llmRefineMs ?? 0,
     timedOut: genMeta?.timedOut ?? false,
     slowestStage: genMeta?.slowestStage ?? '',
@@ -412,6 +413,24 @@ export async function executeGeneratePipeline(
     ...engineSnapshot,
     timings: timingsSnapshot,
     quality: qualitySnapshot,
+    aiGenerationMeta: genMeta
+      ? {
+          startedAt: genMeta.startedAt,
+          finishedAt: genMeta.finishedAt,
+          draftProvider: genMeta.draftProvider,
+          draftModel: genMeta.draftModel,
+          refineProvider: genMeta.refineProvider,
+          refineModel: genMeta.refineModel,
+          llmDocumentRefineMs: genMeta.llmDocumentRefineMs,
+          tokenUsage: genMeta.tokenUsage,
+          costEstimateUsd: genMeta.costEstimateUsd,
+          hybridPipeline: genMeta.hybridPipeline,
+          documentRefineSkipped: genMeta.documentRefineSkipped,
+          documentRefineSkipReason: genMeta.documentRefineSkipReason,
+          usedReferenceSources: genMeta.usedReferenceSources,
+          premiumMode: genMeta.premiumMode,
+        }
+      : undefined,
   }
 
   await insertGeneratedDoc({

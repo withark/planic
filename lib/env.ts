@@ -11,12 +11,16 @@ const EnvSchema = z.object({
   OPENAI_MODEL_DRAFT: z.string().optional(),
   ANTHROPIC_MODEL_REFINE: z.string().optional(),
   ANTHROPIC_MODEL_PREMIUM: z.string().optional(),
+  /** hybrid·PREMIUM 플랜 시 초안용(더 강한 OpenAI 등) — 미설정 시 일반 초안 모델 */
+  OPENAI_MODEL_PREMIUM_DRAFT: z.string().optional(),
   OPENAI_MAX_TOKENS_DRAFT: z.string().optional(),
   ANTHROPIC_MAX_TOKENS_REFINE: z.string().optional(),
   /** hybrid 시 PREMIUM 플랜에 ANTHROPIC_MODEL_PREMIUM 사용(기본: 켜짐) */
   AI_ENABLE_PREMIUM_MODE: z.string().optional(),
   /** true면 품질 보정(repair) LLM 루프 생략 */
   AI_ENABLE_REFINE_SKIP: z.string().optional(),
+  /** true면 hybrid 시 Claude 2차(문서 다듬기) 패스 생략 — 초안만 사용 */
+  AI_HYBRID_DOCUMENT_REFINE_SKIP: z.string().optional(),
   /** true면 LLM 응답 usage 토큰 로그 */
   AI_LOG_TOKENS: z.string().optional(),
   /** true면 대략적 USD 비용 추정 로그(AI_LOG_TOKENS와 무관하게 usage가 있으면 계산) */

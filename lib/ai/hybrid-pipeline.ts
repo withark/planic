@@ -9,33 +9,37 @@ function parsePositiveIntEnv(value: string | undefined, fallback: number): numbe
   return n
 }
 
-/** hybrid 모드: OpenAI 초안 + Anthropic 보정. 키가 하나라도 없으면 null. */
+/**
+ * 기본 2단계 파이프라인: OpenAI 초안(gpt-5.4-mini 등) + Claude 정제(Sonnet 등).
+ * - `AI_PIPELINE_MODE`가 off/single/legacy면 비활성(단일 엔진).
+ * - OpenAI·Anthropic 키가 모두 있으면 기본 hybrid (명시적 hybrid와 동일).
+ */
 export function getHybridPipelineEngines(userPlan?: PlanType): {
   draft: EffectiveEngineConfig
   refine: EffectiveEngineConfig
 } | null {
   const env = getEnv()
-  if ((env.AI_PIPELINE_MODE || '').trim().toLowerCase() !== 'hybrid') return null
+  const mode = (env.AI_PIPELINE_MODE || '').trim().toLowerCase()
+  if (mode === 'off' || mode === 'single' || mode === 'legacy') return null
   if (!env.OPENAI_API_KEY?.trim() || !env.ANTHROPIC_API_KEY?.trim()) return null
 
-  const draftTokens = clampEngineMaxTokens(
-    parsePositiveIntEnv(env.OPENAI_MAX_TOKENS_DRAFT, 6_144),
-  )
-  const refineTokens = clampEngineMaxTokens(
-    parsePositiveIntEnv(env.ANTHROPIC_MAX_TOKENS_REFINE, 6_144),
-  )
+  const draftTokens = clampEngineMaxTokens(parsePositiveIntEnv(env.OPENAI_MAX_TOKENS_DRAFT, 6_144))
+  const refineTokens = clampEngineMaxTokens(parsePositiveIntEnv(env.ANTHROPIC_MAX_TOKENS_REFINE, 6_144))
 
-  const draftModel = (env.OPENAI_MODEL_DRAFT || '').trim() || (env.OPENAI_MODEL || '').trim() || 'gpt-4o'
+  const draftBase =
+    (env.OPENAI_MODEL_DRAFT || '').trim() || (env.OPENAI_MODEL || '').trim() || 'gpt-5.4-mini'
+  const premiumDraft =
+    (env.OPENAI_MODEL_PREMIUM_DRAFT || '').trim() || draftBase
+
   const refineBase =
     (env.ANTHROPIC_MODEL_REFINE || '').trim() ||
     (env.ANTHROPIC_MODEL || '').trim() ||
     'claude-sonnet-4-6'
-  const premiumModel =
-    (env.ANTHROPIC_MODEL_PREMIUM || '').trim() || refineBase
+  const premiumRefine = (env.ANTHROPIC_MODEL_PREMIUM || '').trim() || refineBase
 
   const premiumMode = readEnvBool('AI_ENABLE_PREMIUM_MODE', true)
-  const refineModel =
-    premiumMode && userPlan === 'PREMIUM' ? premiumModel : refineBase
+  const draftModel = premiumMode && userPlan === 'PREMIUM' ? premiumDraft : draftBase
+  const refineModel = premiumMode && userPlan === 'PREMIUM' ? premiumRefine : refineBase
 
   return {
     draft: { provider: 'openai', model: draftModel, maxTokens: draftTokens, overlay: null },

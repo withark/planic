@@ -7,6 +7,8 @@ export function mapGenerationStageToKorean(stage: string): string {
     generate: 'AI 작성 중',
     parse: '결과 정리 중',
     post: '결과 정리 중',
+    polish: '문장·톤 다듬는 중',
+    refine: '문서 품질 보정 중',
     save: '저장 중',
   }
   return m[stage] ?? stage

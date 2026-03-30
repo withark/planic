@@ -3,6 +3,7 @@
  * 모델 문자열 부분 일치로 매칭, 없으면 보수적 기본값.
  */
 const PER_MILLION: { pattern: RegExp; input: number; output: number }[] = [
+  { pattern: /gpt-5\.4-mini/i, input: 0.15, output: 0.6 },
   { pattern: /gpt-5/i, input: 0.25, output: 2.0 },
   { pattern: /gpt-4o-mini/i, input: 0.15, output: 0.6 },
   { pattern: /gpt-4o/i, input: 2.5, output: 10 },

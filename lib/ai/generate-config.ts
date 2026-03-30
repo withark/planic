@@ -21,3 +21,31 @@ export function resolveGenerateMaxTokens(effectiveMax: number, provider: 'anthro
   const cap = GENERATE_OUTPUT_CAP[provider]
   return Math.min(cap, Math.max(GENERATE_QUOTE_OUTPUT_MIN, effectiveMax))
 }
+
+export type DocumentTargetForTokens =
+  | 'estimate'
+  | 'program'
+  | 'timetable'
+  | 'planning'
+  | 'scenario'
+  | 'cuesheet'
+  | 'emceeScript'
+
+/** 문서 종류별 초안 출력 상한(비용·길이 제어). refine은 별도 엔진 maxTokens 사용. */
+const DRAFT_MAX_BY_TARGET: Record<DocumentTargetForTokens, number> = {
+  estimate: 8_192,
+  program: 8_192,
+  timetable: 7_168,
+  planning: 10_240,
+  scenario: 9_216,
+  cuesheet: 10_240,
+  emceeScript: 9_216,
+}
+
+export function resolveDraftMaxTokensForDocumentTarget(
+  baseMax: number,
+  target: DocumentTargetForTokens | undefined,
+): number {
+  const cap = DRAFT_MAX_BY_TARGET[target ?? 'estimate'] ?? 8_192
+  return clampEngineMaxTokens(Math.min(baseMax, cap))
+}
