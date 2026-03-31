@@ -7,19 +7,36 @@ import { authOptions } from '@/lib/auth'
 import { buildStartHref } from '@/lib/auth-redirect'
 import { PLAN_LIMITS, planLabelKo, PRICES_KRW, type PlanType } from '@/lib/plans'
 import { HomeStepsAccordion } from '@/components/public/HomeStepsAccordion'
+import {
+  LandingIconClapper,
+  LandingIconClipboard,
+  LandingIconClock,
+  LandingIconDocCurrency,
+  LandingIconDocLightbulb,
+  LandingIconMic,
+  LandingIconShare,
+  LandingIconSlides,
+  LandingIconSparkles,
+  LandingIconTimeline,
+} from '@/components/public/LandingSectionIcons'
+
+const freeMonthlyGenerations = PLAN_LIMITS.FREE.monthlyQuoteGenerateLimit
 
 const featureCards = [
   {
     title: 'AI 문서 생성',
-    description: '핵심 정보 입력만으로 행사 기획서, 제안서, 결과 보고서 초안을 빠르게 생성합니다.',
+    description: '행사 주제·목적과 선택한 자료만으로 기획·제안·보고에 맞는 초안 구조를 빠르게 잡아 줍니다.',
+    Icon: LandingIconSparkles,
   },
   {
-    title: '작업 시간 대폭 단축',
-    description: '반복 문서 작업을 자동화해 실무자가 기획과 실행에 더 집중할 수 있습니다.',
+    title: '작업 시간 단축',
+    description: '반복되는 문서 뼈대 작성을 줄여 기획·협의·현장 실행에 쓸 시간을 되돌려 드립니다.',
+    Icon: LandingIconClock,
   },
   {
     title: '실무형 출력',
-    description: '업무 흐름에 맞게 문서를 다듬고 필요한 형식으로 정리해 바로 공유할 수 있습니다.',
+    description: '저장 후 바로 다듬을 수 있게 정리하고, 필요한 형식으로 동료·고객과 공유하기 좋게 만듭니다.',
+    Icon: LandingIconShare,
   },
 ]
 
@@ -27,30 +44,37 @@ const templateCards = [
   {
     label: '견적서',
     description: '행사 예산·항목·금액 기준을 빠르게 정리해야 할 때',
+    Icon: LandingIconDocCurrency,
   },
   {
     label: '기획안',
     description: '행사 목적과 구성 흐름을 문서로 정리해야 할 때',
+    Icon: LandingIconDocLightbulb,
   },
   {
     label: '프로그램 제안서',
     description: '세션·순서 중심의 프로그램 구성을 제안해야 할 때',
+    Icon: LandingIconSlides,
   },
   {
     label: '시나리오',
     description: '시간 흐름과 진행 멘트까지 포함한 실행안이 필요할 때',
+    Icon: LandingIconClapper,
   },
   {
     label: '사회자 멘트',
     description: 'MC가 현장에서 읽을 구간별 대본이 필요할 때',
+    Icon: LandingIconMic,
   },
   {
     label: '큐시트',
     description: '현장 운영 순서와 역할 분담을 시간축으로 맞출 때',
+    Icon: LandingIconTimeline,
   },
   {
     label: '과업지시서 요약',
     description: '긴 요구사항 문서에서 핵심만 빠르게 추려야 할 때',
+    Icon: LandingIconClipboard,
   },
 ]
 
@@ -69,8 +93,6 @@ const PLAN_DESCRIPTIONS: Record<PlanType, string> = {
   BASIC: '실무에 필요한 기능 전부 · 메인 유료 플랜',
   PREMIUM: '대량 생성 · Opus 정제 · 프리미엄 템플릿',
 }
-
-const PRICING_PLANS: PlanType[] = ['FREE', 'BASIC', 'PREMIUM']
 
 type PricingCard = {
   plan: PlanType
@@ -176,23 +198,25 @@ export async function MainPageContent() {
     <PublicPageShell loginHref={loginHref} loginLabel={loginLabel}>
       <section className="mx-auto -mt-2 w-full max-w-none bg-[radial-gradient(circle_at_top,_rgba(37,99,235,0.14),_transparent_38%),linear-gradient(180deg,_#f4f8fc_0%,_#f8fbff_48%,_#ffffff_100%)] px-6 pb-14 pt-16 text-center sm:pb-16 sm:pt-20">
         <div className="mx-auto max-w-[920px] text-center">
-          <p className="text-xs font-semibold tracking-[0.16em] text-primary-700">Event Document Automation</p>
-          <h1 className="mt-4 text-[34px] font-bold leading-[1.18] tracking-tight text-slate-900 sm:text-[54px]">
-            행사 문서,
+          <p className="text-xs font-semibold tracking-[0.14em] text-primary-700">행사 문서 AI 파트너</p>
+          <h1 className="mt-4 text-[34px] font-bold leading-[1.2] tracking-tight text-slate-900 sm:text-[52px]">
+            핵심만 입력하면,
             <br />
-            이제는 바로 만들어 바로 보냅니다
+            실무에 바로 쓰는 초안이 준비됩니다
           </h1>
-          <p className="mx-auto mt-5 max-w-3xl text-[15px] leading-7 text-slate-600 sm:text-[18px]">
-            견적서, 기획안, 프로그램 제안서, 시나리오, 사회자 멘트, 큐시트, 과업지시서 요약까지.
-            핵심 정보만 입력하면 현업에서 바로 수정하고 고객에게 공유할 수 있는 문서 초안을 빠르게 만듭니다.
+          <p className="mx-auto mt-5 max-w-3xl text-[15px] leading-7 text-slate-600 sm:text-[17px]">
+            견적서·기획안·프로그램 제안서·시나리오·사회자 멘트·큐시트·과업지시서 요약까지 한곳에서 다룹니다.
+            주제와 목적, 그리고 넣어 주시는 참고 자료를 바탕으로 바로 다듬고 넘길 수 있는 문서 뼈대를 빠르게 짜 드립니다.
           </p>
           <div className="mt-6 flex flex-wrap items-center justify-center gap-2 text-sm font-medium text-slate-600">
             <span className="rounded-full border border-slate-200 bg-white px-3 py-1.5">문서 7종 통합 생성</span>
-            <span className="rounded-full border border-slate-200 bg-white px-3 py-1.5">엑셀/PDF 바로 저장</span>
-            <span className="rounded-full border border-slate-200 bg-white px-3 py-1.5">가입 후 무료 시작</span>
+            <span className="rounded-full border border-slate-200 bg-white px-3 py-1.5">엑셀·PDF 저장</span>
+            <span className="rounded-full border border-slate-200 bg-white px-3 py-1.5">
+              무료 플랜 월 {freeMonthlyGenerations}회 생성
+            </span>
           </div>
 
-          <div className="mt-8 flex flex-col items-center justify-center gap-3 sm:flex-row">
+          <div className="mt-8 flex flex-col items-center justify-center gap-3 sm:flex-row sm:flex-wrap">
             <StartNowLink
               variant="cta"
               initialHref={initialStartHref}
@@ -200,25 +224,40 @@ export async function MainPageContent() {
             >
               무료로 시작하기
             </StartNowLink>
+            <Link
+              href="#templates"
+              className="inline-flex min-w-[210px] items-center justify-center rounded-2xl border border-slate-200 bg-white px-8 py-4 text-[15px] font-semibold text-slate-800 shadow-sm transition-colors hover:border-slate-300 hover:bg-slate-50"
+            >
+              문서 종류 보기
+            </Link>
           </div>
         </div>
       </section>
 
       <HomeStepsAccordion />
 
-      <section className="mx-auto w-full max-w-none px-6 py-12 sm:py-14">
+      <section id="features" className="mx-auto w-full max-w-none px-6 py-12 sm:py-14">
         <div className="mx-auto max-w-5xl">
           <div className="text-center">
-            <p className="text-xs font-semibold tracking-wide text-primary-600">Core Features</p>
+            <p className="text-xs font-semibold tracking-wide text-primary-600">핵심 기능</p>
             <h2 className="mt-2.5 text-[22px] font-bold text-slate-900 sm:text-[30px]">업무 효율을 높이는 핵심 기능</h2>
+            <p className="mx-auto mt-3 max-w-2xl text-sm text-slate-600">
+              기획 단계부터 현장 문서까지, 같은 흐름으로 이어지게 설계했습니다.
+            </p>
           </div>
           <div className="mt-6 grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
-            {featureCards.map((card) => (
-              <article key={card.title} className="rounded-[24px] border border-slate-200 bg-white p-6 shadow-sm">
-                <h3 className="text-lg font-semibold text-slate-900">{card.title}</h3>
-                <p className="mt-3 text-sm leading-7 text-slate-600">{card.description}</p>
-              </article>
-            ))}
+            {featureCards.map((card) => {
+              const Icon = card.Icon
+              return (
+                <article key={card.title} className="rounded-[24px] border border-slate-200 bg-white p-6 shadow-sm">
+                  <div className="mb-4 inline-flex h-11 w-11 items-center justify-center rounded-xl bg-primary-50 text-primary-600">
+                    <Icon className="h-6 w-6" />
+                  </div>
+                  <h3 className="text-lg font-semibold text-slate-900">{card.title}</h3>
+                  <p className="mt-3 text-sm leading-7 text-slate-600">{card.description}</p>
+                </article>
+              )
+            })}
           </div>
         </div>
       </section>
@@ -226,16 +265,26 @@ export async function MainPageContent() {
       <section id="templates" className="mx-auto w-full max-w-none bg-slate-50/70 px-6 py-12 sm:py-14">
         <div className="mx-auto max-w-5xl">
           <div className="text-center">
-            <p className="text-xs font-semibold tracking-wide text-primary-600">Document Templates</p>
+            <p className="text-xs font-semibold tracking-wide text-primary-600">문서 템플릿</p>
             <h2 className="mt-2.5 text-[22px] font-bold text-slate-900 sm:text-[30px]">플래닉이 만들 수 있는 문서 종류</h2>
+            <p className="mx-auto mt-3 max-w-2xl text-sm text-slate-600">상황에 맞는 유형을 고르면, 그에 맞는 초안 구조로 시작합니다.</p>
           </div>
           <div className="mt-6 grid gap-3.5 sm:grid-cols-2 lg:grid-cols-3">
-            {templateCards.map((template) => (
-              <article key={template.label} className="rounded-xl border border-slate-200 bg-white p-5">
-                <h3 className="text-base font-semibold text-slate-900">{template.label}</h3>
-                <p className="mt-2 text-sm text-slate-600">{template.description}</p>
-              </article>
-            ))}
+            {templateCards.map((template) => {
+              const TIcon = template.Icon
+              return (
+                <article
+                  key={template.label}
+                  className="rounded-xl border border-slate-200 bg-white p-5 transition-shadow hover:shadow-md"
+                >
+                  <div className="mb-3 inline-flex h-10 w-10 items-center justify-center rounded-lg bg-slate-50 text-primary-600">
+                    <TIcon className="h-5 w-5" />
+                  </div>
+                  <h3 className="text-base font-semibold text-slate-900">{template.label}</h3>
+                  <p className="mt-2 text-sm leading-relaxed text-slate-600">{template.description}</p>
+                </article>
+              )
+            })}
           </div>
         </div>
       </section>
@@ -243,14 +292,14 @@ export async function MainPageContent() {
       <section className="mx-auto w-full max-w-none px-6 py-12 sm:py-14">
         <div className="mx-auto max-w-5xl">
           <div className="text-center">
-            <p className="text-xs font-semibold tracking-wide text-primary-600">Pricing</p>
+            <p className="text-xs font-semibold tracking-wide text-primary-600">요금제</p>
             <h2 className="mt-2.5 text-[22px] font-bold text-slate-900 sm:text-[30px]">규모에 맞는 플랜 선택</h2>
           </div>
           <div className="mt-6 grid gap-3.5 md:grid-cols-3">
             {pricingCards.map((card) => (
               <article
                 key={card.plan}
-                className={`rounded-xl border p-5 ${
+                className={`flex flex-col rounded-xl border p-5 ${
                   card.highlight
                     ? 'border-primary-500 bg-primary-50/40 shadow-sm shadow-primary-500/10 ring-1 ring-primary-500/10'
                     : 'border-slate-200 bg-white'
@@ -262,11 +311,33 @@ export async function MainPageContent() {
                   <span className="ml-1 text-sm font-semibold text-slate-600">{card.plan === 'FREE' ? '' : '/월'}</span>
                 </p>
                 <p className="mt-1 text-sm text-slate-600">{PLAN_DESCRIPTIONS[card.plan]}</p>
-                <ul className="mt-4 space-y-2 text-sm text-slate-600">
+                <ul className="mt-4 flex-1 space-y-2 text-sm text-slate-600">
                   {card.items.map((item) => (
                     <li key={item}>- {item}</li>
                   ))}
                 </ul>
+                <div className="mt-5">
+                  {card.plan === 'FREE' ? (
+                    <StartNowLink
+                      variant="cta"
+                      initialHref={initialStartHref}
+                      className="flex w-full items-center justify-center rounded-xl bg-primary-600 px-4 py-3 text-sm font-semibold text-white transition-colors hover:bg-primary-700"
+                    >
+                      무료로 시작
+                    </StartNowLink>
+                  ) : (
+                    <Link
+                      href="/plans"
+                      className={`flex w-full items-center justify-center rounded-xl px-4 py-3 text-sm font-semibold transition-colors ${
+                        card.highlight
+                          ? 'bg-primary-600 text-white hover:bg-primary-700'
+                          : 'border border-slate-200 bg-white text-slate-800 hover:bg-slate-50'
+                      }`}
+                    >
+                      플랜 자세히 보기
+                    </Link>
+                  )}
+                </div>
               </article>
             ))}
           </div>
@@ -276,7 +347,7 @@ export async function MainPageContent() {
       <section className="mx-auto w-full max-w-none px-6 py-12 sm:py-14">
         <div className="mx-auto max-w-7xl">
           <div className="mb-10 text-center">
-            <p className="text-xs font-semibold tracking-wide text-primary-600">Testimonials</p>
+            <p className="text-xs font-semibold tracking-wide text-primary-600">이용 후기</p>
             <h2 className="mt-2.5 text-[22px] font-bold text-slate-900 sm:text-[30px]">현장의 목소리</h2>
             <p className="mt-3 text-sm text-slate-600">다양한 분야의 기획 담당자들이 경험한 변화를 담았습니다.</p>
           </div>
@@ -308,7 +379,7 @@ export async function MainPageContent() {
       <section id="faq" className="mx-auto w-full max-w-none bg-slate-50/70 px-6 py-12 sm:py-14">
         <div className="mx-auto max-w-5xl">
           <div className="mb-8 text-center">
-            <p className="text-xs font-semibold tracking-wide text-primary-600">FAQ</p>
+            <p className="text-xs font-semibold tracking-wide text-primary-600">안내</p>
             <h2 className="mt-2.5 text-[30px] font-bold leading-tight text-slate-900 sm:text-[34px]">자주 묻는 질문</h2>
             <p className="mt-3 text-sm text-slate-600">서비스 이용에 관해 궁금한 점을 확인하세요.</p>
           </div>
@@ -320,7 +391,8 @@ export async function MainPageContent() {
         <div className="mx-auto max-w-4xl text-center">
           <h2 className="text-[22px] font-bold text-slate-900 sm:text-[30px]">문서 작업에 들이는 시간, 줄여보세요</h2>
           <p className="mt-4 text-sm sm:text-[15px] text-slate-600">
-            무료 체험으로 Planic의 효율성을 직접 경험해보세요. 가입 후 3회 무료 문서 생성을 제공합니다.
+            무료 플랜으로 월 {freeMonthlyGenerations}회까지 문서 생성을 직접 경험해 보세요. 필요해지면 언제든 유료 플랜으로 확장할 수
+            있습니다.
           </p>
 
           <div className="mt-8 flex flex-col sm:flex-row items-center justify-center gap-4">
@@ -338,6 +410,12 @@ export async function MainPageContent() {
               문의하기
             </Link>
           </div>
+          <p className="mt-5 text-xs text-slate-500">
+            문의:{' '}
+            <a href="mailto:sisimtree2017@naver.com" className="font-medium text-primary-600 hover:underline">
+              sisimtree2017@naver.com
+            </a>
+          </p>
         </div>
       </section>
     </PublicPageShell>

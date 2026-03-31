@@ -1,5 +1,6 @@
 'use client'
 
+import Link from 'next/link'
 import { useState } from 'react'
 
 type StepItem = {
@@ -93,6 +94,15 @@ export function HomeStepsAccordion() {
           </article>
         ))}
       </div>
+      <p className="mt-6 text-center">
+        <Link
+          href="#templates"
+          className="inline-flex items-center gap-1 text-sm font-semibold text-primary-600 underline-offset-4 transition-colors hover:text-primary-700 hover:underline"
+        >
+          만들 수 있는 문서 종류 보기
+          <span aria-hidden>→</span>
+        </Link>
+      </p>
     </section>
   )
 }
