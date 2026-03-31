@@ -118,9 +118,9 @@ export default function EstimateGeneratorPage() {
   )
   const wizardHighlights: WizardHighlight[] = useMemo(
     () => [
-      { label: '필수 입력', value: '주제, 예산 범위' },
-      { label: '권장 입력', value: '인원, 장소, 추가 메모' },
-      { label: '결과물', value: '바로 수정 가능한 견적서 + 엑셀/PDF' },
+      { label: '필수 입력', value: '주제, 예산' },
+      { label: '권장 입력', value: '인원, 장소' },
+      { label: '결과물', value: '견적서 + 엑셀/PDF' },
     ],
     [],
   )

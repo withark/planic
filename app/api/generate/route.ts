@@ -86,10 +86,11 @@ export async function POST(req: NextRequest) {
 
     const env = getEnv()
     const aiModeRawMock = isAiModeMockRaw()
-    const isMockAi = isMockGenerationEnabled()
-    const mockBlockedInProduction = aiModeRawMock && isProductionRuntime() && !isMockAi
     const hasAnthropic = !!env.ANTHROPIC_API_KEY
     const hasOpenAI = !!env.OPENAI_API_KEY
+    const autoMockFallback = !hasAnthropic && !hasOpenAI && !isProductionRuntime()
+    const isMockAi = isMockGenerationEnabled() || autoMockFallback
+    const mockBlockedInProduction = aiModeRawMock && isProductionRuntime() && !isMockAi
     if (!isMockAi && !hasAnthropic && !hasOpenAI) {
       return errorResponse(
         500,

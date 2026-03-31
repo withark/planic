@@ -24,6 +24,12 @@ function annualDiscountText(monthly: number, annual: number) {
   return disc > 0 ? `연간 결제 시 ${fmtKRW(disc)}원 절약 (${pct}% 할인)` : '연간 결제'
 }
 
+const PLAN_ORDER: Record<PlanType, number> = {
+  FREE: 0,
+  BASIC: 1,
+  PREMIUM: 2,
+}
+
 function PlansContent() {
   const searchParams = useSearchParams()
   const [authStatus, setAuthStatus] = useState<'unknown' | 'authenticated' | 'unauthenticated'>('unknown')
@@ -72,6 +78,11 @@ function PlansContent() {
   const priceUnit = () => (cycle === 'annual' ? '/년' : '/월')
 
   const periodText = () => (cycle === 'annual' ? '12개월(365일)' : '1개월(30일)')
+
+  const ctaLabelForPlan = (targetPlan: PlanType) => {
+    const isUpgrade = PLAN_ORDER[targetPlan] > PLAN_ORDER[currentPlan]
+    return isUpgrade ? `${planLabelKo(targetPlan)}로 업그레이드` : '플랜 변경'
+  }
 
   async function subscribe(planType: PlanType) {
     if (planType === 'FREE') return
@@ -423,7 +434,7 @@ function PlansContent() {
                         c.highlight ? 'bg-primary-600 text-white hover:bg-primary-700' : 'border border-slate-200 text-gray-700 hover:bg-slate-50'
                       }`}
                     >
-                      로그인 후 업그레이드
+                      로그인 후 플랜 선택
                     </Link>
                   ) : (
                     <button
@@ -434,7 +445,7 @@ function PlansContent() {
                         c.highlight ? 'bg-primary-600 text-white hover:bg-primary-700' : 'border border-slate-200 text-gray-700 hover:bg-slate-50'
                       }`}
                     >
-                      {loading ? '처리 중...' : `${c.title}로 업그레이드`}
+                      {loading ? '처리 중...' : ctaLabelForPlan(c.plan)}
                     </button>
                   )}
                 </div>
