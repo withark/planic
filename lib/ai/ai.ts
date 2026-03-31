@@ -2438,7 +2438,9 @@ export async function generateQuoteWithMeta(input: GenerateInput): Promise<{ doc
       const maxRepairAttempts =
         generationProfile === 'realtime'
           ? strictQualityTarget
-            ? 2
+            ? qualityIssues.length >= 3
+              ? 3
+              : 2
             : 1
           : strictQualityTarget
             ? 3
@@ -2499,6 +2501,15 @@ export async function generateQuoteWithMeta(input: GenerateInput): Promise<{ doc
 
       doc = bestDoc
       qualityIssues = bestIssues
+      logInfo('ai.quality.repair.summary', {
+        target: input.documentTarget,
+        strictQualityTarget,
+        attempts: repairAttempts,
+        issueCountBefore: qualityIssueCountBefore,
+        issueCountAfter: qualityIssues.length,
+        scoreBefore: qualityScoreBefore,
+        scoreAfter: scoreQualityIssues(qualityIssues),
+      })
     } catch {
       // 품질 보정은 best-effort. 원본 생성 결과를 유지합니다.
     } finally {
