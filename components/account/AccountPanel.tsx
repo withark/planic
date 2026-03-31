@@ -81,8 +81,8 @@ export function AccountPanel({
             : variant === 'sidebar'
               ? 'w-full flex items-center gap-3 rounded-xl border border-slate-200 bg-white px-3 py-2.5 text-left text-sm font-medium text-gray-700 shadow-sm'
               : 'inline-flex items-center gap-2 rounded-xl border border-slate-200 bg-white px-2.5 py-2 text-sm font-semibold text-gray-700 shadow-sm',
-          'hover:bg-slate-50 hover:text-gray-900 focus:outline-none focus:ring-2 focus:ring-primary-200',
-          'active:scale-[0.99] transition'
+          'hover:bg-slate-50 hover:text-gray-900 focus:outline-none focus:ring-2 focus:ring-primary-200 focus-visible:ring-offset-2 focus-visible:ring-offset-white',
+          'active:scale-[0.99] transition duration-200'
         )}
       >
         <span
