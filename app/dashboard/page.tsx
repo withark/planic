@@ -6,6 +6,7 @@ import { GNB } from '@/components/GNB'
 import { apiFetch } from '@/lib/api/client'
 import { toUserMessage } from '@/lib/errors/toUserMessage'
 import { LoadingState } from '@/components/ui/AsyncState'
+import { HubDocIcon } from '@/components/hub-doc-icon'
 import { CREATE_DOCUMENT_HUB_ITEMS } from '@/lib/marketing-documents'
 import type { PlanLimits, PlanType } from '@/lib/plans'
 import { planLabelKo } from '@/lib/plans'
@@ -350,25 +351,31 @@ function DashboardContent() {
                 <Link href="/create-documents" className="text-sm font-semibold text-primary-700 hover:text-primary-800">
                   문서 선택 화면으로 →
                 </Link>
-                <span className="text-[11px] text-slate-400">6종 문서를 크게 고르기</span>
+                <span className="text-[11px] text-slate-400">
+                  {CREATE_DOCUMENT_HUB_ITEMS.length}종 문서를 크게 고르기
+                </span>
               </div>
             </div>
 
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-              {CREATE_DOCUMENT_HUB_ITEMS.map((card, index) => (
+              {CREATE_DOCUMENT_HUB_ITEMS.map((card) => (
                 <Link
                   key={card.href}
                   href={card.href}
-                  className="group flex items-stretch justify-between gap-3 rounded-2xl border-2 border-gray-100 bg-slate-50/40 p-4 sm:p-5 min-h-[88px] hover:border-primary-200 hover:bg-white hover:shadow-card transition-all"
+                  className="group flex items-stretch gap-3 rounded-2xl border-2 border-gray-100 bg-slate-50/40 p-4 sm:p-5 min-h-[88px] hover:border-primary-200 hover:bg-white hover:shadow-card transition-all focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary-500 focus-visible:ring-offset-2"
                 >
-                  <span className="flex flex-col gap-1 min-w-0 text-left">
+                  <span className="flex-shrink-0 self-center w-10 h-10 rounded-xl bg-primary-50 text-primary-700 flex items-center justify-center border border-primary-100 group-hover:bg-primary-100/80 transition-colors">
+                    <HubDocIcon id={card.hubIcon} className="w-[18px] h-[18px]" />
+                  </span>
+                  <span className="flex flex-col gap-1 min-w-0 text-left flex-1">
+                    <span className="text-[10px] font-semibold text-slate-500">{card.category}</span>
                     <span className="flex flex-wrap items-center gap-2">
                       <span className="text-[15px] font-bold text-gray-900 group-hover:text-primary-800">{card.title}</span>
-                      {index === 0 && (
+                      {card.recommended ? (
                         <span className="text-[10px] font-bold uppercase tracking-wide text-primary-700 bg-primary-50 border border-primary-100 px-1.5 py-0.5 rounded-md">
                           많이 씀
                         </span>
-                      )}
+                      ) : null}
                     </span>
                     <span className="text-xs text-slate-600 leading-snug line-clamp-2">{card.desc}</span>
                   </span>
