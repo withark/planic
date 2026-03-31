@@ -21,7 +21,7 @@ export function SiteFooter({ compact = false }: SiteFooterProps) {
             <EvQuoteLogo showText size="sm" className="justify-center" />
           </Link>
 
-          <p className="mt-2.5 text-slate-600">행사 준비에 필요한 문서를 하나씩 빠르게 만드는 AI 도구</p>
+          <p className="mt-2.5 text-slate-600">행사 준비 문서를 완성본 수준으로 빠르게 만들어 주는 AI 도구</p>
 
           <nav className="mt-4" aria-label="서비스 및 정책 링크">
             <div className="flex flex-wrap items-center justify-center gap-x-4 gap-y-1.5 text-slate-600">

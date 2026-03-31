@@ -7,6 +7,7 @@ import { authOptions } from '@/lib/auth'
 import { buildStartHref } from '@/lib/auth-redirect'
 import { PLAN_LIMITS, planLabelKo, PRICES_KRW, type PlanType } from '@/lib/plans'
 import { HomeStepsAccordion } from '@/components/public/HomeStepsAccordion'
+import { LandingHeroPreview } from '@/components/public/LandingHeroPreview'
 import {
   LandingIconClapper,
   LandingIconClipboard,
@@ -25,7 +26,7 @@ const freeMonthlyGenerations = PLAN_LIMITS.FREE.monthlyQuoteGenerateLimit
 const featureCards = [
   {
     title: 'AI 문서 생성',
-    description: '행사 주제·목적과 선택한 자료만으로 기획·제안·보고에 맞는 초안 구조를 빠르게 잡아 줍니다.',
+    description: '행사 주제·목적과 선택한 자료만으로 기획·제안·보고에 맞는 완성본 문서를 빠르게 채워 줍니다.',
     Icon: LandingIconSparkles,
   },
   {
@@ -35,7 +36,7 @@ const featureCards = [
   },
   {
     title: '실무형 출력',
-    description: '저장 후 바로 다듬을 수 있게 정리하고, 필요한 형식으로 동료·고객과 공유하기 좋게 만듭니다.',
+    description: '완성본을 PDF·엑셀 등으로 보내고, 동료·고객에게 바로 공유할 수 있게 정리합니다.',
     Icon: LandingIconShare,
   },
 ]
@@ -195,62 +196,88 @@ export async function MainPageContent() {
   const loginLabel = session ? '대시보드' : '로그인'
 
   return (
-    <PublicPageShell loginHref={loginHref} loginLabel={loginLabel}>
-      <section className="mx-auto -mt-2 w-full max-w-none bg-[radial-gradient(circle_at_top,_rgba(37,99,235,0.14),_transparent_38%),linear-gradient(180deg,_#f4f8fc_0%,_#f8fbff_48%,_#ffffff_100%)] px-6 pb-14 pt-16 text-center sm:pb-16 sm:pt-20">
-        <div className="mx-auto max-w-[920px] text-center">
-          <p className="text-xs font-semibold tracking-[0.14em] text-primary-700">행사 문서 AI 파트너</p>
-          <h1 className="mt-4 text-[34px] font-bold leading-[1.2] tracking-tight text-slate-900 sm:text-[52px]">
-            핵심만 입력하면,
-            <br />
-            실무에 바로 쓰는 초안이 준비됩니다
-          </h1>
-          <p className="mx-auto mt-5 max-w-3xl text-[15px] leading-7 text-slate-600 sm:text-[17px]">
-            견적서·기획안·프로그램 제안서·시나리오·사회자 멘트·큐시트·과업지시서 요약까지 한곳에서 다룹니다.
-            주제와 목적, 그리고 넣어 주시는 참고 자료를 바탕으로 바로 다듬고 넘길 수 있는 문서 뼈대를 빠르게 짜 드립니다.
-          </p>
-          <div className="mt-6 flex flex-wrap items-center justify-center gap-2 text-sm font-medium text-slate-600">
-            <span className="rounded-full border border-slate-200 bg-white px-3 py-1.5">문서 7종 통합 생성</span>
-            <span className="rounded-full border border-slate-200 bg-white px-3 py-1.5">엑셀·PDF 저장</span>
-            <span className="rounded-full border border-slate-200 bg-white px-3 py-1.5">
-              무료 플랜 월 {freeMonthlyGenerations}회 생성
-            </span>
-          </div>
+    <PublicPageShell loginHref={loginHref} loginLabel={loginLabel} mainMaxWidth="full">
+      <section className="relative w-full overflow-hidden border-b border-slate-200/70 bg-gradient-to-br from-[#e8efff] via-[#f4f7fb] to-white px-4 pb-16 pt-12 sm:px-8 sm:pb-20 sm:pt-16 lg:px-12">
+        <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(ellipse_90%_60%_at_85%_0%,rgba(79,70,229,0.12),transparent_55%)]" />
+        <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(circle_at_10%_90%,rgba(37,99,235,0.08),transparent_40%)]" />
+        <div className="relative mx-auto grid max-w-7xl items-center gap-12 lg:grid-cols-[1fr_minmax(300px,460px)] lg:gap-16">
+          <div className="text-center lg:text-left">
+            <p className="text-xs font-semibold tracking-[0.14em] text-primary-700">행사 문서 AI 파트너</p>
+            <h1 className="mt-4 text-[32px] font-bold leading-[1.15] tracking-tight text-slate-900 sm:text-5xl lg:text-[3.25rem]">
+              입력은 짧게,
+              <br />
+              <span className="bg-gradient-to-r from-primary-600 to-indigo-600 bg-clip-text text-transparent">
+                완성본은 바로 나옵니다
+              </span>
+            </h1>
+            <p className="mx-auto mt-5 max-w-xl text-[15px] leading-7 text-slate-600 sm:text-[17px] lg:mx-0 lg:max-w-[540px]">
+              견적서·기획안·프로그램 제안서·시나리오·사회자 멘트·큐시트·과업지시서 요약까지 한곳에서 완성본으로 만듭니다.
+              주제와 목적, 참고 자료를 넣으면 검토·발송까지 이어갈 수 있는 문서가 한 번에 정리됩니다.
+            </p>
+            <div className="mt-6 flex flex-wrap items-center justify-center gap-2 text-sm font-medium text-slate-600 lg:justify-start">
+              <span className="rounded-full border border-white/80 bg-white/90 px-3.5 py-1.5 shadow-sm shadow-slate-900/5 backdrop-blur-sm">
+                문서 7종 통합
+              </span>
+              <span className="rounded-full border border-white/80 bg-white/90 px-3.5 py-1.5 shadow-sm shadow-slate-900/5 backdrop-blur-sm">
+                엑셀·PDF 보내기
+              </span>
+              <span className="rounded-full border border-primary-200 bg-primary-50 px-3.5 py-1.5 font-semibold text-primary-800 shadow-sm">
+                무료 플랜 월 {freeMonthlyGenerations}회
+              </span>
+            </div>
 
-          <div className="mt-8 flex flex-col items-center justify-center gap-3 sm:flex-row sm:flex-wrap">
-            <StartNowLink
-              variant="cta"
-              initialHref={initialStartHref}
-              className="inline-flex min-w-[210px] items-center justify-center rounded-2xl bg-primary-600 px-8 py-4 text-[15px] font-semibold text-white shadow-lg shadow-primary-600/20 transition-colors hover:bg-primary-700"
-            >
-              무료로 시작하기
-            </StartNowLink>
-            <Link
-              href="#templates"
-              className="inline-flex min-w-[210px] items-center justify-center rounded-2xl border border-slate-200 bg-white px-8 py-4 text-[15px] font-semibold text-slate-800 shadow-sm transition-colors hover:border-slate-300 hover:bg-slate-50"
-            >
-              문서 종류 보기
-            </Link>
+            <div className="mt-8 flex flex-col items-center justify-center gap-3 sm:flex-row sm:flex-wrap lg:justify-start">
+              <StartNowLink
+                variant="cta"
+                initialHref={initialStartHref}
+                className="inline-flex min-w-[220px] items-center justify-center rounded-2xl bg-primary-600 px-9 py-4 text-[15px] font-semibold text-white shadow-xl shadow-primary-600/25 transition-colors hover:bg-primary-700"
+              >
+                무료로 시작하기
+              </StartNowLink>
+              <Link
+                href="#templates"
+                className="inline-flex min-w-[220px] items-center justify-center rounded-2xl border-2 border-slate-200/90 bg-white px-9 py-4 text-[15px] font-semibold text-slate-800 shadow-md shadow-slate-900/5 transition-colors hover:border-slate-300 hover:bg-slate-50"
+              >
+                문서 종류 보기
+              </Link>
+            </div>
           </div>
+          <LandingHeroPreview />
         </div>
       </section>
 
-      <HomeStepsAccordion />
+      <section className="w-full border-b border-slate-200/80 bg-slate-50 px-4 py-14 sm:px-8 sm:py-16 lg:px-12">
+        <div className="mx-auto max-w-7xl">
+          <div className="mx-auto max-w-2xl text-center">
+            <h2 className="text-[24px] font-bold tracking-tight text-slate-900 sm:text-[30px]">
+              주제만 넣어도, 완성본까지 세 단계
+            </h2>
+            <p className="mt-3 text-sm leading-relaxed text-slate-600 sm:text-[15px]">
+              서식과 구성은 플래닉이 채우고, 확인·수정 후 바로 공유하면 됩니다.
+            </p>
+          </div>
+          <HomeStepsAccordion className="mt-10" />
+        </div>
+      </section>
 
-      <section id="features" className="mx-auto w-full max-w-none px-6 py-12 sm:py-14">
-        <div className="mx-auto max-w-5xl">
+      <section id="features" className="w-full px-4 py-14 sm:px-8 sm:py-16 lg:px-12">
+        <div className="mx-auto max-w-7xl">
           <div className="text-center">
             <p className="text-xs font-semibold tracking-wide text-primary-600">핵심 기능</p>
             <h2 className="mt-2.5 text-[22px] font-bold text-slate-900 sm:text-[30px]">업무 효율을 높이는 핵심 기능</h2>
             <p className="mx-auto mt-3 max-w-2xl text-sm text-slate-600">
-              기획 단계부터 현장 문서까지, 같은 흐름으로 이어지게 설계했습니다.
+              기획 단계부터 현장 문서까지, 완성본을 같은 흐름으로 이어 가게 설계했습니다.
             </p>
           </div>
-          <div className="mt-6 grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+          <div className="mt-10 grid gap-5 sm:grid-cols-2 lg:grid-cols-3">
             {featureCards.map((card) => {
               const Icon = card.Icon
               return (
-                <article key={card.title} className="rounded-[24px] border border-slate-200 bg-white p-6 shadow-sm">
-                  <div className="mb-4 inline-flex h-11 w-11 items-center justify-center rounded-xl bg-primary-50 text-primary-600">
+                <article
+                  key={card.title}
+                  className="rounded-2xl border-2 border-slate-100 bg-gradient-to-b from-white to-slate-50/80 p-7 shadow-[0_20px_50px_-24px_rgba(15,23,42,0.18)] transition-shadow hover:shadow-[0_24px_60px_-20px_rgba(37,99,235,0.15)]"
+                >
+                  <div className="mb-5 inline-flex h-12 w-12 items-center justify-center rounded-2xl bg-gradient-to-br from-primary-500/15 to-indigo-500/10 text-primary-600 ring-1 ring-primary-500/10">
                     <Icon className="h-6 w-6" />
                   </div>
                   <h3 className="text-lg font-semibold text-slate-900">{card.title}</h3>
@@ -262,22 +289,27 @@ export async function MainPageContent() {
         </div>
       </section>
 
-      <section id="templates" className="mx-auto w-full max-w-none bg-slate-50/70 px-6 py-12 sm:py-14">
-        <div className="mx-auto max-w-5xl">
+      <section
+        id="templates"
+        className="w-full border-y border-slate-200/80 bg-[linear-gradient(180deg,_rgb(248,250,252)_0%,_rgb(241,245,249)_50%,_rgb(248,250,252)_100%)] px-4 py-14 sm:px-8 sm:py-16 lg:px-12"
+      >
+        <div className="mx-auto max-w-7xl">
           <div className="text-center">
             <p className="text-xs font-semibold tracking-wide text-primary-600">문서 템플릿</p>
             <h2 className="mt-2.5 text-[22px] font-bold text-slate-900 sm:text-[30px]">플래닉이 만들 수 있는 문서 종류</h2>
-            <p className="mx-auto mt-3 max-w-2xl text-sm text-slate-600">상황에 맞는 유형을 고르면, 그에 맞는 초안 구조로 시작합니다.</p>
+            <p className="mx-auto mt-3 max-w-2xl text-sm text-slate-600">
+              유형만 고르면 그에 맞는 완성본 레이아웃·항목으로 바로 생성합니다.
+            </p>
           </div>
-          <div className="mt-6 grid gap-3.5 sm:grid-cols-2 lg:grid-cols-3">
+          <div className="mt-10 grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
             {templateCards.map((template) => {
               const TIcon = template.Icon
               return (
                 <article
                   key={template.label}
-                  className="rounded-xl border border-slate-200 bg-white p-5 transition-shadow hover:shadow-md"
+                  className="rounded-2xl border border-slate-200/90 bg-white p-6 shadow-sm transition-all hover:-translate-y-0.5 hover:border-primary-200 hover:shadow-lg hover:shadow-primary-500/10"
                 >
-                  <div className="mb-3 inline-flex h-10 w-10 items-center justify-center rounded-lg bg-slate-50 text-primary-600">
+                  <div className="mb-4 inline-flex h-11 w-11 items-center justify-center rounded-xl bg-primary-50 text-primary-600 ring-1 ring-primary-100">
                     <TIcon className="h-5 w-5" />
                   </div>
                   <h3 className="text-base font-semibold text-slate-900">{template.label}</h3>
@@ -289,20 +321,20 @@ export async function MainPageContent() {
         </div>
       </section>
 
-      <section className="mx-auto w-full max-w-none px-6 py-12 sm:py-14">
-        <div className="mx-auto max-w-5xl">
+      <section className="w-full px-4 py-14 sm:px-8 sm:py-16 lg:px-12">
+        <div className="mx-auto max-w-7xl">
           <div className="text-center">
             <p className="text-xs font-semibold tracking-wide text-primary-600">요금제</p>
             <h2 className="mt-2.5 text-[22px] font-bold text-slate-900 sm:text-[30px]">규모에 맞는 플랜 선택</h2>
           </div>
-          <div className="mt-6 grid gap-3.5 md:grid-cols-3">
+          <div className="mt-10 grid gap-5 md:grid-cols-3">
             {pricingCards.map((card) => (
               <article
                 key={card.plan}
-                className={`flex flex-col rounded-xl border p-5 ${
+                className={`flex flex-col rounded-2xl border-2 p-6 ${
                   card.highlight
-                    ? 'border-primary-500 bg-primary-50/40 shadow-sm shadow-primary-500/10 ring-1 ring-primary-500/10'
-                    : 'border-slate-200 bg-white'
+                    ? 'border-primary-500 bg-gradient-to-b from-primary-50/80 to-white shadow-lg shadow-primary-500/15 ring-2 ring-primary-500/20'
+                    : 'border-slate-200 bg-white shadow-sm'
                 }`}
               >
                 <p className="text-sm font-semibold text-slate-900">{PLAN_LABELS[card.plan]}</p>
@@ -344,9 +376,9 @@ export async function MainPageContent() {
         </div>
       </section>
 
-      <section className="mx-auto w-full max-w-none px-6 py-12 sm:py-14">
+      <section className="w-full px-4 py-14 sm:px-8 sm:py-16 lg:px-12">
         <div className="mx-auto max-w-7xl">
-          <div className="mb-10 text-center">
+          <div className="mb-12 text-center">
             <p className="text-xs font-semibold tracking-wide text-primary-600">이용 후기</p>
             <h2 className="mt-2.5 text-[22px] font-bold text-slate-900 sm:text-[30px]">현장의 목소리</h2>
             <p className="mt-3 text-sm text-slate-600">다양한 분야의 기획 담당자들이 경험한 변화를 담았습니다.</p>
@@ -354,7 +386,10 @@ export async function MainPageContent() {
 
           <div className="grid grid-cols-1 gap-4 md:grid-cols-2 lg:grid-cols-3">
             {reviews.map((review) => (
-              <article key={review.name} className="rounded-xl border border-slate-200 bg-white p-5 shadow-sm">
+              <article
+                key={review.name}
+                className="rounded-2xl border border-slate-200/90 bg-white p-6 shadow-md shadow-slate-900/5 ring-1 ring-slate-900/[0.03]"
+              >
                 <div className="mb-3 flex items-center gap-1">
                   {Array.from({ length: review.rating }).map((_, i) => (
                     <StarIcon key={i} className="w-4 h-4 text-primary" />
@@ -376,8 +411,8 @@ export async function MainPageContent() {
         </div>
       </section>
 
-      <section id="faq" className="mx-auto w-full max-w-none bg-slate-50/70 px-6 py-12 sm:py-14">
-        <div className="mx-auto max-w-5xl">
+      <section id="faq" className="w-full bg-slate-100/60 px-4 py-14 sm:px-8 sm:py-16 lg:px-12">
+        <div className="mx-auto max-w-3xl">
           <div className="mb-8 text-center">
             <p className="text-xs font-semibold tracking-wide text-primary-600">안내</p>
             <h2 className="mt-2.5 text-[30px] font-bold leading-tight text-slate-900 sm:text-[34px]">자주 묻는 질문</h2>
@@ -387,32 +422,32 @@ export async function MainPageContent() {
         </div>
       </section>
 
-      <section className="mx-auto w-full max-w-none px-6 py-12 sm:py-14">
-        <div className="mx-auto max-w-4xl text-center">
-          <h2 className="text-[22px] font-bold text-slate-900 sm:text-[30px]">문서 작업에 들이는 시간, 줄여보세요</h2>
-          <p className="mt-4 text-sm sm:text-[15px] text-slate-600">
-            무료 플랜으로 월 {freeMonthlyGenerations}회까지 문서 생성을 직접 경험해 보세요. 필요해지면 언제든 유료 플랜으로 확장할 수
-            있습니다.
+      <section className="w-full px-4 pb-16 pt-4 sm:px-8 lg:px-12">
+        <div className="mx-auto max-w-5xl overflow-hidden rounded-[2rem] bg-gradient-to-br from-slate-900 via-primary-800 to-indigo-950 px-8 py-14 text-center shadow-2xl shadow-slate-900/30 sm:px-12 sm:py-16">
+          <h2 className="text-[22px] font-bold text-white sm:text-[30px]">완성본 문서, 지금 바로 만들어 보세요</h2>
+          <p className="mx-auto mt-4 max-w-lg text-sm leading-relaxed text-primary-100 sm:text-[15px]">
+            무료 플랜으로 월 {freeMonthlyGenerations}회까지 완성본 생성을 직접 써 보세요. 규모가 커지면 유료 플랜으로 자연스럽게
+            늘리면 됩니다.
           </p>
 
-          <div className="mt-8 flex flex-col sm:flex-row items-center justify-center gap-4">
+          <div className="mt-10 flex flex-col items-center justify-center gap-4 sm:flex-row">
             <StartNowLink
               variant="cta"
               initialHref={initialStartHref}
-              className="inline-flex items-center justify-center rounded-xl bg-primary-600 px-8 py-3 text-sm font-semibold text-white shadow-sm transition-colors hover:bg-primary-700 min-w-[220px]"
+              className="inline-flex min-w-[220px] items-center justify-center rounded-2xl bg-white px-8 py-3.5 text-sm font-semibold text-primary-800 shadow-lg transition-colors hover:bg-primary-50"
             >
               무료로 시작하기
             </StartNowLink>
             <Link
               href="mailto:sisimtree2017@naver.com"
-              className="inline-flex items-center justify-center rounded-xl border border-slate-200 bg-white px-8 py-3 text-sm font-semibold text-slate-700 transition-colors hover:bg-slate-50 min-w-[220px]"
+              className="inline-flex min-w-[220px] items-center justify-center rounded-2xl border-2 border-white/35 bg-white/10 px-8 py-3.5 text-sm font-semibold text-white backdrop-blur-sm transition-colors hover:bg-white/20"
             >
               문의하기
             </Link>
           </div>
-          <p className="mt-5 text-xs text-slate-500">
-            문의:{' '}
-            <a href="mailto:sisimtree2017@naver.com" className="font-medium text-primary-600 hover:underline">
+          <p className="mt-6 text-xs text-primary-200/90">
+            문의 메일{' '}
+            <a href="mailto:sisimtree2017@naver.com" className="font-semibold text-white underline-offset-2 hover:underline">
               sisimtree2017@naver.com
             </a>
           </p>

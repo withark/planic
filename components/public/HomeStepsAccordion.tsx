@@ -17,7 +17,7 @@ const STEP_ITEMS: StepItem[] = [
     title: '주제만 입력',
     summary: '가장 먼저 행사 주제와 핵심 키워드를 입력해 주세요.',
     details:
-      '행사 목적, 대상, 규모, 분위기 같은 핵심 정보만 입력하면 됩니다. 세부 항목이 모두 준비되지 않아도 플래닉이 입력한 키워드를 바탕으로 문서 초안을 구조화해 시작점을 만들어줍니다.',
+      '행사 목적, 대상, 규모, 분위기 같은 핵심 정보만 입력하면 됩니다. 세부 항목이 모두 준비되지 않아도 플래닉이 입력을 바탕으로 바로 보낼 수 있는 완성본 형태의 문서를 구성해 줍니다.',
     icon: (
       <svg viewBox="0 0 24 24" className="h-4 w-4 fill-none stroke-current" strokeWidth="1.8" aria-hidden>
         <path d="M7 5.5h10a2 2 0 0 1 2 2v10a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2v-10a2 2 0 0 1 2-2Z" />
@@ -27,10 +27,10 @@ const STEP_ITEMS: StepItem[] = [
   },
   {
     n: 2,
-    title: 'AI가 문서 초안 작성',
-    summary: '문서 유형에 맞는 초안을 빠르게 생성합니다.',
+    title: 'AI가 완성본 문서 작성',
+    summary: '문서 유형에 맞는 완성본을 빠르게 생성합니다.',
     details:
-      '선택한 문서 유형에 맞춰 목차, 핵심 메시지, 항목 구성을 자동으로 제안합니다. 기획서·제안서·보고서 등 각 문서의 목적에 맞는 톤과 구조를 반영해 바로 수정 가능한 초안을 제공합니다.',
+      '선택한 문서 유형에 맞춰 목차, 핵심 메시지, 항목 구성을 자동으로 채웁니다. 기획서·제안서·보고서 등 각 문서의 목적에 맞는 톤과 구조를 반영해 고객·내부 검토에 넘기기 좋은 완성본을 제공합니다. 세부 표현은 저장 후 편집기에서 바로 다듬을 수 있습니다.',
     icon: (
       <svg viewBox="0 0 24 24" className="h-4 w-4 fill-none stroke-current" strokeWidth="1.8" aria-hidden>
         <path d="M12 3.8v3.1M12 17.1v3.1M4.8 12h3.1M16.1 12h3.1M6.9 6.9l2.2 2.2M14.9 14.9l2.2 2.2M17.1 6.9l-2.2 2.2M9.1 14.9l-2.2 2.2" strokeLinecap="round" />
@@ -41,9 +41,9 @@ const STEP_ITEMS: StepItem[] = [
   {
     n: 3,
     title: '저장 후 바로 활용',
-    summary: '생성된 문서를 저장하고 수정해 다음 문서로 이어갑니다.',
+    summary: '완성본을 저장하고 필요 시 수정한 뒤, 다음 문서로 이어갑니다.',
     details:
-      '초안을 저장한 뒤 필요한 부분만 편집해 실무용으로 완성할 수 있습니다. 기존 문서를 기반으로 다음 단계 문서를 생성해 기획부터 결과 보고까지 일관된 흐름으로 작업을 이어갈 수 있습니다.',
+      '생성된 완성본을 저장한 뒤 필요한 부분만 손보면 바로 제출·공유할 수 있습니다. 같은 맥락으로 다음 단계 문서를 이어 만들면 기획부터 결과 보고까지 일관된 흐름으로 작업할 수 있습니다.',
     icon: (
       <svg viewBox="0 0 24 24" className="h-4 w-4 fill-none stroke-current" strokeWidth="1.8" aria-hidden>
         <path d="M7 4.8h8.5L19.2 8v11.2a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6.8a2 2 0 0 1 2-2Z" />
@@ -53,12 +53,16 @@ const STEP_ITEMS: StepItem[] = [
   },
 ]
 
-export function HomeStepsAccordion() {
+type HomeStepsAccordionProps = {
+  className?: string
+}
+
+export function HomeStepsAccordion({ className }: HomeStepsAccordionProps) {
   const [openStep, setOpenStep] = useState<number | null>(1)
 
   return (
-    <section className="mx-auto mt-12 w-full max-w-[820px]">
-      <p className="mb-3 text-xs font-medium text-slate-500">서비스 핵심 흐름</p>
+    <section className={`mx-auto w-full max-w-[820px] ${className ?? ''}`}>
+      <p className="mb-3 text-xs font-semibold uppercase tracking-[0.12em] text-primary-600">서비스 핵심 흐름</p>
       <div className="space-y-2">
         {STEP_ITEMS.map((step) => (
           <article key={step.n} className="rounded-xl border border-slate-200 bg-white">

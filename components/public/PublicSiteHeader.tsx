@@ -9,6 +9,8 @@ import { ThemeModeButton } from '@/components/public/ThemeModeButton'
 type PublicSiteHeaderProps = {
   loginHref?: string
   loginLabel?: string
+  /** 랜딩 풀폭과 맞출 때 헤더 내부 폭 확장 */
+  contentMaxWidth?: 'default' | 'wide'
 }
 
 type NavLink = {
@@ -40,7 +42,11 @@ function mobileLinkClass(isActive: boolean) {
   }`
 }
 
-export function PublicSiteHeader({ loginHref = '/auth', loginLabel = '로그인' }: PublicSiteHeaderProps) {
+export function PublicSiteHeader({
+  loginHref = '/auth',
+  loginLabel = '로그인',
+  contentMaxWidth = 'default',
+}: PublicSiteHeaderProps) {
   const pathname = usePathname()
   const normalizedPath = pathname === '/' ? '/' : pathname.replace(/\/$/, '')
   const [mobileOpen, setMobileOpen] = useState(false)
@@ -103,7 +109,11 @@ export function PublicSiteHeader({ loginHref = '/auth', loginLabel = '로그인'
 
   return (
     <header className="sticky top-0 z-20 border-b border-slate-100/90 bg-white/95 backdrop-blur">
-      <div className="mx-auto flex h-[58px] w-full max-w-5xl items-center gap-2 px-4 sm:px-6">
+      <div
+        className={`mx-auto flex h-[58px] w-full items-center gap-2 px-4 sm:px-6 ${
+          contentMaxWidth === 'wide' ? 'max-w-7xl sm:px-8' : 'max-w-5xl'
+        }`}
+      >
         <Link href="/" className="shrink-0 text-slate-900 transition-colors hover:text-primary-600">
           <EvQuoteLogo showText size="sm" className="justify-start" />
         </Link>
