@@ -155,8 +155,6 @@ export default function SimpleGeneratorWizard({
     </div>
   )
 
-  const selectedMode = modes.find((m) => m.id === modeId)
-
   const generateSection = (
     <>
       {generating && generationProgressLabel ? (
@@ -314,12 +312,7 @@ export default function SimpleGeneratorWizard({
               생성 단계로 이동 →
             </button>
           </div>
-          {selectedMode ? (
-            <p className="mb-3 text-sm text-slate-600">
-              선택한 기준: <span className="font-semibold text-slate-900">{selectedMode.title}</span>
-            </p>
-          ) : null}
-          <div className="rounded-3xl border border-slate-200 bg-slate-50/60 p-4 sm:p-5">{requiredInput}</div>
+          <div className="rounded-2xl border border-slate-100 bg-white p-4 sm:p-5">{requiredInput}</div>
         </section>
 
         <section ref={step3Ref} id="wizard-step-3" className="scroll-mt-4">
