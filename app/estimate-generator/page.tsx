@@ -1,7 +1,8 @@
 'use client'
 
 import Link from 'next/link'
-import { useCallback, useEffect, useMemo, useState } from 'react'
+import { Suspense, useCallback, useEffect, useMemo, useState } from 'react'
+import { useSearchParams } from 'next/navigation'
 import { GNB } from '@/components/GNB'
 import QuoteResult from '@/components/quote/QuoteResult'
 import SimpleGeneratorWizard, { type WizardHighlight, type WizardMode } from '@/components/generators/SimpleGeneratorWizard'
@@ -9,6 +10,7 @@ import { Input, Textarea, Toast } from '@/components/ui'
 import type { CompanySettings, HistoryRecord, PriceCategory, QuoteDoc, ReferenceDoc, TaskOrderDoc } from '@/lib/types'
 import { apiFetch, apiGenerateStream } from '@/lib/api/client'
 import { toUserMessage } from '@/lib/errors/toUserMessage'
+import { LoadingState } from '@/components/ui/AsyncState'
 import { ESTIMATE_BUDGET_OPTIONS } from '@/lib/estimate-budget-options'
 import { exportToExcel } from '@/lib/exportExcel'
 import { exportToPdf } from '@/lib/exportPdf'
@@ -55,7 +57,8 @@ function getTaskOrderParsed(t: TaskOrderDoc): TaskOrderSummaryParsed | null {
   return parsed && typeof parsed === 'object' ? (parsed as TaskOrderSummaryParsed) : null
 }
 
-export default function EstimateGeneratorPage() {
+function EstimateGeneratorContent() {
+  const searchParams = useSearchParams()
   const [toast, setToast] = useState<string | null>(null)
   const showToast = useCallback((m: string) => {
     setToast(m)
@@ -146,6 +149,20 @@ export default function EstimateGeneratorPage() {
       .catch(() => setHistoryList([]))
     apiFetch<TaskOrderDoc[]>('/api/task-order-references').then(setTaskOrderRefs).catch(() => setTaskOrderRefs([]))
   }, [])
+
+  useEffect(() => {
+    const q = searchParams.get('estimate')
+    if (!q || historyList.length === 0) return
+    const found = historyList.some((h) => h.id === q)
+    if (!found) return
+    setSourceMode('fromEstimate')
+    setSelectedEstimateId(q)
+    try {
+      window.history.replaceState({}, '', '/estimate-generator')
+    } catch {
+      /* ignore */
+    }
+  }, [searchParams, historyList])
 
   useEffect(() => {
     setDoc(null)
@@ -629,5 +646,24 @@ export default function EstimateGeneratorPage() {
 
       {toast && <Toast message={toast} onClose={() => setToast('')} />}
     </div>
+  )
+}
+
+export default function EstimateGeneratorPage() {
+  return (
+    <Suspense
+      fallback={
+        <div className="flex h-screen overflow-hidden bg-gray-50/50">
+          <GNB />
+          <div className="flex-1 flex items-center justify-center px-4">
+            <div className="w-full max-w-md">
+              <LoadingState label="로딩 중…" />
+            </div>
+          </div>
+        </div>
+      }
+    >
+      <EstimateGeneratorContent />
+    </Suspense>
   )
 }

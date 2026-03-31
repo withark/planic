@@ -53,8 +53,8 @@ function buildUsageRow(label: string, used: number, limit: number): UsageRow {
   const finite = Number.isFinite(limit)
   const pct = finite && limit > 0 ? Math.min(100, Math.round((used / limit) * 100)) : 0
   const remaining = finite ? Math.max(0, limit - used) : null
-  const remainingLabel = finite ? `남은 ${remaining}회` : '무제한'
   const atLimit = finite && used >= limit
+  const remainingLabel = finite ? (atLimit ? '한도 도달' : `남은 ${remaining}회`) : '무제한'
   return { label, used, limit: finite ? limit : used, pct, remainingLabel, atLimit }
 }
 
@@ -63,9 +63,28 @@ function buildCompanyRow(used: number, limit: number): UsageRow {
   const finite = Number.isFinite(limit)
   const pct = finite && limit > 0 ? Math.min(100, Math.round((used / limit) * 100)) : 0
   const remaining = finite ? Math.max(0, limit - used) : null
-  const remainingLabel = finite ? `남은 ${remaining}개` : '무제한'
   const atLimit = finite && used >= limit
+  const remainingLabel = finite ? (atLimit ? '한도 도달' : `남은 ${remaining}개`) : '무제한'
   return { label: '기업정보 저장', used, limit: finite ? limit : used, pct, remainingLabel, atLimit }
+}
+
+function formatUsagePeriodLabel(periodKey: string): string {
+  const m = /^(\d{4})-(\d{2})$/.exec(periodKey.trim())
+  if (!m) return periodKey
+  const month = parseInt(m[2], 10)
+  return `${m[1]}년 ${month}월`
+}
+
+function usageBarClass(row: UsageRow): string {
+  if (row.atLimit) return 'bg-rose-500'
+  if (row.pct >= 80) return 'bg-amber-500'
+  return 'bg-primary-600'
+}
+
+function usageRemainingClass(row: UsageRow): string {
+  if (row.atLimit) return 'text-rose-700'
+  if (row.pct >= 80) return 'text-amber-800'
+  return 'text-primary-700'
 }
 
 const ONBOARDING_STORAGE_KEY = 'planic_dashboard_onboarding_dismissed'
@@ -181,6 +200,42 @@ function DashboardContent() {
             <div className="rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">{err}</div>
           )}
 
+          {me && anyAtLimit && lines.length > 0 && (
+            <div
+              className="rounded-2xl border border-amber-200/90 bg-gradient-to-r from-amber-50 via-white to-white pl-4 pr-4 py-4 shadow-sm ring-1 ring-amber-100/80"
+              role="status"
+              aria-live="polite"
+            >
+              <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+                <div className="flex gap-3 min-w-0">
+                  <span
+                    className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-amber-100 text-amber-800 text-lg font-bold"
+                    aria-hidden
+                  >
+                    !
+                  </span>
+                  <div className="min-w-0">
+                    <p className="text-sm font-bold text-amber-950">한도에 도달한 항목이 있어요</p>
+                    <ul className="mt-1.5 text-sm text-amber-900/90 list-disc pl-4 space-y-0.5">
+                      {lines
+                        .filter((l) => l.atLimit)
+                        .map((l) => (
+                          <li key={l.label}>{l.label}</li>
+                        ))}
+                    </ul>
+                    <p className="mt-2 text-xs text-amber-800/85">업그레이드하면 더 넉넉하게 쓸 수 있어요.</p>
+                  </div>
+                </div>
+                <Link
+                  href="/plans"
+                  className="inline-flex shrink-0 items-center justify-center rounded-xl bg-amber-600 px-4 py-2.5 text-xs font-semibold text-white hover:bg-amber-700 transition-colors sm:self-center"
+                >
+                  요금제 보기
+                </Link>
+              </div>
+            </div>
+          )}
+
           {me && showOnboarding && (
             <div
               className="rounded-2xl border border-primary-200 bg-gradient-to-br from-primary-50/90 to-white px-5 py-4 shadow-card"
@@ -218,7 +273,7 @@ function DashboardContent() {
           )}
 
           {me && recentHistory !== null && (
-            <section className="rounded-2xl border border-gray-100 bg-white p-5 shadow-card">
+            <section className="rounded-2xl border border-gray-200/90 bg-white p-5 shadow-card">
               <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
                 <h2 className="text-base font-bold text-gray-900">최근 저장한 견적</h2>
                 <Link href="/history" className="text-sm font-semibold text-primary-700 hover:text-primary-800 shrink-0">
@@ -234,20 +289,45 @@ function DashboardContent() {
                   에서 다시 확인해 보세요.
                 </p>
               ) : recentHistory.length === 0 ? (
-                <p className="mt-3 text-sm text-slate-600">
-                  아직 저장된 견적이 없어요. 아래에서{' '}
-                  <span className="font-medium text-gray-900">견적서 만들기</span>로 첫 초안을 만들어 보세요.
-                </p>
+                <div className="mt-4 rounded-xl border-2 border-dashed border-primary-200/80 bg-primary-50/40 px-4 py-6 text-center">
+                  <p className="text-sm text-slate-700">
+                    아직 저장된 견적이 없어요. <span className="font-semibold text-gray-900">견적서 만들기</span>로 첫 초안을 만들어 보세요.
+                  </p>
+                  <div className="mt-4 flex flex-col sm:flex-row items-stretch sm:items-center justify-center gap-2 sm:gap-3">
+                    <Link
+                      href="/estimate-generator"
+                      className="inline-flex items-center justify-center rounded-xl bg-primary-600 px-4 py-2.5 text-xs font-semibold text-white hover:bg-primary-700 transition-colors"
+                    >
+                      견적서 만들기 시작
+                    </Link>
+                    <Link
+                      href="/create-documents"
+                      className="inline-flex items-center justify-center rounded-xl border border-gray-200 bg-white px-4 py-2.5 text-xs font-semibold text-gray-800 hover:bg-gray-50 transition-colors"
+                    >
+                      다른 문서 종류 보기
+                    </Link>
+                  </div>
+                </div>
               ) : (
                 <ul className="mt-3 divide-y divide-gray-100 rounded-xl border border-gray-100 overflow-hidden">
                   {recentHistory.map((h) => (
-                    <li key={h.id} className="flex items-center justify-between gap-3 bg-slate-50/30 px-4 py-3 text-sm">
-                      <div className="min-w-0">
-                        <p className="font-medium text-gray-900 truncate">{h.eventName || '행사명 없음'}</p>
-                        <p className="text-xs text-slate-500 mt-0.5 tabular-nums">
-                          견적일 {h.quoteDate || '—'} · {fmtKRW(h.total)}원
-                        </p>
-                      </div>
+                    <li key={h.id}>
+                      <Link
+                        href={`/estimate-generator?estimate=${encodeURIComponent(h.id)}`}
+                        className="flex items-center justify-between gap-3 bg-slate-50/30 px-4 py-3 text-sm hover:bg-primary-50/50 transition-colors group"
+                      >
+                        <div className="min-w-0">
+                          <p className="font-medium text-gray-900 truncate group-hover:text-primary-900">
+                            {h.eventName || '행사명 없음'}
+                          </p>
+                          <p className="text-xs text-slate-500 mt-0.5 tabular-nums">
+                            견적일 {h.quoteDate || '—'} · {fmtKRW(h.total)}원
+                          </p>
+                        </div>
+                        <span className="shrink-0 text-xs font-semibold text-primary-700 opacity-80 group-hover:opacity-100">
+                          이어서
+                        </span>
+                      </Link>
                     </li>
                   ))}
                 </ul>
@@ -255,9 +335,14 @@ function DashboardContent() {
             </section>
           )}
 
-          <section className="rounded-2xl border border-gray-100 bg-white shadow-card overflow-hidden">
-            <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between px-4 py-3 border-b border-gray-100 bg-slate-50/40">
-              <p className="text-sm font-semibold text-gray-900">플래닉 이렇게 씁니다</p>
+          <section className="rounded-2xl border border-slate-200/70 bg-slate-50/35 shadow-sm overflow-hidden">
+            <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between px-4 py-3 border-b border-slate-200/60 bg-slate-100/50">
+              <div className="flex flex-wrap items-center gap-2">
+                <span className="text-[10px] font-bold uppercase tracking-wider text-slate-500 bg-white/80 border border-slate-200/80 px-2 py-0.5 rounded-md">
+                  안내
+                </span>
+                <p className="text-sm font-semibold text-slate-800">플래닉 이렇게 씁니다</p>
+              </div>
               <button
                 type="button"
                 onClick={() => setTipsCollapsed(tipsOpen)}
@@ -298,7 +383,7 @@ function DashboardContent() {
           </section>
 
           {me && plan === 'FREE' && (
-            <div className="rounded-2xl border border-primary-200/80 bg-white px-5 py-5 shadow-card">
+            <div className="rounded-2xl border border-primary-100 bg-white px-5 py-5 shadow-card ring-1 ring-primary-50">
               <p className="text-sm font-semibold text-gray-900">무료로 시작 중이에요</p>
               <p className="mt-2 text-sm text-slate-600 leading-snug">
                 견적서는 아래 <span className="font-medium text-gray-800">문서 만들기</span>에서 시작하면 돼요. 기업정보를 먼저 채우면 금액·항목이 더 정확해집니다.
@@ -315,33 +400,56 @@ function DashboardContent() {
           )}
 
           {me && lines.length > 0 && (
-            <section className="rounded-2xl border border-gray-100 bg-white p-5 shadow-card space-y-4">
-              <h2 className="text-sm font-bold text-gray-900">이번 달 사용량</h2>
+            <section
+              className={`rounded-2xl border bg-white p-5 shadow-card space-y-4 ${
+                anyAtLimit ? 'border-amber-200/90 ring-1 ring-amber-100/70' : 'border-gray-100'
+              }`}
+            >
+              <div className="flex flex-col gap-1 sm:flex-row sm:items-baseline sm:justify-between">
+                <h2 className="text-sm font-bold text-gray-900">이번 달 사용량</h2>
+                <p className="text-xs text-slate-500 tabular-nums">집계: {formatUsagePeriodLabel(me.usage.periodKey)}</p>
+              </div>
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                 {lines.map((l) => (
-                  <div key={l.label}>
+                  <div
+                    key={l.label}
+                    className={`rounded-xl border px-3 py-3 ${
+                      l.atLimit
+                        ? 'border-rose-200/90 bg-rose-50/40'
+                        : l.pct >= 80
+                          ? 'border-amber-100 bg-amber-50/25'
+                          : 'border-transparent bg-gray-50/50'
+                    }`}
+                  >
                     <div className="flex items-center justify-between gap-2">
                       <p className="text-sm font-semibold text-gray-900">{l.label}</p>
-                      <p className="text-xs text-primary-700 font-semibold tabular-nums shrink-0">{l.remainingLabel}</p>
+                      <p className={`text-xs font-semibold tabular-nums shrink-0 ${usageRemainingClass(l)}`}>
+                        {l.remainingLabel}
+                      </p>
                     </div>
-                    <div className="mt-3 h-2 rounded-full bg-gray-100 overflow-hidden">
-                      <div className="h-full bg-primary-600 transition-[width]" style={{ width: `${l.pct}%` }} />
+                    <div className="mt-3 h-2 rounded-full bg-gray-200/90 overflow-hidden">
+                      <div
+                        className={`h-full transition-[width] ${usageBarClass(l)}`}
+                        style={{ width: `${l.pct}%` }}
+                      />
                     </div>
                   </div>
                 ))}
               </div>
               {anyAtLimit && (
-                <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2 rounded-xl border border-amber-200 bg-amber-50 px-3 py-2.5 text-sm text-amber-900">
-                  <span>한도에 도달한 항목이 있어요. 업그레이드하면 더 넉넉하게 쓸 수 있어요.</span>
-                  <Link href="/plans" className="font-semibold text-primary-800 hover:underline shrink-0">
-                    요금제 보기
-                  </Link>
-                </div>
+                <p className="text-xs text-slate-500">
+                  위쪽 <span className="font-medium text-slate-700">한도 안내</span>에서 요금제로 한도를 늘릴 수 있어요.
+                </p>
               )}
             </section>
           )}
 
-          <section className="bg-white border border-gray-100 rounded-2xl p-5 sm:p-6 shadow-card">
+          <section className="bg-white border-2 border-primary-100 rounded-2xl p-5 sm:p-6 shadow-card ring-1 ring-primary-50/80">
+            <div className="flex flex-wrap items-center gap-2 mb-1">
+              <span className="text-[10px] font-bold uppercase tracking-wider text-primary-800 bg-primary-50 border border-primary-100 px-2 py-0.5 rounded-md">
+                바로 시작
+              </span>
+            </div>
             <div className="flex flex-col gap-1 sm:flex-row sm:items-start sm:justify-between gap-3 mb-5">
               <div>
                 <h2 className="text-base font-bold text-gray-900">문서 만들기</h2>
