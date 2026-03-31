@@ -466,7 +466,7 @@ function buildReferenceContext(input: GenerateInput): string {
     } catch { /* 그대로 */ }
     return `[참고 ${i + 1}]\n${summary.slice(0, 600)}`
   }).join('\n\n')
-  return `\n=== 사용자 스타일 학습 (참고 문서 기반) ===\n아래 스타일을 반영하되 행사 유형에 맞게 조정하세요.\n\n${lines}\n`
+  return `\n=== 사용자 스타일 학습 (참고 문서 기반) ===\n아래 스타일을 반영하되 행사 유형에 맞게 조정하세요.\n- 참고 문서가 있으면 topic-only 출력과 문장/구성/우선순위가 분명히 달라져야 합니다.\n- 참고 문서에서 얻은 단어/표현/분류를 최소 2개 이상 최종 문서에 직접 남기세요.\n\n${lines}\n`
 }
 
 function buildTaskOrderContext(input: GenerateInput): string {
@@ -490,7 +490,7 @@ function buildTaskOrderContext(input: GenerateInput): string {
     .slice(0, 20)
     .map((x) => x.line)
   const selected = (ranked.length > 0 ? ranked : lines.slice(0, 20)).join('\n')
-  return `\n=== 과업지시서 / 기획안 참고 (반드시 반영) ===\n${taskOrderSummaryPromptFragment()}\n\n${selected.slice(0, 3200)}\n`
+  return `\n=== 과업지시서 / 기획안 참고 (반드시 반영) ===\n${taskOrderSummaryPromptFragment()}\n- 아래 문구의 제약·우선순위를 실제 섹션과 행에 반영하세요.\n- final 문서에서 "포함/제외/조건/전환/담당" 텍스트로 추적 가능해야 합니다.\n\n${selected.slice(0, 3200)}\n`
 }
 
 function buildScenarioRefContext(input: GenerateInput): string {
@@ -522,7 +522,7 @@ function buildScenarioRefContext(input: GenerateInput): string {
       return `[시나리오 참고 ${i + 1}: ${r.filename}]\n${selected.slice(0, 2200)}`
     })
     .join('\n\n')
-  return `\n=== 시나리오 참고 문서 (스타일·흐름 반영) ===\n${lines}\n`
+  return `\n=== 시나리오 참고 문서 (스타일·흐름 반영) ===\n- 참고 문서의 장면 전환 어휘, 큐 호출 방식, 돌발 대응 문구를 실제 본문에 이식하세요.\n- generic 문구 대신 현장에서 바로 읽히는 한국어 멘트로 재작성하세요.\n${lines}\n`
 }
 
 function buildCuesheetSampleContext(input: GenerateInput): string {
@@ -546,7 +546,7 @@ function buildCuesheetSampleContext(input: GenerateInput): string {
           .slice(0, 30)
           .map((x) => x.line)
   const selected = (ranked.length > 0 ? ranked : lines.slice(0, 30)).join('\n')
-  return `\n=== 큐시트 샘플 (형식·항목 참고) ===\n${selected.slice(0, 3200)}\n`
+  return `\n=== 큐시트 샘플 (형식·항목 참고) ===\n- 샘플의 시간 포맷, 담당자 표기, prep/script/special의 실무 어투를 반영하세요.\n- cueRows는 서로 다른 액션 문구로 작성하고 행 복제를 금지합니다.\n${selected.slice(0, 3200)}\n`
 }
 
 function buildPriceContext(input: GenerateInput): string {
@@ -624,6 +624,7 @@ function buildTraceabilityContext(input: GenerateInput, target: GenerateInput['d
 ${anchors.map((anchor, index) => `${index + 1}. ${anchor}`).join('\n')}
 - 앵커 표현은 비슷한 의미로 흐리지 말고, 실제 단어 또는 매우 가까운 표현으로 문서 안에 남기세요.
 - 앵커는 한 곳에 몰아 쓰지 말고 서로 다른 섹션/행에 분산 반영하세요.
+- 앵커가 2개 미만 반영되면 실패로 간주하고 다시 작성하세요.
 `
 }
 
@@ -790,7 +791,8 @@ export function buildGeneratePrompt(input: GenerateInput): string {
     '6. requirements에 언급된 내용 반드시 반영.',
     '7. 항목/행은 최소 기준 이상으로 작성. 누락보다 과잉이 낫습니다.',
     '8. 결과물은 내부 메모 수준이 아니라 고객에게 바로 전달 가능한 실무 문서 품질이어야 합니다.',
-    '9. 문장은 간결하되 정보 밀도는 높게 유지합니다.',
+    '9. "원활하게/효과적으로/적절히" 같은 안전한 일반 문구만으로 문장을 채우지 않습니다.',
+    '10. 참고자료가 있으면 topic-only 결과와 유사한 문장/행/우선순위를 금지하고, 자료 근거를 행 단위로 반영합니다.',
   ].join('\n')
 
   return `당신은 대한민국 행사·이벤트 업계 전문 ${label} 작성 AI입니다.

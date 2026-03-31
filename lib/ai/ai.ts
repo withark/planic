@@ -193,6 +193,58 @@ function extractFocusPhrases(input: GenerateInput): string[] {
   return defaults[category]
 }
 
+function extractSourcePhrases(input: GenerateInput): string[] {
+  const phrases: string[] = []
+  const pushText = (value: string | undefined | null) => {
+    if (!value) return
+    phrases.push(...splitFocusCandidates(value))
+  }
+
+  ;(input.taskOrderRefs || [])
+    .flatMap((ref) => (ref.rawText || '').split('\n'))
+    .map((line) => line.trim())
+    .filter(Boolean)
+    .filter((line) => /(목적|범위|산출|일정|마일스톤|제약|필수|요건|안전|결제|정산|검수|납품)/.test(line))
+    .slice(0, 14)
+    .forEach((line) => pushText(line))
+
+  ;(input.references || []).slice(0, 3).forEach((ref) => {
+    pushText(ref.filename)
+    pushText(ref.summary)
+    ;(ref.extractedPrices || [])
+      .flatMap((cat) => [cat.category, ...(cat.items || []).map((item) => item.name)])
+      .slice(0, 16)
+      .forEach((text) => pushText(String(text || '')))
+  })
+
+  ;(input.scenarioRefs || [])
+    .flatMap((ref) => (ref.rawText || '').split('\n'))
+    .map((line) => line.trim())
+    .filter(Boolean)
+    .filter((line) => /(\d{1,2}:\d{2}|mc|사회자|큐|오프닝|클로징|전환|음향|조명)/i.test(line))
+    .slice(0, 12)
+    .forEach((line) => pushText(line))
+
+  ;(input.cuesheetSampleContext || '')
+    .split('\n')
+    .map((line) => line.trim())
+    .filter(Boolean)
+    .filter((line) => /(\d{1,2}:\d{2}|준비|멘트|큐|특이|담당|전환|지연)/.test(line))
+    .slice(0, 14)
+    .forEach((line) => pushText(line))
+
+  return Array.from(new Set(phrases)).filter((phrase) => phrase.length >= 2).slice(0, 12)
+}
+
+function hasAnySelectedSource(input: GenerateInput): boolean {
+  return Boolean(
+    (input.taskOrderRefs || []).length ||
+      (input.references || []).length ||
+      (input.scenarioRefs || []).length ||
+      (input.cuesheetSampleContext || '').trim(),
+  )
+}
+
 function buildEventPhasePlans(input: GenerateInput): EventPhasePlan[] {
   const category = detectGenerationEventCategory(input.eventType || '', input.eventName || '')
   const focus = extractFocusPhrases(input)
@@ -435,6 +487,8 @@ function fillWeakOutputs(doc: QuoteDoc, input: GenerateInput): QuoteDoc {
     hasAbsoluteTime ? makeTimes(count) : makeFallbackTimes(count, start || base, stepMinutes)
 
   const focusPhrases = extractFocusPhrases(input)
+  const sourcePhrases = extractSourcePhrases(input)
+  const sourcePrefix = sourcePhrases.length ? `참고자료 반영 포인트: ${sourcePhrases.slice(0, 3).join(' / ')}` : ''
   const primaryFocus = focusPhrases[0] || input.eventType || '행사 운영'
   const secondaryFocus = focusPhrases[1] || input.requirements || primaryFocus
   const phasePlans = buildEventPhasePlans(input)
@@ -471,6 +525,31 @@ function fillWeakOutputs(doc: QuoteDoc, input: GenerateInput): QuoteDoc {
       detail: `${row.prep} / ${row.script} / ${row.special}`,
       manager: row.staff,
     }))
+  const sanitizeCueTime = (raw: string, fallback: string) => {
+    const value = (raw || '').trim()
+    if (!value) return fallback
+    if (/^\d{1,2}:\d{2}$/.test(value)) {
+      const minutes = hhmmToMinutes(value)
+      return minutes == null ? fallback : minutesToHHMM(minutes)
+    }
+    if (/^\d{1,2}\.\d+$/.test(value)) {
+      const asNumber = Number(value)
+      if (!Number.isFinite(asNumber)) return fallback
+      const hour = Math.floor(asNumber)
+      const minute = Math.round((asNumber - hour) * 60)
+      const normalized = minutesToHHMM((hour * 60 + minute) % (24 * 60))
+      return normalized
+    }
+    const digits = value.replace(/[^\d]/g, '')
+    if (digits.length === 3 || digits.length === 4) {
+      const hh = Number(digits.slice(0, digits.length - 2))
+      const mm = Number(digits.slice(-2))
+      if (Number.isFinite(hh) && Number.isFinite(mm) && mm < 60) {
+        return minutesToHHMM((hh * 60 + mm) % (24 * 60))
+      }
+    }
+    return fallback
+  }
 
   const getUserCategoryOrder = (): string[] => {
     if (input.styleMode !== 'userStyle') return []
@@ -1053,6 +1132,21 @@ function fillWeakOutputs(doc: QuoteDoc, input: GenerateInput): QuoteDoc {
           `산출물/운영 조건: 프로그램표/큐시트 기반 운영 및 당일 실행 기준.`
       }
     }
+    if (sourcePrefix && !doc.notes.includes('참고자료 반영 포인트')) {
+      doc.notes = `${doc.notes}\n${sourcePrefix}`
+    }
+    const totalAmount = (doc.quoteItems || []).reduce(
+      (acc, cat) => acc + (cat.items || []).reduce((sum, item) => sum + (Number(item.total) || 0), 0),
+      0,
+    )
+    const budgetCeiling = parseBudgetCeilingKRW(input.budget || '').ceilingKRW
+    if (budgetCeiling && !/예산 적합|예산 초과|예산 불일치|최소 운영 범위/.test(doc.notes || '')) {
+      if (totalAmount > budgetCeiling) {
+        doc.notes = `${doc.notes}\n예산 불일치: 현재 초안 총액 ${totalAmount.toLocaleString('ko-KR')}원은 예산 상한 ${budgetCeiling.toLocaleString('ko-KR')}원을 초과합니다. 최소 운영 범위를 유지하려면 선택 항목/수량 조정이 필요합니다.`
+      } else {
+        doc.notes = `${doc.notes}\n예산 적합: 현재 초안 총액 ${totalAmount.toLocaleString('ko-KR')}원은 예산 상한 ${budgetCeiling.toLocaleString('ko-KR')}원 범위 내에서 구성되었습니다.`
+      }
+    }
   }
 
   // ───────── program ─────────
@@ -1279,6 +1373,18 @@ function fillWeakOutputs(doc: QuoteDoc, input: GenerateInput): QuoteDoc {
       })
       s.mainPoints = base.slice(0, 9)
     }
+    if (sourcePhrases.length) {
+      const missingSourcePoint = !s.mainPoints.some((point) => sourcePhrases.some((phrase) => point.includes(phrase)))
+      if (missingSourcePoint) {
+        s.mainPoints = [
+          ...s.mainPoints.slice(0, 7),
+          `(${times[7] || '종료 직전'}) 참고자료 반영 체크: "${sourcePhrases[0]}" 조건을 기준으로 MC 멘트/스태프 동선/기술 큐를 현장 실행 단계에서 재확인합니다.`,
+        ]
+      }
+      if (!s.directionNotes.includes('참고자료 반영')) {
+        s.directionNotes = `${s.directionNotes}\n참고자료 반영: ${sourcePhrases.slice(0, 2).join(' / ')} 관련 문구와 제약을 오프닝·전환·클로징 멘트에 각각 1회 이상 직접 반영합니다.`
+      }
+    }
     if (isBlankish(s.closing)) {
       s.closing =
         `${endTime ? `(${endTime}) ` : ''}${phasePlans[phasePlans.length - 1]?.manager || 'MC'}가 오늘의 핵심을 ${primaryFocus} 중심으로 30초 내 정리하고, 자료 수령·문의·퇴장 동선을 한 번에 안내합니다. 이후 스태프는 촬영 종료, 장비 회수, VIP 응대 마무리까지 확인하며 클라이언트가 바로 다음 액션을 받을 수 있는 상태로 종료합니다.`
@@ -1371,10 +1477,15 @@ function fillWeakOutputs(doc: QuoteDoc, input: GenerateInput): QuoteDoc {
       const order = r.order || String(i + 1)
       const content = isWeak(r.content) ? (sc?.kind || '운영 큐') : r.content
       const staff = isWeak(r.staff) ? '진행요원' : r.staff
-      const prep = isWeak(r.prep) ? '무대/장비/동선 사전 확인' : r.prep
-      const script = isWeak(r.script) ? `${content} 시작 멘트 및 다음 큐 안내` : r.script
+      const sourceSignal = sourcePhrases[i % Math.max(sourcePhrases.length, 1)] || ''
+      const prep = isWeak(r.prep)
+        ? `무대/장비/동선 사전 확인${sourceSignal ? ` · 참고: ${sourceSignal}` : ''}`
+        : r.prep
+      const script = isWeak(r.script)
+        ? `${content} 시작 멘트 및 다음 큐 안내${sourceSignal ? ` (${sourceSignal} 조건 포함)` : ''}`
+        : r.script
       const special = isWeak(r.special) ? '지연 시 2분 축약 멘트로 즉시 복구' : r.special
-      const time = isWeak(r.time) ? times[i] || '' : r.time
+      const time = sanitizeCueTime(r.time || '', times[i] || '')
       return { ...r, order, content, staff, prep, script, special, time }
     })
 
@@ -1387,6 +1498,9 @@ function fillWeakOutputs(doc: QuoteDoc, input: GenerateInput): QuoteDoc {
 
     if (isBlankish(doc.program.cueSummary)) {
       doc.program.cueSummary = `${ev} ${eventType} 큐시트 요약: ${venue ? `(${venue}) ` : ''}${primaryFocus}를 중심으로 각 시간대의 멘트, 담당자, 장비 전환, 지연 대응 문구를 함께 고정했습니다. 오프닝부터 종료 공유/철수까지 실제 현장 인력이 바로 실행할 수 있는 수준으로 정리된 운영표입니다.`
+    }
+    if (sourcePrefix && !doc.program.cueSummary.includes('참고자료 반영 포인트')) {
+      doc.program.cueSummary = `${doc.program.cueSummary} ${sourcePrefix}.`
     }
   }
 
@@ -1614,7 +1728,10 @@ function listQualityIssues(doc: QuoteDoc, input: GenerateInput): string[] {
   const issues: string[] = []
   const hasText = (value: string | undefined | null, min = 20) => (value || '').trim().length >= min
   const focusPhrases = extractFocusPhrases(input)
+  const sourcePhrases = extractSourcePhrases(input)
+  const hasSource = hasAnySelectedSource(input)
   const requiredFocusCoverage = Math.min(2, focusPhrases.length)
+  const requiredSourceCoverage = Math.min(2, sourcePhrases.length)
 
   if (target === 'estimate') {
     const categoryCount = (doc.quoteItems || []).filter((cat) => (cat.items || []).length > 0).length
@@ -1636,6 +1753,28 @@ function listQualityIssues(doc: QuoteDoc, input: GenerateInput): string[] {
     }
     if ((doc.quoteItems || []).some((cat) => (cat.items || []).some((it) => (it.unitPrice || 0) <= 0 || (it.qty || 0) <= 0))) {
       issues.push('견적 항목 중 단가/수량이 0 이하인 비현실 항목이 있습니다.')
+    }
+    if ((doc.quoteItems || []).some((cat) => (cat.items || []).length < 2)) {
+      issues.push('견적 카테고리 중 항목이 2개 미만인 얇은 구조가 있습니다.')
+    }
+    if ((doc.quoteItems || []).every((cat) => !/(인건비|운영|장비|시설|제작|안전|식음료|시상)/.test(cat.category || ''))) {
+      issues.push('견적 카테고리명이 실무 분류와 맞지 않아 운영/정산 활용성이 낮습니다.')
+    }
+    if (budgetCeiling && totalAmount > budgetCeiling && !/예산.*(초과|불일치|최소 운영 범위)/.test(doc.notes || '')) {
+      issues.push('예산 초과 상황인데 notes에 최소 운영 범위/조정안이 명시되지 않았습니다.')
+    }
+    if (hasSource && requiredSourceCoverage > 0) {
+      const estimateSourceCoverage = countCoveredFocusPhrases(
+        [
+          ...(doc.quoteItems || []).flatMap((cat) => [cat.category, ...(cat.items || []).flatMap((it) => [it.name, it.spec, it.note])]),
+          doc.notes,
+          doc.paymentTerms,
+        ],
+        sourcePhrases,
+      )
+      if (estimateSourceCoverage < requiredSourceCoverage) {
+        issues.push('선택된 참고자료의 용어/제약/근거가 견적 항목과 notes에 충분히 반영되지 않았습니다.')
+      }
     }
   }
 
@@ -1798,6 +1937,25 @@ function listQualityIssues(doc: QuoteDoc, input: GenerateInput): string[] {
     if (requiredFocusCoverage > 0 && scenarioCoverage < requiredFocusCoverage) {
       issues.push('scenario 문서가 요청사항/브리프 핵심 표현을 충분히 반영하지 못했습니다.')
     }
+    if (!/(전환|다음 순서|이어|직후|변경 시|지연 시)/.test([scenario?.opening, scenario?.development, scenario?.closing].join(' '))) {
+      issues.push('scenario 문서에 자연스러운 장면 전환 문장이 부족합니다.')
+    }
+    if (hasSource && requiredSourceCoverage > 0) {
+      const scenarioSourceCoverage = countCoveredFocusPhrases(
+        [
+          scenario?.summaryTop,
+          scenario?.opening,
+          scenario?.development,
+          scenario?.closing,
+          scenario?.directionNotes,
+          ...(scenario?.mainPoints || []),
+        ],
+        sourcePhrases,
+      )
+      if (scenarioSourceCoverage < requiredSourceCoverage) {
+        issues.push('선택된 시나리오/과업 참고자료의 표현과 제약이 시나리오 본문에 충분히 반영되지 않았습니다.')
+      }
+    }
   }
 
   if (target === 'cuesheet') {
@@ -1851,6 +2009,20 @@ function listQualityIssues(doc: QuoteDoc, input: GenerateInput): string[] {
     )
     if (requiredFocusCoverage > 0 && cuesheetCoverage < requiredFocusCoverage) {
       issues.push('cuesheet이 요청사항/브리프 핵심 표현을 큐와 멘트에 충분히 반영하지 못했습니다.')
+    }
+    const hasInvalidCueTime = (doc.program?.cueRows || []).some((row) => !/^\d{2}:\d{2}$/.test((row.time || '').trim()))
+    if (hasInvalidCueTime) issues.push('cuesheet cueRows에 HH:mm 형식이 아닌 시간이 포함되어 있습니다.')
+    if (hasSource && requiredSourceCoverage > 0) {
+      const cuesheetSourceCoverage = countCoveredFocusPhrases(
+        [
+          doc.program?.cueSummary,
+          ...(doc.program?.cueRows || []).flatMap((row) => [row.content, row.prep, row.script, row.special]),
+        ],
+        sourcePhrases,
+      )
+      if (cuesheetSourceCoverage < requiredSourceCoverage) {
+        issues.push('선택된 큐시트/참고자료의 표현과 제약이 cueRows 실행 문구에 충분히 반영되지 않았습니다.')
+      }
     }
   }
 
