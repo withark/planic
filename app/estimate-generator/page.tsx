@@ -78,6 +78,9 @@ export default function EstimateGeneratorPage() {
   const [globalStyleMode, setGlobalStyleMode] = useState<StyleMode>('userStyle')
 
   const [topic, setTopic] = useState('')
+  const [topicBlurred, setTopicBlurred] = useState(false)
+  const [estimateSelectBlurred, setEstimateSelectBlurred] = useState(false)
+  const [taskOrderFieldsBlurred, setTaskOrderFieldsBlurred] = useState(false)
   const [headcount, setHeadcount] = useState('')
   const [venue, setVenue] = useState('')
   const [notes, setNotes] = useState('')
@@ -312,7 +315,7 @@ export default function EstimateGeneratorPage() {
     if (!generateDisabled) return null
     if (sourceMode === 'fromTopic' || sourceMode === 'fromReferenceStyle') {
       if (sourceMode === 'fromReferenceStyle' && !activeReference) {
-        return '참고 자료에서 견적서를 올리고 「견적 생성에 반영」으로 활성화해 주세요.'
+        return null
       }
       if (!topic.trim()) return '이벤트 주제를 입력해 주세요.'
       return null
@@ -336,32 +339,70 @@ export default function EstimateGeneratorPage() {
     selectedHistoryDoc,
   ])
 
+  const showValidationBanner = useMemo(() => {
+    if (!validationMessage) return false
+    if (sourceMode === 'fromTopic' || sourceMode === 'fromReferenceStyle') return false
+    if (sourceMode === 'fromTaskOrder') return taskOrderFieldsBlurred
+    if (sourceMode === 'fromEstimate') return estimateSelectBlurred
+    return true
+  }, [estimateSelectBlurred, sourceMode, taskOrderFieldsBlurred, validationMessage])
+
+  const showTopicInlineError =
+    (sourceMode === 'fromTopic' && !topic.trim() && topicBlurred) ||
+    (sourceMode === 'fromReferenceStyle' && !!activeReference && !topic.trim() && topicBlurred)
+
   const topicInputs = (
-    <div className="space-y-3">
-      <div className="rounded-2xl border border-slate-200 bg-white px-4 py-3 text-sm leading-6 text-slate-600">
-        행사명만 넣어도 초안은 만들 수 있지만, 인원과 장소를 함께 넣으면 단가와 항목 구성이 더 현실적으로 맞춰집니다.
+    <div className="space-y-4">
+      <details className="rounded-2xl border border-sky-100 bg-sky-50/90 px-4 py-3 text-sm text-slate-700 open:border-sky-200">
+        <summary className="cursor-pointer font-semibold text-slate-800 outline-none marker:text-sky-700">
+          입력 팁 (선택 항목을 권장하는 이유)
+        </summary>
+        <p className="mt-2 leading-6 text-slate-600">
+          행사명만 넣어도 초안은 만들 수 있지만, 인원과 장소를 함께 넣으면 단가와 항목 구성이 더 현실적으로 맞춰집니다.
+        </p>
+      </details>
+
+      <div className="space-y-3 rounded-2xl border border-slate-200 bg-white px-4 py-4">
+        <div className="text-[11px] font-bold uppercase tracking-wide text-slate-500">필수 정보</div>
+        <div>
+          <label className="mb-1.5 block text-[13px] font-semibold text-slate-700">예산 범위</label>
+          <select
+            value={budget}
+            onChange={(e) => setBudget(e.target.value)}
+            className="w-full rounded-xl border border-slate-200 bg-white px-3.5 py-3 text-[15px] text-slate-900 shadow-sm focus:outline-none focus:border-primary-400 focus:ring-4 focus:ring-primary-100/70"
+          >
+            {ESTIMATE_BUDGET_OPTIONS.map((o) => (
+              <option key={o.value} value={o.value}>
+                {o.label}
+              </option>
+            ))}
+          </select>
+        </div>
+        <div>
+          <Input
+            label={
+              <>
+                이벤트 주제 <span className="font-normal text-red-600">(필수)</span>
+              </>
+            }
+            required
+            value={topic}
+            onChange={(e) => setTopic(e.target.value)}
+            onBlur={() => setTopicBlurred(true)}
+            placeholder="예) 기업 워크숍 / 신제품 론칭"
+            aria-invalid={showTopicInlineError}
+            className={showTopicInlineError ? 'border-red-300 focus:border-red-400 focus:ring-red-100/70' : undefined}
+          />
+          {showTopicInlineError ? (
+            <p className="mt-1.5 text-sm text-red-600" role="alert">
+              이벤트 주제를 입력해 주세요.
+            </p>
+          ) : null}
+        </div>
       </div>
-      <div>
-        <label className="mb-1.5 block text-[13px] font-semibold text-slate-700">예산 범위</label>
-        <select
-          value={budget}
-          onChange={(e) => setBudget(e.target.value)}
-          className="w-full rounded-xl border border-slate-200 bg-white px-3.5 py-3 text-[15px] text-slate-900 shadow-sm focus:outline-none focus:border-primary-400 focus:ring-4 focus:ring-primary-100/70"
-        >
-          {ESTIMATE_BUDGET_OPTIONS.map((o) => (
-            <option key={o.value} value={o.value}>
-              {o.label}
-            </option>
-          ))}
-        </select>
-      </div>
-      <Input
-        label="이벤트 주제"
-        value={topic}
-        onChange={(e) => setTopic(e.target.value)}
-        placeholder="예) 기업 워크숍 / 신제품 론칭"
-      />
-      <div className="grid grid-cols-2 gap-3">
+
+      <div className="text-[11px] font-bold uppercase tracking-wide text-slate-500 px-1">권장 · 선택</div>
+      <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
         <Input
           label="참석 인원(선택)"
           value={headcount}
@@ -401,29 +442,34 @@ export default function EstimateGeneratorPage() {
         </header>
 
         <div className="flex-1 overflow-y-auto p-6 space-y-6">
-          <div className="space-y-2 rounded-[24px] border border-slate-200 bg-white p-5 shadow-sm">
-            <div className="text-lg font-semibold text-slate-900">스타일·참고 견적</div>
-            <p className="text-[15px] leading-7 text-slate-600">
-              전역 스타일:{' '}
-              <strong>{globalStyleMode === 'userStyle' ? '사용자 참고 견적 스타일' : 'AI 추천 템플릿'}</strong>
-              {activeReference ? (
-                <>
-                  {' · '}
-                  활성 참고 파일: <strong>{activeReference.filename}</strong> (현재 견적 생성에 반영 중)
-                </>
-              ) : (
-                <> · 활성 참고 견적 없음 (「참고 자료」에서 업로드·활성화)</>
-              )}
-            </p>
-            <Link href="/reference-estimate" className="inline-block text-[15px] font-semibold text-primary-700 hover:underline">
-              참고 자료 관리 →
-            </Link>
-          </div>
-
           <SimpleGeneratorWizard
             title="견적서 만들기"
             subtitle="입력량은 최소화하고, 결과는 바로 저장·다운로드할 수 있게 구성했습니다."
             highlights={wizardHighlights}
+            collapsibleHighlights
+            preStepContent={
+              <div className="space-y-2">
+                <div className="text-base font-semibold text-slate-900">스타일·참고 견적</div>
+                <p className="text-sm leading-6 text-slate-600">
+                  문서 톤과 항목 스타일은 여기 설정과 참고 자료를 따릅니다. 바꾸려면 「참고 자료 관리」로 이동하세요.
+                </p>
+                <p className="text-[15px] leading-7 text-slate-700">
+                  전역 스타일:{' '}
+                  <strong>{globalStyleMode === 'userStyle' ? '사용자 참고 견적 스타일' : 'AI 추천 템플릿'}</strong>
+                  {activeReference ? (
+                    <>
+                      {' · '}
+                      활성 참고 파일: <strong>{activeReference.filename}</strong> (견적 생성에 반영 중)
+                    </>
+                  ) : (
+                    <> · 활성 참고 견적 없음 (「참고 자료」에서 업로드·활성화)</>
+                  )}
+                </p>
+                <Link href="/reference-estimate" className="inline-block text-[15px] font-semibold text-primary-700 hover:underline">
+                  참고 자료 관리 →
+                </Link>
+              </div>
+            }
             modes={modes}
             modeId={sourceMode}
             onModeChange={(id) => {
@@ -434,6 +480,9 @@ export default function EstimateGeneratorPage() {
               setVenue('')
               setNotes('')
               setBudget('미정')
+              setTopicBlurred(false)
+              setEstimateSelectBlurred(false)
+              setTaskOrderFieldsBlurred(false)
             }}
             requiredInput={
               sourceMode === 'fromEstimate' ? (
@@ -444,6 +493,7 @@ export default function EstimateGeneratorPage() {
                     setDoc(null)
                     setGeneratedDocId(null)
                   }}
+                  onBlur={() => setEstimateSelectBlurred(true)}
                   className="w-full rounded-xl border border-slate-200 bg-white px-3.5 py-3 text-[15px] text-slate-900 shadow-sm focus:outline-none focus:border-primary-400 focus:ring-4 focus:ring-primary-100/70"
                 >
                   <option value="" disabled>
@@ -462,6 +512,7 @@ export default function EstimateGeneratorPage() {
                     <select
                       value={budget}
                       onChange={(e) => setBudget(e.target.value)}
+                      onBlur={() => setTaskOrderFieldsBlurred(true)}
                       className="w-full rounded-xl border border-slate-200 bg-white px-3.5 py-3 text-[15px] text-slate-900 shadow-sm focus:outline-none focus:border-primary-400 focus:ring-4 focus:ring-primary-100/70"
                     >
                       {ESTIMATE_BUDGET_OPTIONS.map((o) => (
@@ -478,6 +529,7 @@ export default function EstimateGeneratorPage() {
                       setDoc(null)
                       setGeneratedDocId(null)
                     }}
+                    onBlur={() => setTaskOrderFieldsBlurred(true)}
                     className="w-full rounded-xl border border-slate-200 bg-white px-3.5 py-3 text-[15px] text-slate-900 shadow-sm focus:outline-none focus:border-primary-400 focus:ring-4 focus:ring-primary-100/70"
                   >
                     <option value="" disabled>
@@ -513,6 +565,7 @@ export default function EstimateGeneratorPage() {
             generationProgressLabel={generationProgressLabel}
             generateDisabled={generateDisabled}
             validationMessage={validationMessage}
+            showValidationBanner={showValidationBanner}
           />
 
           {doc && generatedDocId ? (

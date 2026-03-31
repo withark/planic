@@ -38,7 +38,7 @@ test.describe('authenticated generation flow', () => {
   test('signed-in user can generate estimate and download excel', async ({ page }) => {
     await authenticateFromProtectedRoute(page, '/estimate-generator')
 
-    await page.getByLabel('이벤트 주제').fill('Playwright 기업 워크숍')
+    await page.getByRole('textbox', { name: /이벤트 주제/ }).fill('Playwright 기업 워크숍')
     await page.getByLabel('참석 인원(선택)').fill('80')
     await page.getByLabel('장소(선택)').fill('잠실')
     await page.getByLabel('추가 메모(선택)').fill('VIP 좌석 포함, 네트워킹 세션 필요')

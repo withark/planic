@@ -38,7 +38,7 @@ export const Btn = Button
 
 /* ── Input ────────────────────────────────── */
 interface InputProps extends InputHTMLAttributes<HTMLInputElement> {
-  label?: string
+  label?: ReactNode
 }
 export const Input = forwardRef<HTMLInputElement, InputProps>(
   ({ label, className, id, ...props }, ref) => {
@@ -58,7 +58,7 @@ export const Input = forwardRef<HTMLInputElement, InputProps>(
           {...props}
           className={clsx(
             'w-full rounded-xl border border-slate-200 bg-white px-3.5 py-3 text-[15px] text-slate-900 shadow-sm',
-            'placeholder:text-slate-400 focus:outline-none focus:border-primary-400 focus:ring-4 focus:ring-primary-100/70 transition-colors',
+            'placeholder:text-slate-500 focus:outline-none focus:border-primary-400 focus:ring-4 focus:ring-primary-100/70 transition-colors',
             className
           )}
         />
@@ -118,7 +118,7 @@ export function Textarea({ label, className, ...props }: TextareaProps) {
         id={textareaId}
         className={clsx(
           'w-full resize-none rounded-xl border border-slate-200 bg-white px-3.5 py-3 text-[15px] text-slate-900 shadow-sm',
-          'placeholder:text-slate-400 focus:outline-none focus:border-primary-400 focus:ring-4 focus:ring-primary-100/70 transition-colors',
+          'placeholder:text-slate-500 focus:outline-none focus:border-primary-400 focus:ring-4 focus:ring-primary-100/70 transition-colors',
           className
         )}
       />
