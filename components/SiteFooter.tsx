@@ -1,5 +1,6 @@
 import Link from 'next/link'
 import { EvQuoteLogo } from '@/components/EvQuoteLogo'
+import { SUPPORT_EMAIL, supportMailtoHref } from '@/lib/support-contact'
 
 type SiteFooterProps = {
   /** 랜딩 등에서 여백·부가 카피 축소 */
@@ -92,12 +93,12 @@ export function SiteFooter({ compact = false }: SiteFooterProps) {
                 주소: 광릉수목원로 600 A동
               </p>
               <p className="text-pretty">
-                대표 연락처:{' '}
+                문의:{' '}
                 <a
-                  href="tel:07086661112"
+                  href={supportMailtoHref}
                   className="rounded-sm font-medium text-slate-600 underline-offset-2 transition-colors hover:text-slate-800 hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary-500/50 focus-visible:ring-offset-2"
                 >
-                  070-8666-1112
+                  {SUPPORT_EMAIL}
                 </a>
                 <span className="text-slate-400" aria-hidden>
                   {' '}
@@ -108,7 +109,7 @@ export function SiteFooter({ compact = false }: SiteFooterProps) {
                   {' '}
                   ·{' '}
                 </span>
-                고객센터 운영: 오전 10:00–16:00
+                답변 시간: 영업일 10:00–16:00 (순차 회신)
               </p>
             </address>
           </div>

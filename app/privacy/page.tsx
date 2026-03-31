@@ -1,6 +1,7 @@
 import type { Metadata } from 'next'
 import Link from 'next/link'
 import { LegalPageShell } from '@/components/legal/LegalPageShell'
+import { SUPPORT_EMAIL } from '@/lib/support-contact'
 
 const title = '개인정보처리방침 · 플래닉 Planic'
 const description = '플래닉(Planic)의 개인정보 수집·이용·보관 및 이용자 권리에 관한 안내입니다.'
@@ -146,11 +147,11 @@ export default function PrivacyPage() {
           <p className={p}>
             주소: 광릉수목원로 600 A동
             <br />
-            대표 연락처: 070-8666-1112
+            문의 이메일: {SUPPORT_EMAIL}
             <br />
             통신판매업 신고번호: 제2017-경기포천-0319호
             <br />
-            고객센터 운영시간: 오전 10:00 ~ 16:00
+            답변 가능 시간: 영업일 오전 10:00 ~ 16:00 (순차 회신)
           </p>
         </section>
       </article>

@@ -6,6 +6,7 @@ import { HelpFaqAccordion } from '@/components/public/HelpFaqAccordion'
 import { authOptions } from '@/lib/auth'
 import { buildStartHref } from '@/lib/auth-redirect'
 import { PLAN_LIMITS, planLabelKo, PRICES_KRW, type PlanType } from '@/lib/plans'
+import { SUPPORT_EMAIL, supportMailtoHref } from '@/lib/support-contact'
 import { HomeStepsAccordion } from '@/components/public/HomeStepsAccordion'
 import { LandingHeroPreview } from '@/components/public/LandingHeroPreview'
 import {
@@ -510,7 +511,7 @@ export async function MainPageContent() {
               무료로 시작하기
             </StartNowLink>
             <Link
-              href="mailto:sisimtree2017@naver.com"
+              href={supportMailtoHref}
               className="inline-flex min-w-[220px] items-center justify-center rounded-2xl border border-slate-200 bg-white px-8 py-3.5 text-sm font-semibold text-slate-700 transition-colors hover:bg-slate-50"
             >
               문의하기
@@ -518,8 +519,8 @@ export async function MainPageContent() {
           </div>
           <p className="mt-6 text-xs text-slate-500">
             문의 메일{' '}
-            <a href="mailto:sisimtree2017@naver.com" className="font-semibold text-primary-700 underline-offset-2 hover:underline">
-              sisimtree2017@naver.com
+            <a href={supportMailtoHref} className="font-semibold text-primary-700 underline-offset-2 hover:underline">
+              {SUPPORT_EMAIL}
             </a>
           </p>
         </div>

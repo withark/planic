@@ -1,6 +1,7 @@
 import type { Metadata } from 'next'
 import Link from 'next/link'
 import { LegalPageShell } from '@/components/legal/LegalPageShell'
+import { SUPPORT_EMAIL } from '@/lib/support-contact'
 
 const title = '환불정책 · 플래닉 Planic'
 const description = '플래닉(Planic) 유료 구독 상품의 환불 및 청약철회 기준을 안내합니다.'
@@ -94,7 +95,7 @@ export default function RefundPage() {
         <section id="refund-apply" className={section}>
           <h2 className={h2}>4. 환불 신청 방법</h2>
           <p className={p}>
-            환불을 원하시는 경우 고객센터를 통해 신청해 주세요. 원활한 처리를 위해 아래 정보를 함께 제공해 주시면
+            환불을 원하시는 경우 아래 문의 이메일로 신청해 주세요. 원활한 처리를 위해 아래 정보를 함께 제공해 주시면
             좋습니다.
           </p>
           <ul className={ul}>
@@ -107,7 +108,7 @@ export default function RefundPage() {
         <section id="refund-process" className={section}>
           <h2 className={h2}>5. 처리 절차</h2>
           <ol className={ol}>
-            <li>접수: 고객센터를 통해 환불 신청 정보를 확인합니다.</li>
+            <li>접수: 문의 이메일로 접수된 환불 신청 정보를 확인합니다.</li>
             <li>검토: 서비스 제공 개시 및 이용 사실, 관련 법령, 결제대행사 처리 가능 여부 등을 확인합니다.</li>
             <li>처리: 환불 승인 시 결제대행사를 통해 환불이 진행됩니다.</li>
           </ol>
@@ -126,7 +127,7 @@ export default function RefundPage() {
             </li>
           </ul>
           <p className={p}>
-            해지/환불에 대한 정확한 처리 가능 여부는 결제 내역을 확인한 후 고객센터에서 안내드립니다.
+            해지/환불에 대한 정확한 처리 가능 여부는 결제 내역을 확인한 후 이메일로 안내드립니다.
           </p>
         </section>
 
@@ -152,11 +153,11 @@ export default function RefundPage() {
           <p className={p}>
             주소: 광릉수목원로 600 A동
             <br />
-            대표 연락처: 070-8666-1112
+            문의 이메일: {SUPPORT_EMAIL}
             <br />
             통신판매업 신고번호: 제2017-경기포천-0319호
             <br />
-            고객센터 운영시간: 오전 10:00 ~ 16:00
+            답변 가능 시간: 영업일 오전 10:00 ~ 16:00 (순차 회신)
           </p>
         </section>
       </article>
