@@ -106,21 +106,36 @@ async function assertAdminGenerationLogsBundle(
   must(pageRes.ok, `/admin/generation-logs status=${pageRes.status}`)
   const html = await pageRes.text()
 
-  const chunkMatch = html.match(/\/_next\/static\/chunks\/app\/admin\/generation-logs\/page-[^"]+\.js[^"]*/i)
-  must(chunkMatch?.[0], 'generation-logs chunk URL 추출 실패')
-  const chunkUrl = new URL(chunkMatch[0], baseUrl).toString()
+  const chunkPathRegex = /\/_next\/static\/chunks\/[^"'<> ]+\.js[^"'<> ]*/gi
+  const rawMatches = html.match(chunkPathRegex) || []
+  const uniquePaths = Array.from(new Set(rawMatches))
+  const prioritized = [
+    ...uniquePaths.filter((p) => p.includes('/admin/generation-logs/')),
+    ...uniquePaths.filter((p) => p.includes('/app/admin/')),
+    ...uniquePaths,
+  ]
+  const candidates = Array.from(new Set(prioritized))
+  must(candidates.length > 0, 'generation-logs chunk URL 추출 실패')
 
-  const chunkRes = await fetch(chunkUrl)
-  must(chunkRes.ok, `generation-logs chunk fetch 실패(${chunkRes.status})`)
-  const chunk = await chunkRes.text()
+  const qualitySignals = ['repairFocusHistory', 'topIssuesAfter', '품질 보정', 'llmRefineMs']
+  let lastFetchedUrl = ''
+  let hasQualityUi = false
 
-  const hasQualityUi =
-    chunk.includes('repairFocusHistory') ||
-    chunk.includes('topIssuesAfter') ||
-    chunk.includes('품질 보정') ||
-    chunk.includes('llmRefineMs')
+  // 배포 빌드/경로가 바뀌어도 스크립트 src 후보를 순회해 품질 UI 시그널을 찾습니다.
+  for (const path of candidates) {
+    const url = new URL(path, baseUrl).toString()
+    const chunkRes = await fetch(url)
+    if (!chunkRes.ok) continue
+    lastFetchedUrl = url
+    const chunk = await chunkRes.text()
+    if (qualitySignals.some((token) => chunk.includes(token))) {
+      hasQualityUi = true
+      break
+    }
+  }
 
-  return { chunkUrl, hasQualityUi }
+  must(lastFetchedUrl, 'generation-logs chunk fetch 실패(후보 없음/모두 실패)')
+  return { chunkUrl: lastFetchedUrl, hasQualityUi }
 }
 
 function assertAiRuntime(payload: AiRuntimePayload, expectProvider?: string): void {
