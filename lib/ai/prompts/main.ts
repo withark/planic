@@ -473,21 +473,80 @@ function buildTaskOrderContext(input: GenerateInput): string {
   const text = input.taskOrderDoc?.rawText?.trim() ||
     (input.taskOrderRefs || []).map(r => r.rawText?.trim()).filter(Boolean).join('\n\n')
   if (!text) return ''
-  return `\n=== 과업지시서 / 기획안 참고 (반드시 반영) ===\n${taskOrderSummaryPromptFragment()}\n\n${text.slice(0, 3000)}\n`
+  const anchors = extractPromptAnchors(input)
+  const lines = text
+    .split('\n')
+    .map((line) => line.trim())
+    .filter(Boolean)
+  const keyword = /(목적|범위|산출|일정|마일스톤|인력|요구|제한|평가|선정|유의|리스크)/i
+  const ranked = lines
+    .map((line) => {
+      const anchorScore = anchors.reduce((acc, a) => (line.includes(a) ? acc + 1 : acc), 0)
+      const keyScore = keyword.test(line) ? 1 : 0
+      return { line, score: anchorScore * 2 + keyScore }
+    })
+    .filter((x) => x.score > 0)
+    .sort((a, b) => b.score - a.score)
+    .slice(0, 20)
+    .map((x) => x.line)
+  const selected = (ranked.length > 0 ? ranked : lines.slice(0, 20)).join('\n')
+  return `\n=== 과업지시서 / 기획안 참고 (반드시 반영) ===\n${taskOrderSummaryPromptFragment()}\n\n${selected.slice(0, 3200)}\n`
 }
 
 function buildScenarioRefContext(input: GenerateInput): string {
   const refs = (input.scenarioRefs || []).filter(r => r?.rawText?.trim())
   if (!refs.length) return ''
-  const lines = refs.slice(0, 2).map((r, i) =>
-    `[시나리오 참고 ${i + 1}: ${r.filename}]\n${r.rawText.slice(0, 2000)}`
-  ).join('\n\n')
+  const anchors = extractPromptAnchors(input)
+  const pickRelevantLines = (raw: string, maxLines: number) => {
+    const lines = (raw || '')
+      .split('\n')
+      .map((line) => line.trim())
+      .filter(Boolean)
+    if (lines.length === 0) return []
+    if (anchors.length === 0) return lines.slice(0, maxLines)
+    const ranked = lines
+      .map((line) => {
+        const score = anchors.reduce((acc, a) => (line.includes(a) ? acc + 1 : acc), 0)
+        return { line, score }
+      })
+      .filter((x) => x.score > 0)
+      .sort((a, b) => b.score - a.score)
+      .slice(0, maxLines)
+      .map((x) => x.line)
+    return ranked.length > 0 ? ranked : lines.slice(0, maxLines)
+  }
+  const lines = refs
+    .slice(0, 3)
+    .map((r, i) => {
+      const selected = pickRelevantLines(r.rawText, 14).join('\n')
+      return `[시나리오 참고 ${i + 1}: ${r.filename}]\n${selected.slice(0, 2200)}`
+    })
+    .join('\n\n')
   return `\n=== 시나리오 참고 문서 (스타일·흐름 반영) ===\n${lines}\n`
 }
 
 function buildCuesheetSampleContext(input: GenerateInput): string {
   if (!input.cuesheetSampleContext?.trim()) return ''
-  return `\n=== 큐시트 샘플 (형식·항목 참고) ===\n${input.cuesheetSampleContext.slice(0, 3000)}\n`
+  const anchors = extractPromptAnchors(input)
+  const source = input.cuesheetSampleContext
+  const lines = source
+    .split('\n')
+    .map((line) => line.trim())
+    .filter(Boolean)
+  const ranked =
+    anchors.length === 0
+      ? lines.slice(0, 30)
+      : lines
+          .map((line) => ({
+            line,
+            score: anchors.reduce((acc, a) => (line.includes(a) ? acc + 1 : acc), 0),
+          }))
+          .filter((x) => x.score > 0)
+          .sort((a, b) => b.score - a.score)
+          .slice(0, 30)
+          .map((x) => x.line)
+  const selected = (ranked.length > 0 ? ranked : lines.slice(0, 30)).join('\n')
+  return `\n=== 큐시트 샘플 (형식·항목 참고) ===\n${selected.slice(0, 3200)}\n`
 }
 
 function buildPriceContext(input: GenerateInput): string {
@@ -578,6 +637,26 @@ function buildEngineQualityContext(input: GenerateInput): string {
   if (q.sampleWeightNote?.trim()) lines.push(`- 샘플 반영 메모: ${q.sampleWeightNote.trim()}`)
   if (q.qualityBoost?.trim()) lines.push(`- 추가 품질 강화 지시: ${q.qualityBoost.trim()}`)
   return lines.length > 1 ? `\n${lines.join('\n')}\n` : ''
+}
+
+function buildStageBriefContext(input: GenerateInput): string {
+  if (!input.stageBrief) return ''
+  return `
+=== Stage A Brief (고정 조건) ===
+${JSON.stringify(input.stageBrief, null, 2)}
+- 위 brief는 초안/정제/보정 전 단계에서 공통으로 유지해야 하는 계약입니다.
+- brief의 mustHaveFacts와 documentConstraints를 누락하면 실패로 간주하고 보강하세요.
+`
+}
+
+function buildStageStructurePlanContext(input: GenerateInput): string {
+  if (!input.stageStructurePlan) return ''
+  return `
+=== Stage B Structure Plan (작성 청사진) ===
+${JSON.stringify(input.stageStructurePlan, null, 2)}
+- 생성 시 이 구조 계획의 sections/rowPlan 순서를 우선 적용하세요.
+- 임의 확장은 허용하지만, 계획된 필수 섹션/행을 대체하거나 삭제하지 마세요.
+`
 }
 
 export function buildDocumentExcellenceGuide(target: GenerateInput['documentTarget']): string {
@@ -691,6 +770,8 @@ export function buildGeneratePrompt(input: GenerateInput): string {
   const existingDocCtx = target !== 'estimate' ? buildExistingDocContext(input) : ''
   const engineQualityCtx = buildEngineQualityContext(input)
   const traceabilityCtx = buildTraceabilityContext(input, target)
+  const stageBriefCtx = buildStageBriefContext(input)
+  const stageStructurePlanCtx = buildStageStructurePlanContext(input)
   const excellenceGuide = buildDocumentExcellenceGuide(target)
   const selfCheckGuide = buildSelfCheckGuide(target)
   const outputSchema = getOutputSchema(target, category)
@@ -732,6 +813,8 @@ ${cuesheetCtx}
 ${existingDocCtx}
 ${engineQualityCtx}
 ${traceabilityCtx}
+${stageBriefCtx}
+${stageStructurePlanCtx}
 ${envPolicyFragment}
 
 === 문서 완성도 기준 ===

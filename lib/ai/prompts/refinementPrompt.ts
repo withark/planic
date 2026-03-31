@@ -40,6 +40,12 @@ export function buildDocumentRefinementPrompt(input: GenerateInput, draftJsonCom
 === 행사 핵심(중복 컨텍스트 최소) ===
 ${brief}
 
+=== Stage A Brief ===
+${input.stageBrief ? JSON.stringify(input.stageBrief, null, 2) : '미제공'}
+
+=== Stage B Structure Plan ===
+${input.stageStructurePlan ? JSON.stringify(input.stageStructurePlan, null, 2) : '미제공'}
+
 === 완성도 기준 ===
 ${excellence}
 

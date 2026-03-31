@@ -65,6 +65,8 @@ export type GenerateTimingMeta = {
   /** 하이브리드 2단계 정제 모델 티어(메타·로그) */
   hybridRefineTier?: 'opus' | 'sonnet' | 'skipped'
   documentTarget?: GenerateInput['documentTarget']
+  stageBrief?: StageBrief
+  stageStructurePlan?: StageStructurePlan
 }
 
 function shouldUseHeuristicFallback(): boolean {
@@ -145,6 +147,9 @@ type EventPhasePlan = {
   cue: string
   audience: string
 }
+
+type StageBrief = NonNullable<GenerateInput['stageBrief']>
+type StageStructurePlan = NonNullable<GenerateInput['stageStructurePlan']>
 
 function detectGenerationEventCategory(eventType: string, eventName: string): GenerationEventCategory {
   const text = `${eventType} ${eventName}`.toLowerCase()
@@ -284,6 +289,101 @@ function buildEventPhasePlans(input: GenerateInput): EventPhasePlan[] {
       audience,
     }
   })
+}
+
+function buildStageBrief(input: GenerateInput): StageBrief {
+  const target = input.documentTarget ?? 'estimate'
+  const mustHaveFacts = [
+    `행사명:${input.eventName || ''}`,
+    `행사유형:${input.eventType || ''}`,
+    `일시:${input.eventDate || ''}`,
+    `장소:${input.venue || ''}`,
+    `인원:${input.headcount || ''}`,
+  ].filter((x) => !x.endsWith(':'))
+  const requiredSectionsByTarget: Record<string, string[]> = {
+    estimate: ['카테고리/항목', '포함/제외', '결제 조건', '예산 부합 여부'],
+    planning: ['개요', '범위', '접근', '운영 계획', '리스크/대응', '체크리스트'],
+    program: ['컨셉', '프로그램 행', '타임라인', '인력', '운영 팁'],
+    timetable: ['시간축 행', '담당자', '세부 운영 포인트'],
+    scenario: ['오프닝', '전개', '클로징', '메인 포인트', '연출 지시'],
+    cuesheet: ['큐 요약', '시간행', '담당', 'prep/script/special'],
+    emceeScript: ['톤 가이드', '구간별 대본', '큐 노트'],
+  }
+  const documentConstraintsByTarget: Record<string, string[]> = {
+    estimate: ['카테고리>=3', '항목>=6', 'paymentTerms 필수', '예산 초과 시 notes에 사유/조정 명시'],
+    planning: ['체크리스트>=8', '섹션 반복 금지', '리스크-대응 1:1 매핑'],
+    program: ['programRows>=5', 'timeline>=6', 'staffing>=3', '행별 내용 중복 금지'],
+    timetable: ['timeline>=8', '시간 역행 금지', 'programRows/timeline 정합성 유지'],
+    scenario: ['mainPoints>=8', '전환/돌발 대응 문장 필수', '운영 역할 표기'],
+    cuesheet: ['cueRows>=10', '모든 row 필드 필수', 'row 간 script/content 중복 최소화'],
+    emceeScript: ['lines>=12', '구어체/호칭 가이드 준수'],
+  }
+  return {
+    purpose: input.briefGoal?.trim() || input.requirements?.trim() || `${input.eventName} 문서 완성`,
+    audience: input.headcount?.trim() ? `${input.headcount.trim()} 참석자/운영팀` : '참석자/운영팀',
+    tone: '실무형, 과장 없이 명확, 즉시 실행 가능',
+    requiredSections: requiredSectionsByTarget[target] || requiredSectionsByTarget.estimate,
+    mustHaveFacts,
+    sourcePriority: [
+      '사용자 직접 입력(requirements/brief)',
+      '선택된 참조 문서(taskOrder/scenario/cuesheet/reference)',
+      '기존 문서(existingDoc)',
+      '일반 도메인 상식(최후 보완)',
+    ],
+    budgetConstraint: input.budget?.trim() || '예산 미정(불일치 시 조정안 명시)',
+    documentConstraints: documentConstraintsByTarget[target] || documentConstraintsByTarget.estimate,
+  }
+}
+
+function buildStageStructurePlan(input: GenerateInput, brief: StageBrief): StageStructurePlan {
+  const target = input.documentTarget ?? 'estimate'
+  const commonChecks = ['요청 앵커 최소 2개 분산 반영', '반복 문장 최소화', '실행 가능한 동사 포함']
+  if (target === 'estimate') {
+    return {
+      documentTarget: target,
+      sections: ['카테고리 구성', '항목 산출근거', '포함/제외', '결제조건', '예산 적합/불일치'],
+      rowPlan: ['카테고리 3~5개', '각 카테고리 2개 이상 항목', 'spec에 수량/단위 근거'],
+      qualityChecks: [...commonChecks, '0원 금지', '예산 불일치 시 notes에 조정 방향 기재'],
+    }
+  }
+  if (target === 'program') {
+    return {
+      documentTarget: target,
+      sections: ['concept', 'programRows', 'timeline', 'staffing', 'tips'],
+      rowPlan: ['programRows>=5', 'timeline>=6', '행별 kind/content/time/notes 실질 차별화'],
+      qualityChecks: [...commonChecks, 'timeline-programRows 정합성', '운영 인력 역할 구체화'],
+    }
+  }
+  if (target === 'scenario') {
+    return {
+      documentTarget: target,
+      sections: ['summaryTop', 'opening', 'development', 'mainPoints', 'closing', 'directionNotes'],
+      rowPlan: ['mainPoints>=8', '시간/담당/큐 포함 포인트 위주'],
+      qualityChecks: [...commonChecks, '장면 전환 문장 필수', 'MC/기술/운영 역할 현실성'],
+    }
+  }
+  if (target === 'cuesheet') {
+    return {
+      documentTarget: target,
+      sections: ['cueSummary', 'cueRows', 'timeline'],
+      rowPlan: ['cueRows>=10', 'row별 time/content/staff/prep/script/special 전부 채움'],
+      qualityChecks: [...commonChecks, '시간 역행 금지', 'row 중복 최소화', '행동 지시문 포함'],
+    }
+  }
+  if (target === 'planning') {
+    return {
+      documentTarget: target,
+      sections: ['overview', 'scope', 'approach', 'operationPlan', 'deliverablesPlan', 'staffingConditions', 'risksAndCautions', 'checklist'],
+      rowPlan: ['checklist>=8', 'risk마다 대응 문장 포함'],
+      qualityChecks: [...commonChecks, '섹션별 역할 분리', '추상어 과다 사용 금지'],
+    }
+  }
+  return {
+    documentTarget: target,
+    sections: brief.requiredSections,
+    rowPlan: [],
+    qualityChecks: commonChecks,
+  }
 }
 
 export async function generateQuote(input: GenerateInput): Promise<QuoteDoc> {
@@ -1519,10 +1619,24 @@ function listQualityIssues(doc: QuoteDoc, input: GenerateInput): string[] {
   if (target === 'estimate') {
     const categoryCount = (doc.quoteItems || []).filter((cat) => (cat.items || []).length > 0).length
     const itemCount = (doc.quoteItems || []).reduce((sum, cat) => sum + (cat.items || []).length, 0)
+    const totalAmount = (doc.quoteItems || []).reduce(
+      (acc, cat) => acc + (cat.items || []).reduce((s, it) => s + (Number(it.total) || 0), 0),
+      0,
+    )
+    const budgetCeiling = parseBudgetCeilingKRW(input.budget || '').ceilingKRW
     if (categoryCount < 3) issues.push('견적 카테고리가 3개 미만입니다.')
     if (itemCount < 6) issues.push('견적 항목 수가 부족합니다.')
     if (!hasText(doc.notes, 50)) issues.push('notes가 너무 짧아 포함/제외/결제 조건이 충분하지 않습니다.')
     if (!hasText(doc.paymentTerms, 8)) issues.push('paymentTerms가 부실합니다.')
+    if (budgetCeiling && totalAmount > budgetCeiling * 1.2) {
+      const notes = doc.notes || ''
+      if (!/(초과|불일치|조정|절감|대안)/.test(notes)) {
+        issues.push('예산 상한 대비 총액이 과도하지만 notes에 불일치 사유/조정안이 없습니다.')
+      }
+    }
+    if ((doc.quoteItems || []).some((cat) => (cat.items || []).some((it) => (it.unitPrice || 0) <= 0 || (it.qty || 0) <= 0))) {
+      issues.push('견적 항목 중 단가/수량이 0 이하인 비현실 항목이 있습니다.')
+    }
   }
 
   if (target === 'program') {
@@ -1713,6 +1827,13 @@ function listQualityIssues(doc: QuoteDoc, input: GenerateInput): string[] {
     if (hasHighRepetition((doc.program?.cueRows || []).map((row) => row.script), 8, 1)) {
       issues.push('program.cueRows script가 반복 표현 중심으로 구성돼 있습니다.')
     }
+    const weakActionRows = (doc.program?.cueRows || []).filter((row) =>
+      /(확인|점검|진행|정리)/.test((row.script || '').trim()) &&
+      (row.script || '').trim().length < 18
+    )
+    if (weakActionRows.length >= 3) {
+      issues.push('cuesheet script가 짧은 일반 동사 위주로 작성되어 실행 지시성이 부족합니다.')
+    }
     if (
       countVaguePhraseHits([
         doc.program?.cueSummary,
@@ -1730,6 +1851,25 @@ function listQualityIssues(doc: QuoteDoc, input: GenerateInput): string[] {
     )
     if (requiredFocusCoverage > 0 && cuesheetCoverage < requiredFocusCoverage) {
       issues.push('cuesheet이 요청사항/브리프 핵심 표현을 큐와 멘트에 충분히 반영하지 못했습니다.')
+    }
+  }
+
+  if (target !== 'estimate') {
+    const corpus = JSON.stringify({
+      program: doc.program,
+      planning: doc.planning,
+      scenario: doc.scenario,
+      emceeScript: doc.emceeScript,
+    })
+    const boilerplateHits = [
+      '원활하게 진행',
+      '효과적으로 운영',
+      '충분히 반영',
+      '유기적으로 연결',
+      '적절히 대응',
+    ].reduce((acc, phrase) => acc + (corpus.includes(phrase) ? 1 : 0), 0)
+    if (boilerplateHits >= 3) {
+      issues.push('문서 전반이 일반적 보일러플레이트 문구 중심으로 작성되어 실무 밀도가 낮습니다.')
     }
   }
 
@@ -1920,6 +2060,8 @@ export async function generateQuoteWithMeta(input: GenerateInput): Promise<{ doc
         hybridPipeline: false,
         hybridRefineTier: 'skipped',
         documentTarget: input.documentTarget,
+        stageBrief: buildStageBrief(input),
+        stageStructurePlan: buildStageStructurePlan(input, buildStageBrief(input)),
       },
     }
   }
@@ -1946,9 +2088,16 @@ export async function generateQuoteWithMeta(input: GenerateInput): Promise<{ doc
     resolveDraftMaxTokensForDocumentTarget(primaryEff.maxTokens, input.documentTarget ?? 'estimate'),
     primaryEff.provider,
   )
+  const stageBrief = buildStageBrief(input)
+  const stageStructurePlan = buildStageStructurePlan(input, stageBrief)
+  const stagedInput: GenerateInput = {
+    ...input,
+    stageBrief,
+    stageStructurePlan,
+  }
   const promptStart = Date.now()
   input.pipelineEmit?.({ stage: 'prompt', label: '프롬프트 구성 중' })
-  const prompt = buildGeneratePrompt(input)
+  const prompt = buildGeneratePrompt(stagedInput)
   const promptBuildMs = Date.now() - promptStart
   let aiCallMs = 0
   let llmPrimaryMs = 0
@@ -2016,7 +2165,7 @@ export async function generateQuoteWithMeta(input: GenerateInput): Promise<{ doc
     input.pipelineEmit?.({ stage: 'polish', label: '문장·톤 다듬는 중' })
     try {
       const refined = await runDocumentRefinementPass({
-        input,
+        input: stagedInput,
         draftJsonText: jsonTextIn,
         engine: refineEff,
       })
@@ -2100,7 +2249,8 @@ export async function generateQuoteWithMeta(input: GenerateInput): Promise<{ doc
   let repairAttempts = 0
   const repairFocusHistory: RepairFocus[] = []
   const generationProfile = input.generationProfile ?? 'realtime'
-  const strictQualityTarget = target !== 'estimate'
+  const strictQualityTarget =
+    target !== 'estimate' || qualityIssues.some((issue) => /0 이하|예산 상한 대비|카테고리.*미만|항목 수가 부족/.test(issue))
   const skipRefine = readEnvBool('AI_ENABLE_REFINE_SKIP', false)
   if (!skipRefine && qualityIssues.length > 0) {
     input.pipelineEmit?.({ stage: 'refine', label: '문서 품질 보정 중' })
@@ -2111,7 +2261,9 @@ export async function generateQuoteWithMeta(input: GenerateInput): Promise<{ doc
       let bestScore = scoreQualityIssues(bestIssues)
       const maxRepairAttempts =
         generationProfile === 'realtime'
-          ? 1
+          ? strictQualityTarget
+            ? 2
+            : 1
           : strictQualityTarget
             ? 3
             : 2
@@ -2122,7 +2274,7 @@ export async function generateQuoteWithMeta(input: GenerateInput): Promise<{ doc
         const focus = pickRepairFocus(issuesForPrompt, attempt)
         repairAttempts += 1
         repairFocusHistory.push(focus)
-        const repairPrompt = buildRepairPrompt(input, bestDoc, issuesForPrompt, {
+        const repairPrompt = buildRepairPrompt(stagedInput, bestDoc, issuesForPrompt, {
           strict: strict || undefined,
           focus,
         })
@@ -2270,6 +2422,8 @@ export async function generateQuoteWithMeta(input: GenerateInput): Promise<{ doc
       hybridPipeline: hybrid != null,
       hybridRefineTier,
       documentTarget: input.documentTarget,
+      stageBrief,
+      stageStructurePlan,
     },
   }
 }
@@ -2453,6 +2607,8 @@ export async function summarizeTaskOrderRef(rawText: string, filename: string): 
 
 각 필드는 1~5문장 한국어로 작성하세요. 정보가 없으면 ""로 처리하세요.
 추론이 필요한 경우에도 원문과 모순되지 않게 보수적으로 작성하세요.
+근거가 약한 경우 해당 필드 문장 앞에 "[추정]"을 붙이고, 확정 정보가 없음을 명시하세요.
+원문에 없는 수치/기관명/일정을 임의로 만들어 넣지 마세요.
 
 파일명: ${filename}
 텍스트(일부):

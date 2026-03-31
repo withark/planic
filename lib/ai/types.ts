@@ -76,4 +76,22 @@ export interface GenerateInput {
   }
   /** 서버 전용: 진행 단계(NDJSON 스트림 등) */
   pipelineEmit?: (info: { stage: string; label: string }) => void
+  /** Stage A: brief 구성 산출물(품질/로그/프롬프트 공통 입력) */
+  stageBrief?: {
+    purpose: string
+    audience: string
+    tone: string
+    requiredSections: string[]
+    mustHaveFacts: string[]
+    sourcePriority: string[]
+    budgetConstraint: string
+    documentConstraints: string[]
+  }
+  /** Stage B: 문서 유형별 구조 계획 산출물 */
+  stageStructurePlan?: {
+    documentTarget: string
+    sections: string[]
+    rowPlan: string[]
+    qualityChecks: string[]
+  }
 }

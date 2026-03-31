@@ -449,6 +449,8 @@ export async function executeGeneratePipeline(
           documentRefineSkipReason: genMeta.documentRefineSkipReason,
           usedReferenceSources: genMeta.usedReferenceSources,
           premiumMode: genMeta.premiumMode,
+          stageBrief: genMeta.stageBrief,
+          stageStructurePlan: genMeta.stageStructurePlan,
         }
       : undefined,
   }
