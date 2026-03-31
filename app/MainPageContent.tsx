@@ -139,6 +139,16 @@ const pricingCards: PricingCard[] = [
   { plan: 'PREMIUM', items: planItems('PREMIUM') },
 ]
 
+/** 후기 카드 — 왼쪽 액센트·별점 색을 섞어 동일 템플릿 느낌을 줄임 */
+const REVIEW_CARD_ACCENTS = [
+  { bar: 'bg-teal-500', stars: 'text-teal-600', avatar: 'bg-teal-100 text-teal-800 ring-teal-200/70' },
+  { bar: 'bg-violet-500', stars: 'text-violet-600', avatar: 'bg-violet-100 text-violet-800 ring-violet-200/70' },
+  { bar: 'bg-primary-600', stars: 'text-primary-600', avatar: 'bg-primary-100 text-primary-800 ring-primary-200/70' },
+  { bar: 'bg-amber-500', stars: 'text-amber-600', avatar: 'bg-amber-100 text-amber-900 ring-amber-200/70' },
+  { bar: 'bg-sky-500', stars: 'text-sky-600', avatar: 'bg-sky-100 text-sky-900 ring-sky-200/70' },
+  { bar: 'bg-rose-500', stars: 'text-rose-600', avatar: 'bg-rose-100 text-rose-900 ring-rose-200/70' },
+] as const
+
 const reviews = [
   {
     name: '김민수',
@@ -189,6 +199,30 @@ function StarIcon({ className }: { className?: string }) {
   )
 }
 
+function PlanCheckIcon({ className }: { className?: string }) {
+  return (
+    <svg viewBox="0 0 20 20" className={className} aria-hidden="true">
+      <path
+        fill="currentColor"
+        fillRule="evenodd"
+        d="M16.704 4.153a.75.75 0 01.143 1.052l-7.5 8.25a.75.75 0 01-1.127.075l-4.5-4.5a.75.75 0 011.06-1.06l3.894 3.893 6.902-7.599a.75.75 0 011.052-.143z"
+        clipRule="evenodd"
+      />
+    </svg>
+  )
+}
+
+function QuoteMarkIcon({ className }: { className?: string }) {
+  return (
+    <svg viewBox="0 0 24 24" className={className} aria-hidden="true">
+      <path
+        fill="currentColor"
+        d="M4.5 6.75c0 2.485 1.515 4.5 4.5 4.5.75 0 1.5-.15 2.25-.45v3.45c-.75.3-1.5.45-2.25.45-3.75 0-6.75-2.25-6.75-6v-6h6v4.5h-3.75zm12 0c0 2.485 1.515 4.5 4.5 4.5.75 0 1.5-.15 2.25-.45v3.45c-.75.3-1.5.45-2.25.45-3.75 0-6.75-2.25-6.75-6v-6h6v4.5h-3.75z"
+      />
+    </svg>
+  )
+}
+
 export async function MainPageContent() {
   const session = await getServerSession(authOptions)
   const initialStartHref = buildStartHref({ isAuthenticated: !!session, targetPath: '/dashboard' })
@@ -197,16 +231,28 @@ export async function MainPageContent() {
 
   return (
     <PublicPageShell loginHref={loginHref} loginLabel={loginLabel} mainMaxWidth="full">
-      <section className="relative w-full overflow-hidden border-b border-slate-200/70 bg-gradient-to-br from-[#e8efff] via-[#f4f7fb] to-white px-4 pb-16 pt-12 sm:px-8 sm:pb-20 sm:pt-16 lg:px-12">
-        <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(ellipse_90%_60%_at_85%_0%,rgba(79,70,229,0.12),transparent_55%)]" />
-        <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(circle_at_10%_90%,rgba(37,99,235,0.08),transparent_40%)]" />
+      <section className="relative w-full overflow-hidden border-b border-slate-200/70 bg-gradient-to-br from-[#e2e9ff] via-[#f3f1ff] to-[#fff9f4] px-4 pb-16 pt-12 sm:px-8 sm:pb-20 sm:pt-16 lg:px-12">
+        <div
+          className="pointer-events-none absolute inset-0 opacity-[0.55] [background-image:url('data:image/svg+xml,%3Csvg%20xmlns%3D%22http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%22%20width%3D%2232%22%20height%3D%2232%22%3E%3Ccircle%20cx%3D%221.5%22%20cy%3D%221.5%22%20r%3D%221%22%20fill%3D%22%234f46e5%22%20fill-opacity%3D%220.055%22%2F%3E%3C%2Fsvg%3E')]"
+          style={{ backgroundSize: '32px 32px' }}
+          aria-hidden="true"
+        />
+        <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(ellipse_90%_60%_at_85%_0%,rgba(79,70,229,0.14),transparent_55%)]" />
+        <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(circle_at_10%_90%,rgba(13,148,136,0.09),transparent_42%)]" />
+        <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(ellipse_55%_45%_at_50%_100%,rgba(245,158,11,0.06),transparent_50%)]" />
         <div className="relative mx-auto grid max-w-7xl items-center gap-12 lg:grid-cols-[1fr_minmax(300px,460px)] lg:gap-16">
           <div className="text-center lg:text-left">
-            <p className="text-xs font-semibold tracking-[0.14em] text-primary-700">행사 문서 AI 파트너</p>
+            <p className="inline-flex items-center gap-2 text-xs font-semibold tracking-[0.14em] text-primary-800">
+              <span
+                className="inline-block h-2 w-2 shrink-0 rounded-full bg-gradient-to-br from-teal-400 via-primary-500 to-amber-400 shadow-sm shadow-primary-500/30"
+                aria-hidden="true"
+              />
+              행사 문서 AI 파트너
+            </p>
             <h1 className="mt-4 text-[32px] font-bold leading-[1.15] tracking-tight text-slate-900 sm:text-5xl lg:text-[3.25rem]">
               입력은 짧게,
               <br />
-              <span className="bg-gradient-to-r from-primary-600 to-indigo-600 bg-clip-text text-transparent">
+              <span className="bg-gradient-to-r from-primary-600 via-violet-600 to-teal-600 bg-clip-text text-transparent">
                 완성본은 바로 나옵니다
               </span>
             </h1>
@@ -221,7 +267,7 @@ export async function MainPageContent() {
               <span className="rounded-full border border-white/80 bg-white/90 px-3.5 py-1.5 shadow-sm shadow-slate-900/5 backdrop-blur-sm">
                 엑셀·PDF 보내기
               </span>
-              <span className="rounded-full border border-primary-200 bg-primary-50 px-3.5 py-1.5 font-semibold text-primary-800 shadow-sm">
+              <span className="rounded-full border border-amber-200/90 bg-gradient-to-r from-amber-50/95 to-primary-50/90 px-3.5 py-1.5 font-semibold text-amber-950 shadow-sm ring-1 ring-amber-100/80">
                 무료 플랜 월 {freeMonthlyGenerations}회
               </span>
             </div>
@@ -343,9 +389,16 @@ export async function MainPageContent() {
                   <span className="ml-1 text-sm font-semibold text-slate-600">{card.plan === 'FREE' ? '' : '/월'}</span>
                 </p>
                 <p className="mt-1 text-sm text-slate-600">{PLAN_DESCRIPTIONS[card.plan]}</p>
-                <ul className="mt-4 flex-1 space-y-2 text-sm text-slate-600">
+                <ul className="mt-4 flex-1 space-y-2.5 text-sm text-slate-600">
                   {card.items.map((item) => (
-                    <li key={item}>- {item}</li>
+                    <li key={item} className="flex gap-2.5 leading-snug">
+                      <PlanCheckIcon
+                        className={`mt-0.5 h-4 w-4 shrink-0 ${
+                          card.highlight ? 'text-primary-600' : 'text-slate-400'
+                        }`}
+                      />
+                      <span>{item}</span>
+                    </li>
                   ))}
                 </ul>
                 <div className="mt-5">
@@ -384,29 +437,46 @@ export async function MainPageContent() {
             <p className="mt-3 text-sm text-slate-600">다양한 분야의 기획 담당자들이 경험한 변화를 담았습니다.</p>
           </div>
 
-          <div className="grid grid-cols-1 gap-4 md:grid-cols-2 lg:grid-cols-3">
-            {reviews.map((review) => (
-              <article
-                key={review.name}
-                className="rounded-2xl border border-slate-200/90 bg-white p-6 shadow-md shadow-slate-900/5 ring-1 ring-slate-900/[0.03]"
-              >
-                <div className="mb-3 flex items-center gap-1">
-                  {Array.from({ length: review.rating }).map((_, i) => (
-                    <StarIcon key={i} className="w-4 h-4 text-primary" />
-                  ))}
-                </div>
-                <p className="text-sm leading-relaxed text-slate-700">"{review.content}"</p>
-                <div className="mt-5 flex items-center gap-3">
-                  <div className="flex h-9 w-9 items-center justify-center rounded-full bg-primary/10">
-                    <span className="text-sm font-semibold text-primary">{review.name[0]}</span>
+          <div className="grid grid-cols-1 gap-5 md:grid-cols-2 lg:grid-cols-3">
+            {reviews.map((review, index) => {
+              const accent = REVIEW_CARD_ACCENTS[index % REVIEW_CARD_ACCENTS.length]
+              return (
+                <article
+                  key={review.name}
+                  className="relative overflow-hidden rounded-2xl border border-slate-200/90 bg-gradient-to-b from-white to-slate-50/90 p-6 pl-7 shadow-md shadow-slate-900/5 ring-1 ring-slate-900/[0.03]"
+                >
+                  <div
+                    className={`absolute bottom-5 left-3 top-5 w-1 rounded-full ${accent.bar}`}
+                    aria-hidden
+                  />
+                  <QuoteMarkIcon className="pointer-events-none absolute right-5 top-4 h-9 w-9 text-slate-200/90" />
+                  <div className="relative">
+                    <div className="mb-3 flex flex-wrap items-center gap-2">
+                      <div className="flex items-center gap-0.5">
+                        {Array.from({ length: review.rating }).map((_, i) => (
+                          <StarIcon key={i} className={`h-4 w-4 ${accent.stars}`} />
+                        ))}
+                      </div>
+                      <span className="rounded-full bg-slate-100/90 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wider text-slate-500">
+                        이용 후기
+                      </span>
+                    </div>
+                    <blockquote className="text-sm leading-relaxed text-slate-700">{review.content}</blockquote>
+                    <div className="mt-5 flex items-center gap-3 border-t border-slate-100 pt-4">
+                      <div
+                        className={`flex h-10 w-10 items-center justify-center rounded-full text-sm font-semibold ring-2 ring-inset ${accent.avatar}`}
+                      >
+                        {review.name[0]}
+                      </div>
+                      <div className="min-w-0">
+                        <p className="truncate text-sm font-semibold text-slate-900">{review.name}</p>
+                        <p className="truncate text-xs text-slate-600">{review.role}</p>
+                      </div>
+                    </div>
                   </div>
-                  <div>
-                    <p className="text-sm font-semibold text-slate-900">{review.name}</p>
-                    <p className="text-xs text-slate-600">{review.role}</p>
-                  </div>
-                </div>
-              </article>
-            ))}
+                </article>
+              )
+            })}
           </div>
         </div>
       </section>
@@ -424,7 +494,7 @@ export async function MainPageContent() {
 
       <section className="w-full px-4 pb-16 pt-6 sm:px-8 lg:px-12">
         <div className="mx-auto max-w-5xl overflow-hidden rounded-[2rem] border border-slate-200 bg-white px-8 py-14 text-center shadow-[0_22px_48px_-28px_rgba(15,23,42,0.35)] sm:px-12 sm:py-16">
-          <div className="mx-auto mb-5 h-1.5 w-16 rounded-full bg-primary-500/70" />
+          <div className="mx-auto mb-5 h-1.5 w-20 rounded-full bg-gradient-to-r from-primary-500 via-violet-500 to-teal-500 shadow-sm shadow-primary-500/20" />
           <h2 className="text-[22px] font-bold text-slate-900 sm:text-[30px]">완성본 문서, 지금 바로 만들어 보세요</h2>
           <p className="mx-auto mt-4 max-w-lg text-sm leading-relaxed text-slate-600 sm:text-[15px]">
             무료 플랜으로 월 {freeMonthlyGenerations}회까지 완성본 생성을 직접 써 보세요. 규모가 커지면 유료 플랜으로 자연스럽게
