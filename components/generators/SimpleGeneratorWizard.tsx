@@ -82,6 +82,7 @@ export default function SimpleGeneratorWizard({
 
   const [activeStep, setActiveStep] = useState<1 | 2 | 3>(1)
   const [highlightsOpen, setHighlightsOpen] = useState(highlightsDefaultOpen)
+  const [generationElapsedSec, setGenerationElapsedSec] = useState(0)
 
   const scrollToStep = useCallback((n: 1 | 2 | 3) => {
     const ref = n === 1 ? step1Ref : n === 2 ? step2Ref : step3Ref
@@ -131,6 +132,21 @@ export default function SimpleGeneratorWizard({
     })
   }, [modeId])
 
+  useEffect(() => {
+    if (!generating) {
+      setGenerationElapsedSec(0)
+      return
+    }
+    const startedAt = Date.now()
+    setGenerationElapsedSec(0)
+    const timer = window.setInterval(() => {
+      setGenerationElapsedSec(Math.floor((Date.now() - startedAt) / 1000))
+    }, 1000)
+    return () => {
+      window.clearInterval(timer)
+    }
+  }, [generating])
+
   const handleGenerateClick = async () => {
     if (generateDisabled || generating) return
     if (inFlightRef.current) return
@@ -145,6 +161,10 @@ export default function SimpleGeneratorWizard({
   const step1Done = true
   const step2Done = !generateDisabled
   const stepDone = (n: 1 | 2 | 3) => (n === 1 ? step1Done : n === 2 ? step2Done : false)
+  const activeProgressLabel = generationProgressLabel || 'AI 작성 중'
+  const progressText = generating
+    ? `${activeProgressLabel}${generationElapsedSec > 0 ? ` · ${generationElapsedSec}초 경과` : ''}`
+    : null
 
   const highlightGrid = (
     <div className="grid gap-3 md:grid-cols-3">
@@ -159,13 +179,13 @@ export default function SimpleGeneratorWizard({
 
   const generateSection = (
     <>
-      {generating && generationProgressLabel ? (
+      {progressText ? (
         <div
           className="mb-3 rounded-2xl border border-primary-200 bg-gradient-to-r from-primary-50 to-white px-4 py-3 text-sm font-medium text-primary-900"
           role="status"
           aria-live="polite"
         >
-          {generationProgressLabel}
+          {progressText}
         </div>
       ) : null}
       {generateDisabled && validationMessage && showValidationBanner ? (
@@ -182,6 +202,11 @@ export default function SimpleGeneratorWizard({
         >
           {generating ? `${generateLabel}...` : generateLabel}
         </Button>
+        {progressText ? (
+          <p className="text-xs font-medium text-primary-800" role="status" aria-live="polite">
+            진행 중: {progressText}
+          </p>
+        ) : null}
         {generateDisabled && !generating ? (
           <p className="max-w-md text-xs leading-5 text-slate-500">필수 항목을 채우면 버튼이 활성화됩니다.</p>
         ) : null}

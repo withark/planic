@@ -1145,9 +1145,9 @@ function fillWeakOutputs(doc: QuoteDoc, input: GenerateInput): QuoteDoc {
     const budgetCeiling = parseBudgetCeilingKRW(input.budget || '').ceilingKRW
     if (budgetCeiling && !/예산 적합|예산 초과|예산 불일치|최소 운영 범위/.test(doc.notes || '')) {
       if (totalAmount > budgetCeiling) {
-        doc.notes = `${doc.notes}\n예산 불일치: 현재 초안 총액 ${totalAmount.toLocaleString('ko-KR')}원은 예산 상한 ${budgetCeiling.toLocaleString('ko-KR')}원을 초과합니다. 최소 운영 범위를 유지하려면 선택 항목/수량 조정이 필요합니다.`
+        doc.notes = `${doc.notes}\n예산 불일치: 현재 총액 ${totalAmount.toLocaleString('ko-KR')}원은 예산 상한 ${budgetCeiling.toLocaleString('ko-KR')}원을 초과합니다. 최소 운영 범위를 유지하려면 선택 항목/수량 조정이 필요합니다.`
       } else {
-        doc.notes = `${doc.notes}\n예산 적합: 현재 초안 총액 ${totalAmount.toLocaleString('ko-KR')}원은 예산 상한 ${budgetCeiling.toLocaleString('ko-KR')}원 범위 내에서 구성되었습니다.`
+        doc.notes = `${doc.notes}\n예산 적합: 현재 총액 ${totalAmount.toLocaleString('ko-KR')}원은 예산 상한 ${budgetCeiling.toLocaleString('ko-KR')}원 범위 내에서 구성되었습니다.`
       }
     }
   }

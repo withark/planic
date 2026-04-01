@@ -79,23 +79,47 @@ export async function apiGenerateStream(
   body: object,
   callbacks?: GenerateStreamCallbacks,
 ): Promise<{ doc: QuoteDoc; totals: Record<string, number>; id: string }> {
-  const res = await fetch('/api/generate', {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ ...body, streamProgress: true }),
-  })
+  const postGenerate = async (streamProgress: boolean) =>
+    fetch('/api/generate', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      credentials: 'include',
+      cache: 'no-store',
+      body: JSON.stringify({ ...body, streamProgress }),
+    })
 
-  const ct = res.headers.get('content-type') || ''
-  if (!ct.includes('ndjson')) {
+  const parseJsonGenerateResponse = async (res: Response) => {
     const payload = await parseResponsePayload(res)
     if (res.ok) {
       const env = payload as ApiEnvelope<{ doc: QuoteDoc; totals: Record<string, number>; id: string }>
       if (env && typeof env === 'object' && (env as any).ok === true && 'data' in (env as any)) {
         return (env as ApiOk<{ doc: QuoteDoc; totals: Record<string, number>; id: string }>).data
       }
+      return payload as { doc: QuoteDoc; totals: Record<string, number>; id: string }
     }
     const msg = toUserMessage(payload, '요청에 실패했습니다.')
     throw new ApiError(msg, res.status, payload)
+  }
+
+  const runFallbackJson = async () => {
+    const fallbackRes = await postGenerate(false)
+    return parseJsonGenerateResponse(fallbackRes)
+  }
+
+  let res: Response
+  try {
+    res = await postGenerate(true)
+  } catch (e) {
+    // 일부 환경에서 NDJSON 스트림 연결이 차단될 수 있어 일반 JSON 요청으로 1회 폴백
+    if (e instanceof TypeError) {
+      return runFallbackJson()
+    }
+    throw e
+  }
+
+  const ct = res.headers.get('content-type') || ''
+  if (!ct.includes('ndjson')) {
+    return parseJsonGenerateResponse(res)
   }
 
   const reader = res.body?.getReader()
@@ -105,43 +129,53 @@ export async function apiGenerateStream(
 
   const decoder = new TextDecoder()
   let buffer = ''
-  while (true) {
-    const { done, value } = await reader.read()
-    if (done) break
-    buffer += decoder.decode(value, { stream: true })
-    const lines = buffer.split('\n')
-    buffer = lines.pop() || ''
-    for (const line of lines) {
-      const trimmed = line.trim()
-      if (!trimmed) continue
-      let obj: { type?: string } & Record<string, unknown>
-      try {
-        obj = JSON.parse(trimmed) as { type?: string } & Record<string, unknown>
-      } catch {
-        continue
-      }
-      if (obj.type === 'stage' && typeof obj.stage === 'string') {
-        const label = mapGenerationStageToKorean(obj.stage)
-        callbacks?.onStage?.({ stage: obj.stage, label })
-      }
-      if (obj.type === 'error') {
-        const status = typeof obj.status === 'number' ? obj.status : 500
-        const message = typeof obj.message === 'string' ? obj.message : '생성에 실패했습니다.'
-        throw new ApiError(message, status, obj)
-      }
-      if (obj.type === 'complete' && obj.doc) {
-        return {
-          doc: obj.doc as QuoteDoc,
-          totals: (obj.totals as Record<string, number>) || {},
-          id: String(obj.id ?? ''),
+  try {
+    while (true) {
+      const { done, value } = await reader.read()
+      if (done) break
+      buffer += decoder.decode(value, { stream: true })
+      const lines = buffer.split('\n')
+      buffer = lines.pop() || ''
+      for (const line of lines) {
+        const trimmed = line.trim()
+        if (!trimmed) continue
+        let obj: { type?: string } & Record<string, unknown>
+        try {
+          obj = JSON.parse(trimmed) as { type?: string } & Record<string, unknown>
+        } catch {
+          continue
+        }
+        if (obj.type === 'stage' && typeof obj.stage === 'string') {
+          const label = mapGenerationStageToKorean(obj.stage)
+          callbacks?.onStage?.({ stage: obj.stage, label })
+        }
+        if (obj.type === 'error') {
+          const status = typeof obj.status === 'number' ? obj.status : 500
+          const message = typeof obj.message === 'string' ? obj.message : '생성에 실패했습니다.'
+          throw new ApiError(message, status, obj)
+        }
+        if (obj.type === 'complete' && obj.doc) {
+          return {
+            doc: obj.doc as QuoteDoc,
+            totals: (obj.totals as Record<string, number>) || {},
+            id: String(obj.id ?? ''),
+          }
         }
       }
     }
+  } catch (e) {
+    // 스트림 파싱/연결 문제 시 1회 JSON 폴백
+    if (e instanceof TypeError) {
+      return runFallbackJson()
+    }
+    throw e
   }
 
-  throw new ApiError(
-    '생성 응답이 끝나기 전에 연결이 끊겼습니다. 네트워크·VPN을 확인하거나 잠시 후 다시 시도해 주세요.',
-    500,
-  )
+  return runFallbackJson().catch(() => {
+    throw new ApiError(
+      '생성 응답이 끝나기 전에 연결이 끊겼습니다. 네트워크·VPN을 확인하거나 잠시 후 다시 시도해 주세요.',
+      500,
+    )
+  })
 }
 

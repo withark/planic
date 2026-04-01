@@ -113,9 +113,9 @@ function EstimateGeneratorContent() {
 
   const modes: WizardMode[] = useMemo(
     () => [
-      { id: 'fromTopic', title: '주제만 입력', desc: '행사 주제와 예산 범위만으로 빠르게 초안을 만듭니다.' },
+      { id: 'fromTopic', title: '주제만 입력', desc: '행사 주제와 예산 범위만으로 빠르게 견적서를 생성합니다.' },
       { id: 'fromReferenceStyle', title: '참고 견적서 스타일', desc: '기존 견적 문체와 항목 구조를 최대한 반영합니다.' },
-      { id: 'fromTaskOrder', title: '과업지시서 기준', desc: '요구사항 문서를 바탕으로 바로 견적 초안을 뽑습니다.' },
+      { id: 'fromTaskOrder', title: '과업지시서 기준', desc: '요구사항 문서를 바탕으로 바로 견적서를 생성합니다.' },
       { id: 'fromEstimate', title: '저장된 견적서 기준', desc: '기존 문서를 토대로 비슷한 유형의 견적을 재작성합니다.' },
     ],
     [],
@@ -425,9 +425,9 @@ function EstimateGeneratorContent() {
   const selectedModeMeta = useMemo(() => modes.find((m) => m.id === sourceMode) ?? null, [modes, sourceMode])
   const objectiveByMode = useMemo(() => {
     if (sourceMode === 'fromEstimate') return '기존 견적을 기반으로 빠르게 재작성'
-    if (sourceMode === 'fromTaskOrder') return '과업지시서 요구사항 중심으로 초안 구성'
+    if (sourceMode === 'fromTaskOrder') return '과업지시서 요구사항 중심으로 견적서 구성'
     if (sourceMode === 'fromReferenceStyle') return '활성 참고 견적의 문체/구조를 반영해 생성'
-    return '주제 중심으로 가장 빠르게 견적 초안 생성'
+    return '주제 중심으로 가장 빠르게 견적서 생성'
   }, [sourceMode])
   const readinessText = generateDisabled ? validationMessage || '필수 입력을 확인해 주세요.' : '생성 준비 완료'
   const readinessToneClass = generateDisabled ? 'text-amber-800' : 'text-emerald-700'
@@ -445,7 +445,7 @@ function EstimateGeneratorContent() {
       return validationMessage || '핵심 정보를 입력해 생성 준비를 완료하세요.'
     }
     if (!completion.step3Done) {
-      return '견적 초안 생성 버튼을 눌러 결과를 확인하세요.'
+      return '견적서 생성 버튼을 눌러 결과를 확인하세요.'
     }
     return '결과 문서를 검토하고 저장 또는 다운로드하세요.'
   }, [completion.step2Done, completion.step3Done, validationMessage])
@@ -525,8 +525,8 @@ function EstimateGeneratorContent() {
       <div className="flex-1 flex flex-col overflow-hidden">
         <header className="flex flex-wrap items-start justify-between gap-4 border-b border-slate-200 bg-white/90 px-6 py-5 flex-shrink-0">
           <div>
-            <h1 className="text-xl font-semibold tracking-tight text-slate-900">견적서 만들기</h1>
-            <p className="mt-1 text-sm leading-6 text-slate-600">주제와 예산만 입력하면 바로 견적 초안을 만듭니다.</p>
+            <h1 className="text-xl font-semibold tracking-tight text-slate-900">견적서 생성하기</h1>
+            <p className="mt-1 text-sm leading-6 text-slate-600">주제와 예산만 입력하면 바로 견적서를 생성합니다.</p>
             <p className="mt-1 text-xs text-slate-500">{planFeatureHint}</p>
             {me ? (
               <p className="mt-1 text-xs text-slate-500">
@@ -561,7 +561,7 @@ function EstimateGeneratorContent() {
 
         <div className="flex-1 overflow-y-auto p-6 space-y-6">
           <SimpleGeneratorWizard
-            title="견적서 만들기"
+            title="견적서 생성하기"
             subtitle="필수 정보만 입력하고 바로 생성하세요."
             highlights={wizardHighlights}
             collapsibleHighlights
@@ -649,14 +649,14 @@ function EstimateGeneratorContent() {
                 topicInputs
               )
             }
-            generateLabel="견적 초안 만들기"
+            generateLabel="견적서 생성하기"
             onGenerate={handleGenerateEstimate}
             generating={generating}
             generationProgressLabel={generationProgressLabel}
             generateDisabled={generateDisabled}
             validationMessage={validationMessage}
             showValidationBanner
-            step2ActionLabel="견적 초안 생성으로 이동"
+            step2ActionLabel="견적서 생성으로 이동"
           />
 
           {doc && generatedDocId ? (

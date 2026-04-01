@@ -31,7 +31,7 @@ async function authenticateFromProtectedRoute(page: Page, protectedPath: string)
 test.describe('authenticated generation flow', () => {
   test('protected estimate route returns after auth', async ({ page }) => {
     await authenticateFromProtectedRoute(page, '/estimate-generator')
-    await expect(page.getByRole('heading', { name: '견적서 만들기' })).toBeVisible()
+    await expect(page.getByRole('heading', { name: '견적서 생성하기' })).toBeVisible()
     await expect(page.getByRole('button', { name: '견적 생성' })).toBeVisible()
   })
 

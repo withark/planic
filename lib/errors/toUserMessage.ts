@@ -20,6 +20,25 @@ export function toUserMessage(input: unknown, fallback = '요청을 처리하지
   const classify = (raw: string): string | null => {
     const lowered = raw.toLowerCase()
     if (
+      lowered.includes('failed to fetch') ||
+      lowered.includes('networkerror') ||
+      lowered.includes('load failed') ||
+      lowered.includes('fetch failed') ||
+      lowered.includes('network request failed') ||
+      lowered.includes('net::err_') ||
+      lowered.includes('econnreset') ||
+      lowered.includes('connection reset')
+    ) {
+      return '서버 연결이 불안정합니다. 네트워크/VPN 상태를 확인한 뒤 다시 시도해 주세요.'
+    }
+    if (
+      lowered.includes('aborterror') ||
+      lowered.includes('the user aborted a request') ||
+      lowered.includes('signal is aborted')
+    ) {
+      return '요청이 중단되었습니다. 잠시 후 다시 시도해 주세요.'
+    }
+    if (
       lowered.includes('insufficient credit') ||
       lowered.includes('credit balance is too low') ||
       lowered.includes('insufficient_quota') ||
