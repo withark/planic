@@ -4,13 +4,47 @@ import { okResponse, errorResponse } from '@/lib/api/response'
 import { getEnv } from '@/lib/env'
 import { getEffectiveEngineConfig } from '@/lib/ai/client'
 import { isAiModeMockRaw, isEffectiveMockAi, isMockGenerationEnabled, isProductionRuntime } from '@/lib/ai/mode'
-import { resolveAnthropicFinalModel } from '@/lib/ai/config'
+import { isHybridPipelineModeEnabled, resolveAnthropicFinalModel } from '@/lib/ai/config'
 import { clampEngineMaxTokens } from '@/lib/ai/generate-config'
+import { getHybridPipelineEngines } from '@/lib/ai/hybrid-pipeline'
 
 export const dynamic = 'force-dynamic'
 
 const REALTIME_ANTHROPIC_MODEL_DEFAULT = resolveAnthropicFinalModel()
 const REALTIME_MAX_TOKENS_DEFAULT = 6_144
+
+function resolveHybridStatus(env: ReturnType<typeof getEnv>) {
+  const modeEnabled = isHybridPipelineModeEnabled()
+  const hasOpenAI = !!env.OPENAI_API_KEY?.trim()
+  const hasAnthropic = !!env.ANTHROPIC_API_KEY?.trim()
+  const engines = getHybridPipelineEngines(undefined)
+  const enabled = engines != null
+
+  let reason: string | null = null
+  if (!enabled) {
+    if (!modeEnabled) {
+      reason = 'AI_MODE/AI_PIPELINE_MODE 또는 AI_ENABLE_HYBRID 설정으로 하이브리드가 비활성화됨'
+    } else if (!hasOpenAI || !hasAnthropic) {
+      reason = 'OpenAI/Anthropic API 키가 모두 필요함'
+    } else {
+      reason = '하이브리드 엔진 구성 실패'
+    }
+  }
+
+  return {
+    enabled,
+    reason,
+    draftProvider: engines?.draft.provider ?? null,
+    draftModel: engines?.draft.model ?? null,
+    refineProvider: engines?.refine.provider ?? null,
+    refineModel: engines?.refine.model ?? null,
+    modeEnabled,
+    prerequisites: {
+      openaiKey: hasOpenAI,
+      anthropicKey: hasAnthropic,
+    },
+  }
+}
 
 function parsePositiveInt(value: string | undefined, fallback: number): number {
   const n = Number.parseInt(String(value ?? ''), 10)
@@ -30,6 +64,7 @@ export async function GET(req: NextRequest) {
   try {
     const env = getEnv()
     const effRaw = await getEffectiveEngineConfig()
+    const hybrid = resolveHybridStatus(env)
     const realtimeTokenCap = parsePositiveInt(process.env.AI_REALTIME_MAX_TOKENS, REALTIME_MAX_TOKENS_DEFAULT)
     const eff =
       effRaw.provider === 'anthropic'
@@ -100,6 +135,7 @@ export async function GET(req: NextRequest) {
         anthropicConfigured: !!env.ANTHROPIC_API_KEY,
         openaiConfigured: !!env.OPENAI_API_KEY,
       },
+      hybrid,
       summaryKo,
     })
   } catch {

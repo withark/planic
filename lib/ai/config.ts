@@ -41,6 +41,8 @@ export function isHybridPipelineModeEnabled(): boolean {
   const legacy = (env.AI_PIPELINE_MODE || '').trim().toLowerCase()
   if (legacy === 'off' || legacy === 'single' || legacy === 'legacy') return false
   if (mode === 'off' || mode === 'single') return false
+  // 레거시/운영 환경에서 "real/live/production" 값을 쓰던 설정과의 호환.
+  if (mode === 'real' || mode === 'live' || mode === 'production' || mode === 'prod') return true
   // AI_MODE 미설정 → 레거시: 파이프라인 모드만으로 판단
   if (!mode) return true
   return mode === 'hybrid'
