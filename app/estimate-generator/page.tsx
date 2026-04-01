@@ -13,7 +13,7 @@ import { LoadingState } from '@/components/ui/AsyncState'
 import { ESTIMATE_BUDGET_OPTIONS } from '@/lib/estimate-budget-options'
 import { exportToExcel } from '@/lib/exportExcel'
 import { exportToPdf } from '@/lib/exportPdf'
-import type { PlanType } from '@/lib/plans'
+import { isPaidPlan, type PlanType } from '@/lib/plans'
 
 type MeLite = {
   subscription: { planType: PlanType }
@@ -121,10 +121,14 @@ function EstimateGeneratorContent() {
     [],
   )
   const wizardHighlights: WizardHighlight[] = useMemo(() => [], [])
+  const isAdvancedModeAvailable = useMemo(() => isPaidPlan(me?.subscription?.planType ?? 'FREE'), [me?.subscription?.planType])
+  const planFeatureHint = isAdvancedModeAvailable
+    ? '현재 플랜: 기본 + 고급 방식 사용 가능'
+    : '현재 플랜: 기본 방식만 사용 가능 (고급 방식은 베이직 이상)'
   const modesForWizard = useMemo(() => {
-    if (showAdvancedModes || sourceMode !== 'fromTopic') return modes
+    if (isAdvancedModeAvailable && (showAdvancedModes || sourceMode !== 'fromTopic')) return modes
     return [modes[0]]
-  }, [modes, showAdvancedModes, sourceMode])
+  }, [modes, showAdvancedModes, sourceMode, isAdvancedModeAvailable])
 
   useEffect(() => {
     apiFetch<MeLite>('/api/me').then(setMe).catch(() => {})
@@ -219,6 +223,16 @@ function EstimateGeneratorContent() {
       setSelectedTaskOrderId(null)
     }
   }, [sourceMode])
+
+  useEffect(() => {
+    if (isAdvancedModeAvailable) return
+    if (sourceMode !== 'fromTopic') {
+      setSourceMode('fromTopic')
+    }
+    if (showAdvancedModes) {
+      setShowAdvancedModes(false)
+    }
+  }, [isAdvancedModeAvailable, showAdvancedModes, sourceMode])
 
   const resolveStyleModeForRequest = useCallback((): StyleMode => {
     if (sourceMode === 'fromReferenceStyle') return 'userStyle'
@@ -513,21 +527,24 @@ function EstimateGeneratorContent() {
           <div>
             <h1 className="text-xl font-semibold tracking-tight text-slate-900">견적서 만들기</h1>
             <p className="mt-1 text-sm leading-6 text-slate-600">주제와 예산만 입력하면 바로 견적 초안을 만듭니다.</p>
+            <p className="mt-1 text-xs text-slate-500">{planFeatureHint}</p>
           </div>
           <div className="flex items-center gap-2">
-            <button
-              type="button"
-              onClick={() => {
-                const next = !showAdvancedModes
-                setShowAdvancedModes(next)
-                if (!next && sourceMode !== 'fromTopic') {
-                  setSourceMode('fromTopic')
-                }
-              }}
-              className="rounded-xl border border-slate-200 bg-white px-3 py-1.5 text-sm font-semibold text-slate-700 hover:bg-slate-50"
-            >
-              {showAdvancedModes ? '고급 방식 숨기기' : '고급 방식 보기'}
-            </button>
+            {isAdvancedModeAvailable ? (
+              <button
+                type="button"
+                onClick={() => {
+                  const next = !showAdvancedModes
+                  setShowAdvancedModes(next)
+                  if (!next && sourceMode !== 'fromTopic') {
+                    setSourceMode('fromTopic')
+                  }
+                }}
+                className="rounded-xl border border-slate-200 bg-white px-3 py-1.5 text-sm font-semibold text-slate-700 hover:bg-slate-50"
+              >
+                {showAdvancedModes ? '고급 방식 숨기기' : '고급 방식 보기'}
+              </button>
+            ) : null}
             {me?.subscription?.planType === 'FREE' && (
               <span className="rounded-xl border border-amber-200 bg-amber-50 px-3 py-1.5 text-sm font-semibold text-amber-700">무료</span>
             )}

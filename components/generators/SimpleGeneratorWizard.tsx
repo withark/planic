@@ -291,12 +291,7 @@ export default function SimpleGeneratorWizard({
                       {active ? <span className="h-1.5 w-1.5 rounded-full bg-white" /> : null}
                     </span>
                   </div>
-                  {m.desc ? (
-                    <div className={clsx('mt-2 text-sm leading-5', active ? 'text-slate-700' : 'text-slate-500')}>
-                      <span className={clsx('mr-1 font-semibold', active ? 'text-primary-700' : 'text-slate-600')}>이럴 때 사용:</span>
-                      {m.desc}
-                    </div>
-                  ) : null}
+                  {m.desc ? <div className={clsx('mt-2 text-sm leading-5', active ? 'text-slate-600' : 'text-slate-500')}>{m.desc}</div> : null}
                 </button>
               )
             })}

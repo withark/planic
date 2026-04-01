@@ -37,7 +37,7 @@ function desktopLinkClass(isActive: boolean, cta: boolean) {
     return `whitespace-nowrap rounded-full border px-3.5 py-2 text-sm font-semibold leading-none transition-colors ${focus} ${
       isActive
         ? 'border-primary-300 bg-primary-100 text-primary-800 shadow-sm'
-        : 'border-primary-200/90 bg-primary-50 text-primary-700 hover:border-primary-300 hover:bg-primary-100'
+        : 'border-slate-200 bg-white text-slate-700 hover:border-slate-300 hover:bg-slate-50 hover:text-primary-600'
     }`
   }
   return `whitespace-nowrap rounded-lg px-2.5 py-2 text-sm font-medium leading-none transition-colors ${focus} ${
@@ -54,7 +54,7 @@ function mobileLinkClass(isActive: boolean, cta: boolean) {
     return `block w-full rounded-xl border px-4 py-3 text-left text-sm font-semibold transition-colors ${focus} ${
       isActive
         ? 'border-primary-300 bg-primary-100 text-primary-800'
-        : 'border-primary-200 bg-primary-50 text-primary-700 hover:bg-primary-100'
+        : 'border-slate-200 bg-white text-slate-700 hover:border-slate-300 hover:bg-slate-50 hover:text-primary-600'
     }`
   }
   return `block w-full rounded-xl px-4 py-3 text-left text-sm font-medium transition-colors ${focus} ${
