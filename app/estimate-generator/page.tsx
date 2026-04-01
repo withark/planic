@@ -660,12 +660,12 @@ function EstimateGeneratorContent() {
           />
 
           {doc && generatedDocId ? (
-            <section className="rounded-2xl border border-gray-100 bg-white shadow-card overflow-hidden">
+            <section className="rounded-2xl border border-gray-100 bg-white shadow-card">
               <div className="p-4 border-b border-gray-100 bg-slate-50/50">
                 <div className="text-base font-semibold text-gray-900">견적 결과</div>
                 <div className="text-sm text-gray-600 mt-1">생성 후 내용을 편집하고 저장하세요.</div>
               </div>
-              <div className="h-[calc(100vh-220px)] min-h-[420px]">
+              <div>
                 <QuoteResult
                   doc={doc}
                   docId={generatedDocId}
@@ -682,6 +682,7 @@ function EstimateGeneratorContent() {
                   showTabButtons={false}
                   disableAutoGenerate
                   hideOnDemandGenerate
+                  disableInternalScroll
                   onExcel={async (view) => {
                     try {
                       await exportToExcel(doc, companySettings ?? undefined, view)

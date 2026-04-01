@@ -63,6 +63,8 @@ interface Props {
   hideOnDemandGenerate?: boolean
   /** 큐시트(operational rows) 편집/표시를 켤지 여부 */
   showCueSheetEditor?: boolean
+  /** true면 컴포넌트 내부 스크롤을 끄고 문서를 전체 높이로 노출 */
+  disableInternalScroll?: boolean
 }
 
 function isProgramProposalReady(doc: QuoteDoc) {
@@ -186,6 +188,7 @@ export function QuoteResult({
   disableAutoGenerate = false,
   hideOnDemandGenerate = false,
   showCueSheetEditor = false,
+  disableInternalScroll = false,
 }: Props) {
   const initial = visibleTabs.includes(initialTab) ? initialTab : 'estimate'
   const [tab, setTab] = useState<DocTab>(initial)
@@ -355,8 +358,13 @@ export function QuoteResult({
   // scenario는 현재 UI에서 편집하지 않습니다(향후 기본 견적 흐름에서 활용).
 
   return (
-    <div className="flex flex-col h-full overflow-hidden">
-      <div className="sticky top-0 z-10 flex-shrink-0 border-b border-slate-200/80 bg-white/95 shadow-sm backdrop-blur">
+    <div className={clsx('flex flex-col', !disableInternalScroll && 'h-full overflow-hidden')}>
+      <div
+        className={clsx(
+          'z-10 flex-shrink-0 border-b border-slate-200/80 bg-white/95 shadow-sm backdrop-blur',
+          !disableInternalScroll && 'sticky top-0',
+        )}
+      >
         <div className="flex flex-wrap items-start justify-between gap-3 px-4 py-3">
           {showTabButtons && (
             <div className="flex flex-wrap gap-1.5">
@@ -535,7 +543,7 @@ export function QuoteResult({
         </div>
       )}
 
-      <div className="flex-1 overflow-y-auto p-4 pb-20">
+      <div className={clsx('p-4 pb-20', !disableInternalScroll && 'flex-1 overflow-y-auto')}>
         {tab === 'estimate' && (() => {
           const templateId = (doc.quoteTemplate || 'default') as QuoteTemplateId
           return (
