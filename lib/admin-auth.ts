@@ -69,9 +69,15 @@ export async function setStoredAdminHash(hash: string): Promise<void> {
 export async function verifyAdmin(username: string, password: string): Promise<boolean> {
   if (username !== ADMIN_USER || !password) return false
   const stored = await getStoredAdminHash()
-  if (!stored) return false
   const isStoredMatch = stored ? verifyPassword(password, stored) : false
   if (isStoredMatch) {
+    if (isProductionRuntime() && isWeakAdminPassword(password)) return false
+    return true
+  }
+  // Backward compatibility: allow ADMIN_PASSWORD-based login when set.
+  // This keeps old deployments working while DB hash migration is completed.
+  const legacyPassword = (process.env.ADMIN_PASSWORD || '').trim()
+  if (legacyPassword && password === legacyPassword) {
     if (isProductionRuntime() && isWeakAdminPassword(password)) return false
     return true
   }
