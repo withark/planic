@@ -11,6 +11,12 @@ export function shouldSkipDocumentRefinementPass(_input: GenerateInput, draftJso
   skip: boolean
   reason?: string
 } {
+  const profile = _input.generationProfile ?? 'realtime'
+  const target = _input.documentTarget ?? 'estimate'
+  // 실시간 견적 생성은 체감 속도를 우선합니다.
+  if (profile === 'realtime' && target === 'estimate') {
+    return { skip: true, reason: 'realtime_estimate_fastpath' }
+  }
   if (readEnvBool('AI_HYBRID_DOCUMENT_REFINE_SKIP', false)) {
     return { skip: true, reason: 'AI_HYBRID_DOCUMENT_REFINE_SKIP' }
   }
@@ -28,6 +34,7 @@ export async function runDocumentRefinementPass(params: {
   input: GenerateInput
   draftJsonText: string
   engine: EffectiveEngineConfig
+  timeoutMs?: number
 }): Promise<{ text: string; usage?: LLMUsage; latencyMs: number }> {
   const capped =
     params.draftJsonText.length > DRAFT_JSON_REFINE_CAP
@@ -37,7 +44,7 @@ export async function runDocumentRefinementPass(params: {
   const maxTokens = resolveGenerateMaxTokens(params.engine.maxTokens, params.engine.provider)
   return refineDocument(prompt, params.engine, {
     maxTokens,
-    timeoutMs: 90_000,
+    timeoutMs: params.timeoutMs ?? 90_000,
     pipelineStage: 'document_refine',
   })
 }

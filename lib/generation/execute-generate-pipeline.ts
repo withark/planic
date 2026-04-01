@@ -96,7 +96,7 @@ export type ExecuteGeneratePipelineResult = {
 }
 
 const REALTIME_ANTHROPIC_MODEL_DEFAULT = resolveAnthropicFinalModel()
-const REALTIME_MAX_TOKENS_DEFAULT = 6_144
+const REALTIME_MAX_TOKENS_DEFAULT = 4_096
 
 function parsePositiveInt(value: string | undefined, fallback: number): number {
   const n = Number.parseInt(String(value ?? ''), 10)

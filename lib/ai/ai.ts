@@ -133,6 +133,33 @@ program.cueRows의 각 row에서 time/content/staff/prep/script/special은 비�
 [재시도 지시] markdown·설명 없이 완전한 단일 JSON 객체만 출력하세요. scenario.summaryTop은 비어 있으면 안 됩니다.`
 }
 
+function parseEnvPositiveInt(name: string, fallback: number): number {
+  const raw = (process.env[name] || '').trim()
+  const n = Number.parseInt(raw, 10)
+  if (!Number.isFinite(n) || n <= 0) return fallback
+  return n
+}
+
+function resolveRealtimeTotalBudgetMs(): number {
+  const raw = parseEnvPositiveInt('AI_REALTIME_TOTAL_BUDGET_MS', 55_000)
+  return Math.min(90_000, Math.max(30_000, raw))
+}
+
+function resolveRealtimeDraftTimeoutMs(): number {
+  return Math.min(45_000, Math.max(12_000, parseEnvPositiveInt('AI_REALTIME_DRAFT_TIMEOUT_MS', 28_000)))
+}
+
+function resolveRealtimeDocumentRefineTimeoutMs(): number {
+  return Math.min(
+    35_000,
+    Math.max(10_000, parseEnvPositiveInt('AI_REALTIME_DOCUMENT_REFINE_TIMEOUT_MS', 18_000)),
+  )
+}
+
+function resolveRealtimeRepairTimeoutMs(): number {
+  return Math.min(30_000, Math.max(10_000, parseEnvPositiveInt('AI_REALTIME_REPAIR_TIMEOUT_MS', 16_000)))
+}
+
 type GenerationEventCategory =
   | 'sports'
   | 'corporate'
@@ -2272,6 +2299,17 @@ export async function generateQuoteWithMeta(input: GenerateInput): Promise<{ doc
     stageBrief,
     stageStructurePlan,
   }
+  const generationProfile = input.generationProfile ?? 'realtime'
+  const isRealtimeProfile = generationProfile === 'realtime'
+  const realtimeTotalBudgetMs = isRealtimeProfile ? resolveRealtimeTotalBudgetMs() : Number.POSITIVE_INFINITY
+  const realtimeStartedAt = Date.now()
+  const realtimeRemainingMs = () => realtimeTotalBudgetMs - (Date.now() - realtimeStartedAt)
+  const pickRealtimeTimeout = (baseMs: number, floorMs: number): number | null => {
+    if (!isRealtimeProfile) return baseMs
+    const room = realtimeRemainingMs() - 3_000
+    if (room < floorMs) return null
+    return Math.max(floorMs, Math.min(baseMs, room))
+  }
   const promptStart = Date.now()
   input.pipelineEmit?.({ stage: 'prompt', label: '프롬프트 구성 중' })
   const prompt = buildGeneratePrompt(stagedInput)
@@ -2305,9 +2343,16 @@ export async function generateQuoteWithMeta(input: GenerateInput): Promise<{ doc
 
   async function runOnce(extra = '', kind: 'primary' | 'retry'): Promise<string> {
     try {
+      const draftTimeoutMs = pickRealtimeTimeout(resolveRealtimeDraftTimeoutMs(), 12_000)
+      if (draftTimeoutMs == null) {
+        const err = new Error('realtime budget exhausted before draft') as Error & { timedOut?: boolean; code?: string }
+        err.timedOut = true
+        err.code = 'ETIMEDOUT'
+        throw err
+      }
       const { text, usage, latencyMs } = await callLLMWithUsage(prompt + extra, {
         maxTokens: resolveDraftMaxOut(),
-        timeoutMs: 90_000,
+        timeoutMs: draftTimeoutMs,
         engine: draftEff,
         pipelineStage: kind === 'primary' ? 'draft_primary' : 'draft_retry',
       })
@@ -2363,12 +2408,22 @@ export async function generateQuoteWithMeta(input: GenerateInput): Promise<{ doc
       documentRefineSkipReason = sk.reason
       return jsonTextIn
     }
+    if (isRealtimeProfile && realtimeRemainingMs() < 14_000) {
+      documentRefineSkipReason = 'realtime_budget_low'
+      return jsonTextIn
+    }
+    const documentRefineTimeoutMs = pickRealtimeTimeout(resolveRealtimeDocumentRefineTimeoutMs(), 10_000)
+    if (documentRefineTimeoutMs == null) {
+      documentRefineSkipReason = 'realtime_budget_low'
+      return jsonTextIn
+    }
     input.pipelineEmit?.({ stage: 'polish', label: '문장·톤 다듬는 중' })
     try {
       const refined = await runDocumentRefinementPass({
         input: stagedInput,
         draftJsonText: jsonTextIn,
         engine: refineEff,
+        timeoutMs: documentRefineTimeoutMs,
       })
       llmDocumentRefineMs += refined.latencyMs
       documentRefineUsage = refined.usage
@@ -2450,7 +2505,6 @@ export async function generateQuoteWithMeta(input: GenerateInput): Promise<{ doc
   let strictQualityBypassed = false
   let repairAttempts = 0
   const repairFocusHistory: RepairFocus[] = []
-  const generationProfile = input.generationProfile ?? 'realtime'
   const strictQualityTarget =
     target !== 'estimate' || qualityIssues.some((issue) => /0 이하|예산 상한 대비|카테고리.*미만|항목 수가 부족/.test(issue))
   const skipRefine = readEnvBool('AI_ENABLE_REFINE_SKIP', false)
@@ -2461,18 +2515,10 @@ export async function generateQuoteWithMeta(input: GenerateInput): Promise<{ doc
       let bestDoc = doc
       let bestIssues = qualityIssues
       let bestScore = scoreQualityIssues(bestIssues)
-      const maxRepairAttempts =
-        generationProfile === 'realtime'
-          ? strictQualityTarget
-            ? qualityIssues.length >= 3
-              ? 3
-              : 2
-            : 1
-          : strictQualityTarget
-            ? 3
-            : 2
+      const maxRepairAttempts = generationProfile === 'realtime' ? 1 : strictQualityTarget ? 3 : 2
 
       for (let attempt = 0; attempt < maxRepairAttempts; attempt++) {
+        if (isRealtimeProfile && realtimeRemainingMs() < 12_000) break
         const strict = strictQualityTarget && attempt >= 1
         const issuesForPrompt = prioritizeQualityIssues(bestIssues).slice(0, 8)
         const focus = pickRepairFocus(issuesForPrompt, attempt)
@@ -2485,9 +2531,11 @@ export async function generateQuoteWithMeta(input: GenerateInput): Promise<{ doc
         try {
           const repairEngine = refineEff ?? eff
           const repairMax = resolveGenerateMaxTokens(repairEngine.maxTokens, repairEngine.provider)
+          const repairTimeoutMs = pickRealtimeTimeout(resolveRealtimeRepairTimeoutMs(), 10_000)
+          if (repairTimeoutMs == null) break
           const { text: refinedText, usage: repairU, latencyMs: repairMs } = await callLLMWithUsage(repairPrompt, {
             maxTokens: repairMax,
-            timeoutMs: 90_000,
+            timeoutMs: repairTimeoutMs,
             engine: repairEngine,
             pipelineStage: 'quality_repair',
           })
