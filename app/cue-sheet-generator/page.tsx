@@ -230,16 +230,19 @@ export default function CueSheetGeneratorPage() {
           )}
         </header>
 
-        <div className="flex-1 overflow-y-auto p-6 space-y-6">
+        <div className="flex-1 overflow-hidden p-6">
           {isCuesheetLocked ? (
-            <PlanLockedNotice
-              title="큐시트는 베이직부터 사용할 수 있어요."
-              message="무료 플랜에서는 기본 문서를 먼저 생성할 수 있습니다. 베이직 이상에서 큐시트 생성과 운영 워크플로우를 사용할 수 있습니다."
-              ctaLabel="베이직으로 업그레이드"
-            />
-          ) : null}
-          {!isCuesheetLocked ? (
-          <SimpleGeneratorWizard
+            <div className="h-full overflow-y-auto">
+              <PlanLockedNotice
+                title="큐시트는 베이직부터 사용할 수 있어요."
+                message="무료 플랜에서는 기본 문서를 먼저 생성할 수 있습니다. 베이직 이상에서 큐시트 생성과 운영 워크플로우를 사용할 수 있습니다."
+                ctaLabel="베이직으로 업그레이드"
+              />
+            </div>
+          ) : (
+            <div className="grid h-full gap-6 lg:grid-cols-[minmax(420px,520px)_minmax(0,1fr)]">
+              <section className="min-h-0 overflow-y-auto rounded-2xl border border-slate-200 bg-white p-4 shadow-sm">
+                <SimpleGeneratorWizard
             title="큐시트 만들기"
             subtitle="시간, 담당자, 준비물, 멘트 큐를 한 번에 정리해 바로 현장 공유가 가능하도록 구성했습니다."
             highlights={wizardHighlights}
@@ -349,19 +352,19 @@ export default function CueSheetGeneratorPage() {
             generationProgressLabel={generationProgressLabel}
             generateDisabled={generateDisabled}
             validationMessage={validationMessage}
-          />
-          ) : null}
+                />
+              </section>
 
-          {!isCuesheetLocked && doc && generatedDocId ? (
-            <section className="rounded-2xl border border-gray-100 bg-white shadow-card overflow-hidden">
-              <div className="p-4 border-b border-gray-100 bg-slate-50/50 flex items-center justify-between gap-4 flex-wrap">
-                <div>
-                  <div className="text-sm font-semibold text-gray-900">큐시트 결과</div>
-                  <div className="text-xs text-gray-500 mt-1">아래에서 cueRows를 편집하세요.</div>
-                </div>
-              </div>
-              <div className="h-[calc(100vh-290px)] min-h-[420px]">
-                <QuoteResult
+              {doc && generatedDocId ? (
+                <section className="flex min-h-0 flex-col overflow-hidden rounded-2xl border border-gray-100 bg-white shadow-card">
+                  <div className="flex flex-wrap items-center justify-between gap-4 border-b border-gray-100 bg-slate-50/50 p-4">
+                    <div>
+                      <div className="text-sm font-semibold text-gray-900">큐시트 결과</div>
+                      <div className="mt-1 text-xs text-gray-500">아래에서 cueRows를 편집하세요.</div>
+                    </div>
+                  </div>
+                  <div className="min-h-0 flex-1">
+                    <QuoteResult
                   doc={doc}
                   docId={generatedDocId}
                   onSaveDoc={handleSaveDoc}
@@ -398,17 +401,19 @@ export default function CueSheetGeneratorPage() {
                       showToast(toUserMessage(e, '저장 실패'))
                     }
                   }}
-                />
-              </div>
-            </section>
-          ) : !isCuesheetLocked ? (
-            <section className="rounded-2xl border border-dashed border-gray-200 bg-white p-8 text-center">
-              <div className="text-sm font-semibold text-gray-900">입력 후 생성하세요</div>
-              <div className="text-xs text-gray-500 mt-2">
-                {sourceMode === 'fromTopic' ? '주제와 목표만 있으면 됩니다' : '소스를 선택하세요'}
-              </div>
-            </section>
-          ) : null}
+                    />
+                  </div>
+                </section>
+              ) : (
+                <section className="min-h-0 overflow-y-auto rounded-2xl border border-dashed border-gray-200 bg-white p-8 text-center">
+                  <div className="text-sm font-semibold text-gray-900">입력 후 생성하세요</div>
+                  <div className="mt-2 text-xs text-gray-500">
+                    {sourceMode === 'fromTopic' ? '주제와 목표만 있으면 됩니다' : '소스를 선택하세요'}
+                  </div>
+                </section>
+              )}
+            </div>
+          )}
         </div>
       </div>
 

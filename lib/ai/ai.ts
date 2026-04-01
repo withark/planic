@@ -1145,9 +1145,9 @@ function fillWeakOutputs(doc: QuoteDoc, input: GenerateInput): QuoteDoc {
     const budgetCeiling = parseBudgetCeilingKRW(input.budget || '').ceilingKRW
     if (budgetCeiling && !/예산 적합|예산 초과|예산 불일치|최소 운영 범위/.test(doc.notes || '')) {
       if (totalAmount > budgetCeiling) {
-        doc.notes = `${doc.notes}\n예산 불일치: 현재 총액 ${totalAmount.toLocaleString('ko-KR')}원은 예산 상한 ${budgetCeiling.toLocaleString('ko-KR')}원을 초과합니다. 최소 운영 범위를 유지하려면 선택 항목/수량 조정이 필요합니다.`
+        doc.notes = `${doc.notes}\n예산 불일치: 현재 초안 총액 ${totalAmount.toLocaleString('ko-KR')}원은 예산 상한 ${budgetCeiling.toLocaleString('ko-KR')}원을 초과합니다. 최소 운영 범위를 유지하려면 선택 항목/수량 조정이 필요합니다.`
       } else {
-        doc.notes = `${doc.notes}\n예산 적합: 현재 총액 ${totalAmount.toLocaleString('ko-KR')}원은 예산 상한 ${budgetCeiling.toLocaleString('ko-KR')}원 범위 내에서 구성되었습니다.`
+        doc.notes = `${doc.notes}\n예산 적합: 현재 초안 총액 ${totalAmount.toLocaleString('ko-KR')}원은 예산 상한 ${budgetCeiling.toLocaleString('ko-KR')}원 범위 내에서 구성되었습니다.`
       }
     }
   }
@@ -1332,7 +1332,17 @@ function fillWeakOutputs(doc: QuoteDoc, input: GenerateInput): QuoteDoc {
       '자료/산출물 체크: 프로그램표, 큐시트, 결과 공유 문안 최신본 동기화',
       '종료 전 체크: 마무리 멘트, 장비 회수, 촬영 종료, 클라이언트 후속 안내 순서 확정',
     ]
-    if (checklist.length < 8 || checklist.some(it => isBlankish(it))) p.checklist = baseChecklist.slice(0, 9)
+    const normalizedChecklist = checklist.map((it) => String(it || '').trim()).filter((it) => !isBlankish(it))
+    if (normalizedChecklist.length < 8) {
+      const merged = [...normalizedChecklist]
+      for (const item of baseChecklist) {
+        if (merged.length >= 9) break
+        if (!merged.includes(item)) merged.push(item)
+      }
+      p.checklist = merged
+    } else {
+      p.checklist = normalizedChecklist.slice(0, 12)
+    }
   }
 
   // ───────── scenario ─────────
@@ -2267,6 +2277,7 @@ export async function generateQuoteWithMeta(input: GenerateInput): Promise<{ doc
     )
   const stageBrief = buildStageBrief(input)
   const stageStructurePlan = buildStageStructurePlan(input, stageBrief)
+  const generationProfile = input.generationProfile ?? 'realtime'
   const stagedInput: GenerateInput = {
     ...input,
     stageBrief,
@@ -2305,9 +2316,10 @@ export async function generateQuoteWithMeta(input: GenerateInput): Promise<{ doc
 
   async function runOnce(extra = '', kind: 'primary' | 'retry'): Promise<string> {
     try {
+      const draftTimeoutMs = generationProfile === 'realtime' ? 60_000 : 90_000
       const { text, usage, latencyMs } = await callLLMWithUsage(prompt + extra, {
         maxTokens: resolveDraftMaxOut(),
-        timeoutMs: 90_000,
+        timeoutMs: draftTimeoutMs,
         engine: draftEff,
         pipelineStage: kind === 'primary' ? 'draft_primary' : 'draft_retry',
       })
@@ -2361,6 +2373,11 @@ export async function generateQuoteWithMeta(input: GenerateInput): Promise<{ doc
     const sk = shouldSkipDocumentRefinementPass(input, jsonTextIn)
     if (sk.skip) {
       documentRefineSkipReason = sk.reason
+      return jsonTextIn
+    }
+    if (generationProfile === 'realtime' && (input.documentTarget ?? 'estimate') !== 'estimate') {
+      // 실시간 경로에서는 문장 polish 단계를 생략하고 품질 리페어 1회로 수렴해 지연을 줄입니다.
+      documentRefineSkipReason = 'realtime_speed_policy'
       return jsonTextIn
     }
     input.pipelineEmit?.({ stage: 'polish', label: '문장·톤 다듬는 중' })
@@ -2450,7 +2467,6 @@ export async function generateQuoteWithMeta(input: GenerateInput): Promise<{ doc
   let strictQualityBypassed = false
   let repairAttempts = 0
   const repairFocusHistory: RepairFocus[] = []
-  const generationProfile = input.generationProfile ?? 'realtime'
   const strictQualityTarget =
     target !== 'estimate' || qualityIssues.some((issue) => /0 이하|예산 상한 대비|카테고리.*미만|항목 수가 부족/.test(issue))
   const skipRefine = readEnvBool('AI_ENABLE_REFINE_SKIP', false)
@@ -2461,16 +2477,7 @@ export async function generateQuoteWithMeta(input: GenerateInput): Promise<{ doc
       let bestDoc = doc
       let bestIssues = qualityIssues
       let bestScore = scoreQualityIssues(bestIssues)
-      const maxRepairAttempts =
-        generationProfile === 'realtime'
-          ? strictQualityTarget
-            ? qualityIssues.length >= 3
-              ? 3
-              : 2
-            : 1
-          : strictQualityTarget
-            ? 3
-            : 2
+      const maxRepairAttempts = generationProfile === 'realtime' ? 1 : strictQualityTarget ? 3 : 2
 
       for (let attempt = 0; attempt < maxRepairAttempts; attempt++) {
         const strict = strictQualityTarget && attempt >= 1
@@ -2485,9 +2492,10 @@ export async function generateQuoteWithMeta(input: GenerateInput): Promise<{ doc
         try {
           const repairEngine = refineEff ?? eff
           const repairMax = resolveGenerateMaxTokens(repairEngine.maxTokens, repairEngine.provider)
+          const repairTimeoutMs = generationProfile === 'realtime' ? 45_000 : 90_000
           const { text: refinedText, usage: repairU, latencyMs: repairMs } = await callLLMWithUsage(repairPrompt, {
             maxTokens: repairMax,
-            timeoutMs: 90_000,
+            timeoutMs: repairTimeoutMs,
             engine: repairEngine,
             pipelineStage: 'quality_repair',
           })

@@ -244,8 +244,10 @@ export default function ProgramProposalGeneratorPage() {
           )}
         </header>
 
-        <div className="flex-1 overflow-y-auto p-6 space-y-6">
-          <SimpleGeneratorWizard
+        <div className="flex-1 overflow-hidden p-6">
+          <div className="grid h-full gap-6 lg:grid-cols-[minmax(420px,520px)_minmax(0,1fr)]">
+            <section className="min-h-0 overflow-y-auto rounded-2xl border border-slate-200 bg-white p-4 shadow-sm">
+              <SimpleGeneratorWizard
             title="프로그램 제안서 만들기"
             subtitle="고객에게 보여줄 구성안 중심으로 작성하고, 생성 후 바로 편집할 수 있습니다."
             highlights={wizardHighlights}
@@ -360,16 +362,17 @@ export default function ProgramProposalGeneratorPage() {
             generationProgressLabel={generationProgressLabel}
             generateDisabled={generateDisabled}
             validationMessage={validationMessage}
-          />
+              />
+            </section>
 
-          {doc && generatedDocId ? (
-            <section className="rounded-2xl border border-gray-100 bg-white shadow-card overflow-hidden">
-              <div className="p-4 border-b border-gray-100 bg-slate-50/50">
-                <div className="text-sm font-semibold text-gray-900">프로그램 제안 결과</div>
-                <div className="text-xs text-gray-500 mt-1">생성 후 내용을 편집하세요.</div>
-              </div>
-              <div className="h-[calc(100vh-220px)] min-h-[420px]">
-                <QuoteResult
+            {doc && generatedDocId ? (
+              <section className="flex min-h-0 flex-col overflow-hidden rounded-2xl border border-gray-100 bg-white shadow-card">
+                <div className="border-b border-gray-100 bg-slate-50/50 p-4">
+                  <div className="text-sm font-semibold text-gray-900">프로그램 제안 결과</div>
+                  <div className="mt-1 text-xs text-gray-500">생성 후 내용을 편집하세요.</div>
+                </div>
+                <div className="min-h-0 flex-1">
+                  <QuoteResult
                   doc={doc}
                   docId={generatedDocId}
                   onSaveDoc={handleSaveDoc}
@@ -405,23 +408,24 @@ export default function ProgramProposalGeneratorPage() {
                       showToast(toUserMessage(e, '저장 실패'))
                     }
                   }}
-                />
-              </div>
-            </section>
-          ) : (
-            <section className="rounded-2xl border border-dashed border-gray-200 bg-white p-8 text-center">
-              <div className="text-sm font-semibold text-gray-900">
-                {doc ? '문서 컨텍스트 선택 후 생성하세요' : '입력 후 생성하세요'}
-              </div>
-              <div className="text-xs text-gray-500 mt-2">
-                {doc
-                  ? '생성 후 편집 영역이 열립니다.'
-                  : sourceMode === 'fromTopic'
-                    ? '주제/목표만 입력하면 됩니다'
-                    : '소스 선택과 필수 입력이 필요합니다'}
-              </div>
-            </section>
-          )}
+                  />
+                </div>
+              </section>
+            ) : (
+              <section className="min-h-0 overflow-y-auto rounded-2xl border border-dashed border-gray-200 bg-white p-8 text-center">
+                <div className="text-sm font-semibold text-gray-900">
+                  {doc ? '문서 컨텍스트 선택 후 생성하세요' : '입력 후 생성하세요'}
+                </div>
+                <div className="mt-2 text-xs text-gray-500">
+                  {doc
+                    ? '생성 후 편집 영역이 열립니다.'
+                    : sourceMode === 'fromTopic'
+                      ? '주제/목표만 입력하면 됩니다'
+                      : '소스 선택과 필수 입력이 필요합니다'}
+                </div>
+              </section>
+            )}
+          </div>
         </div>
       </div>
 
