@@ -52,6 +52,7 @@ export default function SimpleGeneratorWizard({
   collapsibleHighlights = false,
   /** collapsibleHighlights일 때 기본 펼침 여부 (기본: 접힘) */
   highlightsDefaultOpen = false,
+  step2ActionLabel = '생성 단계로 이동',
 }: {
   title: string
   subtitle?: string
@@ -70,6 +71,7 @@ export default function SimpleGeneratorWizard({
   showValidationBanner?: boolean
   collapsibleHighlights?: boolean
   highlightsDefaultOpen?: boolean
+  step2ActionLabel?: string
 }) {
   const inFlightRef = useRef(false)
   const rootRef = useRef<HTMLDivElement>(null)
@@ -290,7 +292,10 @@ export default function SimpleGeneratorWizard({
                     </span>
                   </div>
                   {m.desc ? (
-                    <div className={clsx('mt-2 text-sm leading-5', active ? 'text-slate-600' : 'text-slate-500')}>{m.desc}</div>
+                    <div className={clsx('mt-2 text-sm leading-5', active ? 'text-slate-700' : 'text-slate-500')}>
+                      <span className={clsx('mr-1 font-semibold', active ? 'text-primary-700' : 'text-slate-600')}>이럴 때 사용:</span>
+                      {m.desc}
+                    </div>
                   ) : null}
                 </button>
               )
@@ -309,7 +314,7 @@ export default function SimpleGeneratorWizard({
               onClick={() => scrollToStep(3)}
               className="text-sm font-semibold text-primary-700 hover:text-primary-800 hover:underline"
             >
-              생성 단계로 이동 →
+              {step2ActionLabel} →
             </button>
           </div>
           <div className="rounded-2xl border border-slate-100 bg-white p-4 sm:p-5">{requiredInput}</div>

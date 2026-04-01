@@ -25,6 +25,9 @@ type MeLite = {
 type SourceMode = 'fromEstimate' | 'fromTaskOrder' | 'fromTopic' | 'fromReferenceStyle'
 
 type StyleMode = 'userStyle' | 'aiTemplate'
+type AutoSaveState = 'idle' | 'saving' | 'saved'
+
+const DRAFT_STORAGE_KEY = 'planic:estimate-generator:draft:v1'
 
 type TaskOrderSummaryParsed = {
   projectTitle?: string
@@ -81,13 +84,12 @@ function EstimateGeneratorContent() {
   const [globalStyleMode, setGlobalStyleMode] = useState<StyleMode>('userStyle')
 
   const [topic, setTopic] = useState('')
-  const [topicBlurred, setTopicBlurred] = useState(false)
-  const [estimateSelectBlurred, setEstimateSelectBlurred] = useState(false)
-  const [taskOrderFieldsBlurred, setTaskOrderFieldsBlurred] = useState(false)
   const [headcount, setHeadcount] = useState('')
   const [venue, setVenue] = useState('')
   const [notes, setNotes] = useState('')
   const [budget, setBudget] = useState('미정')
+  const [autoSaveState, setAutoSaveState] = useState<AutoSaveState>('idle')
+  const [lastAutoSavedAt, setLastAutoSavedAt] = useState<string | null>(null)
 
   const [doc, setDoc] = useState<QuoteDoc | null>(null)
   const [generatedDocId, setGeneratedDocId] = useState<string | null>(null)
@@ -149,6 +151,61 @@ function EstimateGeneratorContent() {
       .catch(() => setHistoryList([]))
     apiFetch<TaskOrderDoc[]>('/api/task-order-references').then(setTaskOrderRefs).catch(() => setTaskOrderRefs([]))
   }, [])
+
+  useEffect(() => {
+    if (typeof window === 'undefined') return
+    const raw = window.localStorage.getItem(DRAFT_STORAGE_KEY)
+    if (!raw) return
+    const parsed = safeParseJson(raw)
+    if (!parsed || typeof parsed !== 'object') return
+    const draft = parsed as Partial<{
+      sourceMode: SourceMode
+      selectedEstimateId: string | null
+      selectedTaskOrderId: string | null
+      topic: string
+      headcount: string
+      venue: string
+      notes: string
+      budget: string
+      savedAt: string
+    }>
+
+    if (draft.sourceMode) setSourceMode(draft.sourceMode)
+    if (typeof draft.selectedEstimateId !== 'undefined') setSelectedEstimateId(draft.selectedEstimateId)
+    if (typeof draft.selectedTaskOrderId !== 'undefined') setSelectedTaskOrderId(draft.selectedTaskOrderId)
+    if (typeof draft.topic === 'string') setTopic(draft.topic)
+    if (typeof draft.headcount === 'string') setHeadcount(draft.headcount)
+    if (typeof draft.venue === 'string') setVenue(draft.venue)
+    if (typeof draft.notes === 'string') setNotes(draft.notes)
+    if (typeof draft.budget === 'string') setBudget(draft.budget)
+    if (typeof draft.savedAt === 'string') setLastAutoSavedAt(draft.savedAt)
+    setAutoSaveState('saved')
+  }, [])
+
+  useEffect(() => {
+    if (typeof window === 'undefined') return
+    setAutoSaveState('saving')
+    const timer = window.setTimeout(() => {
+      const savedAt = new Date().toISOString()
+      const payload = {
+        sourceMode,
+        selectedEstimateId,
+        selectedTaskOrderId,
+        topic,
+        headcount,
+        venue,
+        notes,
+        budget,
+        savedAt,
+      }
+      window.localStorage.setItem(DRAFT_STORAGE_KEY, JSON.stringify(payload))
+      setLastAutoSavedAt(savedAt)
+      setAutoSaveState('saved')
+    }, 500)
+    return () => {
+      window.clearTimeout(timer)
+    }
+  }, [sourceMode, selectedEstimateId, selectedTaskOrderId, topic, headcount, venue, notes, budget])
 
   useEffect(() => {
     const q = searchParams.get('estimate')
@@ -319,6 +376,25 @@ function EstimateGeneratorContent() {
     [generatedDocId, showToast],
   )
 
+  const handleResetDraft = useCallback(() => {
+    if (typeof window !== 'undefined') {
+      window.localStorage.removeItem(DRAFT_STORAGE_KEY)
+    }
+    setSourceMode('fromTopic')
+    setSelectedEstimateId(null)
+    setSelectedTaskOrderId(null)
+    setTopic('')
+    setHeadcount('')
+    setVenue('')
+    setNotes('')
+    setBudget('미정')
+    setDoc(null)
+    setGeneratedDocId(null)
+    setLastAutoSavedAt(null)
+    setAutoSaveState('idle')
+    showToast('임시 저장을 초기화했습니다.')
+  }, [showToast])
+
   const generateDisabled =
     sourceMode === 'fromEstimate'
       ? !selectedEstimateId || !selectedHistoryDoc
@@ -356,21 +432,40 @@ function EstimateGeneratorContent() {
     selectedHistoryDoc,
   ])
 
-  const showValidationBanner = useMemo(() => {
-    if (!validationMessage) return false
-    if (sourceMode === 'fromTopic' || sourceMode === 'fromReferenceStyle') return false
-    if (sourceMode === 'fromTaskOrder') return taskOrderFieldsBlurred
-    if (sourceMode === 'fromEstimate') return estimateSelectBlurred
-    return true
-  }, [estimateSelectBlurred, sourceMode, taskOrderFieldsBlurred, validationMessage])
-
   const showTopicInlineError =
-    (sourceMode === 'fromTopic' && !topic.trim() && topicBlurred) ||
-    (sourceMode === 'fromReferenceStyle' && !!activeReference && !topic.trim() && topicBlurred)
+    (sourceMode === 'fromTopic' && !topic.trim()) || (sourceMode === 'fromReferenceStyle' && !!activeReference && !topic.trim())
 
   const topicInvalidHighlight =
     (sourceMode === 'fromTopic' && generateDisabled && !topic.trim()) ||
     (sourceMode === 'fromReferenceStyle' && !!activeReference && generateDisabled && !topic.trim())
+
+  const selectedModeMeta = useMemo(() => modes.find((m) => m.id === sourceMode) ?? null, [modes, sourceMode])
+  const objectiveByMode = useMemo(() => {
+    if (sourceMode === 'fromEstimate') return '기존 견적을 기반으로 빠르게 재작성'
+    if (sourceMode === 'fromTaskOrder') return '과업지시서 요구사항 중심으로 초안 구성'
+    if (sourceMode === 'fromReferenceStyle') return '활성 참고 견적의 문체/구조를 반영해 생성'
+    return '주제 중심으로 가장 빠르게 견적 초안 생성'
+  }, [sourceMode])
+  const readinessText = generateDisabled ? validationMessage || '필수 입력을 확인해 주세요.' : '생성 준비 완료'
+  const readinessToneClass = generateDisabled ? 'text-amber-800' : 'text-emerald-700'
+  const completion = useMemo(() => {
+    const step1Done = true
+    const step2Done = !generateDisabled
+    const step3Done = !!doc
+    const done = Number(step1Done) + Number(step2Done) + Number(step3Done)
+    const total = 3
+    const percent = Math.round((done / total) * 100)
+    return { done, total, percent, step2Done, step3Done }
+  }, [doc, generateDisabled])
+  const nextAction = useMemo(() => {
+    if (!completion.step2Done) {
+      return validationMessage || '핵심 정보를 입력해 생성 준비를 완료하세요.'
+    }
+    if (!completion.step3Done) {
+      return '견적 초안 생성 버튼을 눌러 결과를 확인하세요.'
+    }
+    return '결과 문서를 검토하고 저장 또는 다운로드하세요.'
+  }, [completion.step2Done, completion.step3Done, validationMessage])
 
   const topicInputs = (
     <div className="space-y-4">
@@ -407,7 +502,6 @@ function EstimateGeneratorContent() {
             invalid={topicInvalidHighlight}
             value={topic}
             onChange={(e) => setTopic(e.target.value)}
-            onBlur={() => setTopicBlurred(true)}
             placeholder="예) 기업 워크숍 / 신제품 론칭"
             aria-invalid={showTopicInlineError || topicInvalidHighlight}
           />
@@ -453,13 +547,57 @@ function EstimateGeneratorContent() {
           <div>
             <h1 className="text-xl font-semibold tracking-tight text-slate-900">견적서 만들기</h1>
             <p className="mt-1 text-sm leading-6 text-slate-600">필수 항목만 넣고 바로 고객에게 보낼 수 있는 견적 초안을 생성합니다.</p>
+            <p className="mt-1 text-xs text-slate-500">
+              {autoSaveState === 'saving'
+                ? '자동 저장 중...'
+                : lastAutoSavedAt
+                  ? `자동 저장됨 · ${new Date(lastAutoSavedAt).toLocaleTimeString('ko-KR', { hour12: false })}`
+                  : '자동 저장 대기 중'}
+            </p>
           </div>
-          {me?.subscription?.planType === 'FREE' && (
-            <span className="rounded-xl border border-amber-200 bg-amber-50 px-3 py-1.5 text-sm font-semibold text-amber-700">무료</span>
-          )}
+          <div className="flex items-center gap-2">
+            <button
+              type="button"
+              onClick={handleResetDraft}
+              className="rounded-xl border border-slate-200 bg-white px-3 py-1.5 text-sm font-semibold text-slate-700 hover:bg-slate-50"
+            >
+              임시저장 초기화
+            </button>
+            {me?.subscription?.planType === 'FREE' && (
+              <span className="rounded-xl border border-amber-200 bg-amber-50 px-3 py-1.5 text-sm font-semibold text-amber-700">무료</span>
+            )}
+          </div>
         </header>
 
         <div className="flex-1 overflow-y-auto p-6 space-y-6">
+          <section className="sticky top-0 z-20 rounded-2xl border border-slate-200 bg-white/95 px-4 py-3 shadow-sm backdrop-blur-sm">
+            <div className="flex flex-wrap items-center justify-between gap-3">
+              <div className="min-w-0 space-y-1">
+                <p className="text-xs font-semibold tracking-wide text-primary-700">현재 진행 요약</p>
+                <p className="text-sm text-slate-700">
+                  <strong className="text-slate-900">기준:</strong> {selectedModeMeta?.title || '-'} ·{' '}
+                  <strong className="text-slate-900">목적:</strong> {objectiveByMode}
+                </p>
+                <p className="text-sm text-slate-700">
+                  <strong className="text-slate-900">완료율:</strong> {completion.done}/{completion.total} ({completion.percent}%)
+                </p>
+                <p className={readinessToneClass}>
+                  <strong className="text-slate-900">상태:</strong> {readinessText}
+                </p>
+                <p className="text-sm text-slate-700">
+                  <strong className="text-slate-900">남은 액션:</strong> {nextAction}
+                </p>
+              </div>
+              <button
+                type="button"
+                onClick={() => document.getElementById('wizard-step-3')?.scrollIntoView({ behavior: 'smooth', block: 'start' })}
+                className="rounded-xl border border-primary-200 bg-primary-50 px-3.5 py-2 text-sm font-semibold text-primary-800 hover:bg-primary-100"
+              >
+                생성 섹션으로 이동
+              </button>
+            </div>
+          </section>
+
           <SimpleGeneratorWizard
             title="견적서 만들기"
             subtitle="입력량은 최소화하고, 결과는 바로 저장·다운로드할 수 있게 구성했습니다."
@@ -467,6 +605,26 @@ function EstimateGeneratorContent() {
             collapsibleHighlights
             preStepContent={
               <div className="space-y-2">
+                <div className="rounded-2xl border border-primary-200 bg-primary-50/70 p-4">
+                  <div className="text-xs font-semibold tracking-wide text-primary-700">한눈에 보기</div>
+                  <div className="mt-2 grid grid-cols-1 gap-2 text-sm text-slate-700 sm:grid-cols-2">
+                    <p>
+                      <strong className="text-slate-900">이번 목적:</strong> 고객에게 전달 가능한 견적 초안 만들기
+                    </p>
+                    <p>
+                      <strong className="text-slate-900">선택 기준:</strong> {selectedModeMeta?.title || '-'}
+                    </p>
+                    <p className="sm:col-span-2">
+                      <strong className="text-slate-900">기준 설명:</strong> {objectiveByMode}
+                    </p>
+                    <p className="sm:col-span-2">
+                      <strong className="text-slate-900">현재 상태:</strong>{' '}
+                      <span className={readinessToneClass}>
+                        {readinessText}
+                      </span>
+                    </p>
+                  </div>
+                </div>
                 <div className="text-base font-semibold text-slate-900">스타일·참고 견적</div>
                 <p className="text-sm leading-6 text-slate-600">
                   문서 톤과 항목 스타일은 여기 설정과 참고 자료를 따릅니다. 바꾸려면 「참고 자료 관리」로 이동하세요.
@@ -498,9 +656,6 @@ function EstimateGeneratorContent() {
               setVenue('')
               setNotes('')
               setBudget('미정')
-              setTopicBlurred(false)
-              setEstimateSelectBlurred(false)
-              setTaskOrderFieldsBlurred(false)
             }}
             requiredInput={
               sourceMode === 'fromEstimate' ? (
@@ -511,7 +666,6 @@ function EstimateGeneratorContent() {
                     setDoc(null)
                     setGeneratedDocId(null)
                   }}
-                  onBlur={() => setEstimateSelectBlurred(true)}
                   className="w-full rounded-xl border border-slate-200 bg-white px-3.5 py-3 text-[15px] text-slate-900 shadow-sm focus:outline-none focus:border-primary-400 focus:ring-4 focus:ring-primary-100/70"
                 >
                   <option value="" disabled>
@@ -530,7 +684,6 @@ function EstimateGeneratorContent() {
                     <select
                       value={budget}
                       onChange={(e) => setBudget(e.target.value)}
-                      onBlur={() => setTaskOrderFieldsBlurred(true)}
                       className="w-full rounded-xl border border-slate-200 bg-white px-3.5 py-3 text-[15px] text-slate-900 shadow-sm focus:outline-none focus:border-primary-400 focus:ring-4 focus:ring-primary-100/70"
                     >
                       {ESTIMATE_BUDGET_OPTIONS.map((o) => (
@@ -547,7 +700,6 @@ function EstimateGeneratorContent() {
                       setDoc(null)
                       setGeneratedDocId(null)
                     }}
-                    onBlur={() => setTaskOrderFieldsBlurred(true)}
                     className="w-full rounded-xl border border-slate-200 bg-white px-3.5 py-3 text-[15px] text-slate-900 shadow-sm focus:outline-none focus:border-primary-400 focus:ring-4 focus:ring-primary-100/70"
                   >
                     <option value="" disabled>
@@ -583,7 +735,8 @@ function EstimateGeneratorContent() {
             generationProgressLabel={generationProgressLabel}
             generateDisabled={generateDisabled}
             validationMessage={validationMessage}
-            showValidationBanner={showValidationBanner}
+            showValidationBanner
+            step2ActionLabel="견적 초안 생성으로 이동"
           />
 
           {doc && generatedDocId ? (
