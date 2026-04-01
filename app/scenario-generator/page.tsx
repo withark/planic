@@ -234,7 +234,9 @@ export default function ScenarioGeneratorPage() {
             />
           ) : null}
           {!isScenarioLocked ? (
-          <SimpleGeneratorWizard
+            <div className="grid items-start gap-6 lg:grid-cols-[minmax(0,1fr)_minmax(0,1.05fr)]">
+              <section className="min-w-0">
+                <SimpleGeneratorWizard
             title="시나리오 만들기"
             subtitle="연출 흐름과 진행 멘트를 같이 정리해 바로 리허설 문서로 쓸 수 있게 구성합니다."
             highlights={wizardHighlights}
@@ -326,11 +328,12 @@ export default function ScenarioGeneratorPage() {
             generationProgressLabel={generationProgressLabel}
             generateDisabled={generateDisabled}
             validationMessage={validationMessage}
-          />
-          ) : null}
+                />
+              </section>
 
-          {!isScenarioLocked && doc && generatedDocId ? (
-            <section className="rounded-2xl border border-gray-100 bg-white shadow-card overflow-hidden">
+              <section className="min-w-0">
+                {doc && generatedDocId ? (
+                  <section className="rounded-2xl border border-gray-100 bg-white shadow-card overflow-hidden">
               <div className="p-4 border-b border-gray-100 bg-slate-50/50">
                 <div className="text-sm font-semibold text-gray-900">시나리오 결과</div>
                 <div className="text-xs text-gray-500 mt-1">생성 후 내용을 편집하세요.</div>
@@ -374,20 +377,23 @@ export default function ScenarioGeneratorPage() {
                   }}
                 />
               </div>
-            </section>
-          ) : !isScenarioLocked ? (
-            <section className="rounded-2xl border border-dashed border-gray-200 bg-white p-8 text-center">
-              <div className="text-sm font-semibold text-gray-900">
-                {doc ? '문서 컨텍스트 선택 후 생성하세요' : '입력 후 생성하세요'}
-              </div>
-              <div className="text-xs text-gray-500 mt-2">
-                {doc
-                  ? '생성 후 편집 영역이 열립니다.'
-                  : sourceMode === 'fromTopic'
-                    ? '주제/목표만 입력하면 됩니다'
-                    : '소스 선택과 필수 입력이 필요합니다'}
-              </div>
-            </section>
+                  </section>
+                ) : (
+                  <section className="rounded-2xl border border-dashed border-gray-200 bg-white p-8 text-center">
+                    <div className="text-sm font-semibold text-gray-900">
+                      {doc ? '문서 컨텍스트 선택 후 생성하세요' : '입력 후 생성하세요'}
+                    </div>
+                    <div className="text-xs text-gray-500 mt-2">
+                      {doc
+                        ? '생성 후 편집 영역이 열립니다.'
+                        : sourceMode === 'fromTopic'
+                          ? '주제/목표만 입력하면 됩니다'
+                          : '소스 선택과 필수 입력이 필요합니다'}
+                    </div>
+                  </section>
+                )}
+              </section>
+            </div>
           ) : null}
         </div>
       </div>

@@ -239,7 +239,9 @@ export default function CueSheetGeneratorPage() {
             />
           ) : null}
           {!isCuesheetLocked ? (
-          <SimpleGeneratorWizard
+            <div className="grid items-start gap-6 lg:grid-cols-[minmax(0,1fr)_minmax(0,1.05fr)]">
+              <section className="min-w-0">
+                <SimpleGeneratorWizard
             title="큐시트 만들기"
             subtitle="시간, 담당자, 준비물, 멘트 큐를 한 번에 정리해 바로 현장 공유가 가능하도록 구성했습니다."
             highlights={wizardHighlights}
@@ -349,11 +351,12 @@ export default function CueSheetGeneratorPage() {
             generationProgressLabel={generationProgressLabel}
             generateDisabled={generateDisabled}
             validationMessage={validationMessage}
-          />
-          ) : null}
+                />
+              </section>
 
-          {!isCuesheetLocked && doc && generatedDocId ? (
-            <section className="rounded-2xl border border-gray-100 bg-white shadow-card overflow-hidden">
+              <section className="min-w-0">
+                {doc && generatedDocId ? (
+                  <section className="rounded-2xl border border-gray-100 bg-white shadow-card overflow-hidden">
               <div className="p-4 border-b border-gray-100 bg-slate-50/50 flex items-center justify-between gap-4 flex-wrap">
                 <div>
                   <div className="text-sm font-semibold text-gray-900">큐시트 결과</div>
@@ -400,14 +403,17 @@ export default function CueSheetGeneratorPage() {
                   }}
                 />
               </div>
-            </section>
-          ) : !isCuesheetLocked ? (
-            <section className="rounded-2xl border border-dashed border-gray-200 bg-white p-8 text-center">
-              <div className="text-sm font-semibold text-gray-900">입력 후 생성하세요</div>
-              <div className="text-xs text-gray-500 mt-2">
-                {sourceMode === 'fromTopic' ? '주제와 목표만 있으면 됩니다' : '소스를 선택하세요'}
-              </div>
-            </section>
+                  </section>
+                ) : (
+                  <section className="rounded-2xl border border-dashed border-gray-200 bg-white p-8 text-center">
+                    <div className="text-sm font-semibold text-gray-900">입력 후 생성하세요</div>
+                    <div className="text-xs text-gray-500 mt-2">
+                      {sourceMode === 'fromTopic' ? '주제와 목표만 있으면 됩니다' : '소스를 선택하세요'}
+                    </div>
+                  </section>
+                )}
+              </section>
+            </div>
           ) : null}
         </div>
       </div>

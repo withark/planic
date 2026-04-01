@@ -591,8 +591,10 @@ function EstimateGeneratorContent() {
           </div>
         </header>
 
-        <div className="flex-1 overflow-y-auto p-6 space-y-6">
-          <SimpleGeneratorWizard
+        <div className="flex-1 overflow-y-auto p-6">
+          <div className="grid items-start gap-6 lg:grid-cols-[minmax(0,1fr)_minmax(0,1.05fr)]">
+            <section className="min-w-0">
+              <SimpleGeneratorWizard
             title="견적서 생성하기"
             subtitle="필수 정보만 입력하고 바로 생성하세요."
             highlights={wizardHighlights}
@@ -689,9 +691,11 @@ function EstimateGeneratorContent() {
             validationMessage={validationMessage}
             showValidationBanner
             step2ActionLabel="견적서 생성으로 이동"
-          />
+              />
+            </section>
 
-          {doc && generatedDocId ? (
+            <section className="min-w-0">
+              {doc && generatedDocId ? (
             <section className="rounded-2xl border border-gray-100 bg-white shadow-card">
               {docSummary ? (
                 <div className="sticky top-2 z-20 border-b border-slate-200 bg-white/95 px-4 py-3 backdrop-blur">
@@ -816,16 +820,18 @@ function EstimateGeneratorContent() {
                 />
               </div>
             </section>
-          ) : (
-            <section className="rounded-2xl border border-dashed border-gray-200 bg-white p-8 text-center">
-              <div className="text-base font-semibold text-gray-900">입력 후 생성하세요</div>
-              <div className="text-sm text-gray-500 mt-2">
-                {sourceMode === 'fromTopic' || sourceMode === 'fromReferenceStyle'
-                  ? '이벤트 주제만 입력하면 됩니다'
-                  : '소스 선택과 필수 입력이 필요합니다'}
-              </div>
+              ) : (
+                <section className="rounded-2xl border border-dashed border-gray-200 bg-white p-8 text-center">
+                  <div className="text-base font-semibold text-gray-900">입력 후 생성하세요</div>
+                  <div className="text-sm text-gray-500 mt-2">
+                    {sourceMode === 'fromTopic' || sourceMode === 'fromReferenceStyle'
+                      ? '이벤트 주제만 입력하면 됩니다'
+                      : '소스 선택과 필수 입력이 필요합니다'}
+                  </div>
+                </section>
+              )}
             </section>
-          )}
+          </div>
         </div>
       </div>
 
