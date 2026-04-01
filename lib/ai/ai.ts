@@ -2258,12 +2258,13 @@ export async function generateQuoteWithMeta(input: GenerateInput): Promise<{ doc
     : premiumRefineActive
       ? 'opus'
       : 'sonnet'
-  const primaryEff = hybrid?.draft ?? eff
+  let draftEff = hybrid?.draft ?? eff
   const refineEff = hybrid?.refine
-  const maxOut = resolveGenerateMaxTokens(
-    resolveDraftMaxTokensForDocumentTarget(primaryEff.maxTokens, input.documentTarget ?? 'estimate'),
-    primaryEff.provider,
-  )
+  const resolveDraftMaxOut = () =>
+    resolveGenerateMaxTokens(
+      resolveDraftMaxTokensForDocumentTarget(draftEff.maxTokens, input.documentTarget ?? 'estimate'),
+      draftEff.provider,
+    )
   const stageBrief = buildStageBrief(input)
   const stageStructurePlan = buildStageStructurePlan(input, stageBrief)
   const stagedInput: GenerateInput = {
@@ -2289,13 +2290,25 @@ export async function generateQuoteWithMeta(input: GenerateInput): Promise<{ doc
   let repairUsageLast: LLMUsage | undefined
   let documentRefineSkipped = true
   let documentRefineSkipReason: string | undefined
+  const isOpenAIDraftAuthFailure = (err: unknown): boolean => {
+    const lowered = String((err as { message?: string } | null)?.message ?? err ?? '').toLowerCase()
+    return (
+      lowered.includes('openai 인증') ||
+      lowered.includes('openai_api_key') ||
+      lowered.includes('openai api key') ||
+      lowered.includes('invalid_api_key') ||
+      lowered.includes('authentication') ||
+      lowered.includes('unauthorized') ||
+      lowered.includes('forbidden')
+    )
+  }
 
   async function runOnce(extra = '', kind: 'primary' | 'retry'): Promise<string> {
     try {
       const { text, usage, latencyMs } = await callLLMWithUsage(prompt + extra, {
-        maxTokens: maxOut,
+        maxTokens: resolveDraftMaxOut(),
         timeoutMs: 90_000,
-        engine: primaryEff,
+        engine: draftEff,
         pipelineStage: kind === 'primary' ? 'draft_primary' : 'draft_retry',
       })
       aiCallMs += latencyMs
@@ -2314,6 +2327,18 @@ export async function generateQuoteWithMeta(input: GenerateInput): Promise<{ doc
       return text
     } catch (e) {
       const err = e as any
+      if (draftEff.provider === 'openai' && eff.provider !== 'openai' && isOpenAIDraftAuthFailure(e)) {
+        if (shouldLogPipelineStage()) {
+          logInfo('ai.pipeline.draft.fallback', {
+            reason: 'openai_auth_failed',
+            fromProvider: draftEff.provider,
+            toProvider: eff.provider,
+            toModel: eff.model,
+          })
+        }
+        draftEff = eff
+        return runOnce(extra, kind)
+      }
       if (err?.timedOut || err?.code === 'ETIMEDOUT' || String(err?.message || '').toLowerCase().includes('timeout')) {
         timedOut = true
       }
@@ -2565,7 +2590,7 @@ export async function generateQuoteWithMeta(input: GenerateInput): Promise<{ doc
 
   const finishedAt = new Date().toISOString()
   const costStages = [
-    { model: primaryEff.model, usage: draftUsageMerged },
+    { model: draftEff.model, usage: draftUsageMerged },
     ...(hybrid?.refine && refineEff ? [{ model: refineEff.model, usage: documentRefineUsage }] : []),
     ...(repairUsageLast ? [{ model: (refineEff ?? eff).model, usage: repairUsageLast }] : []),
   ]
@@ -2596,8 +2621,8 @@ export async function generateQuoteWithMeta(input: GenerateInput): Promise<{ doc
       qualityIssuesAfterTop: prioritizeQualityIssues(qualityIssues).slice(0, 3),
       startedAt,
       finishedAt,
-      draftProvider: primaryEff.provider,
-      draftModel: primaryEff.model,
+      draftProvider: draftEff.provider,
+      draftModel: draftEff.model,
       refineProvider: refineEff?.provider,
       refineModel: refineEff?.model,
       documentRefineProvider: hybrid?.refine && refineEff ? refineEff.provider : undefined,
