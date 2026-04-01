@@ -1,6 +1,5 @@
 'use client'
 
-import Link from 'next/link'
 import { Suspense, useCallback, useEffect, useMemo, useState } from 'react'
 import { useSearchParams } from 'next/navigation'
 import { GNB } from '@/components/GNB'
@@ -25,8 +24,6 @@ type MeLite = {
 type SourceMode = 'fromEstimate' | 'fromTaskOrder' | 'fromTopic' | 'fromReferenceStyle'
 
 type StyleMode = 'userStyle' | 'aiTemplate'
-type AutoSaveState = 'idle' | 'saving' | 'saved'
-
 const DRAFT_STORAGE_KEY = 'planic:estimate-generator:draft:v1'
 
 type TaskOrderSummaryParsed = {
@@ -73,6 +70,7 @@ function EstimateGeneratorContent() {
   const [prices, setPrices] = useState<PriceCategory[]>([])
 
   const [sourceMode, setSourceMode] = useState<SourceMode>('fromTopic')
+  const [showAdvancedModes, setShowAdvancedModes] = useState(false)
 
   const [historyList, setHistoryList] = useState<HistoryRecord[]>([])
   const [selectedEstimateId, setSelectedEstimateId] = useState<string | null>(null)
@@ -88,8 +86,6 @@ function EstimateGeneratorContent() {
   const [venue, setVenue] = useState('')
   const [notes, setNotes] = useState('')
   const [budget, setBudget] = useState('미정')
-  const [autoSaveState, setAutoSaveState] = useState<AutoSaveState>('idle')
-  const [lastAutoSavedAt, setLastAutoSavedAt] = useState<string | null>(null)
 
   const [doc, setDoc] = useState<QuoteDoc | null>(null)
   const [generatedDocId, setGeneratedDocId] = useState<string | null>(null)
@@ -124,14 +120,11 @@ function EstimateGeneratorContent() {
     ],
     [],
   )
-  const wizardHighlights: WizardHighlight[] = useMemo(
-    () => [
-      { label: '필수 입력', value: '주제, 예산' },
-      { label: '권장 입력', value: '인원, 장소' },
-      { label: '결과물', value: '견적서 + 엑셀/PDF' },
-    ],
-    [],
-  )
+  const wizardHighlights: WizardHighlight[] = useMemo(() => [], [])
+  const modesForWizard = useMemo(() => {
+    if (showAdvancedModes || sourceMode !== 'fromTopic') return modes
+    return [modes[0]]
+  }, [modes, showAdvancedModes, sourceMode])
 
   useEffect(() => {
     apiFetch<MeLite>('/api/me').then(setMe).catch(() => {})
@@ -178,13 +171,10 @@ function EstimateGeneratorContent() {
     if (typeof draft.venue === 'string') setVenue(draft.venue)
     if (typeof draft.notes === 'string') setNotes(draft.notes)
     if (typeof draft.budget === 'string') setBudget(draft.budget)
-    if (typeof draft.savedAt === 'string') setLastAutoSavedAt(draft.savedAt)
-    setAutoSaveState('saved')
   }, [])
 
   useEffect(() => {
     if (typeof window === 'undefined') return
-    setAutoSaveState('saving')
     const timer = window.setTimeout(() => {
       const savedAt = new Date().toISOString()
       const payload = {
@@ -199,8 +189,6 @@ function EstimateGeneratorContent() {
         savedAt,
       }
       window.localStorage.setItem(DRAFT_STORAGE_KEY, JSON.stringify(payload))
-      setLastAutoSavedAt(savedAt)
-      setAutoSaveState('saved')
     }, 500)
     return () => {
       window.clearTimeout(timer)
@@ -376,25 +364,6 @@ function EstimateGeneratorContent() {
     [generatedDocId, showToast],
   )
 
-  const handleResetDraft = useCallback(() => {
-    if (typeof window !== 'undefined') {
-      window.localStorage.removeItem(DRAFT_STORAGE_KEY)
-    }
-    setSourceMode('fromTopic')
-    setSelectedEstimateId(null)
-    setSelectedTaskOrderId(null)
-    setTopic('')
-    setHeadcount('')
-    setVenue('')
-    setNotes('')
-    setBudget('미정')
-    setDoc(null)
-    setGeneratedDocId(null)
-    setLastAutoSavedAt(null)
-    setAutoSaveState('idle')
-    showToast('임시 저장을 초기화했습니다.')
-  }, [showToast])
-
   const generateDisabled =
     sourceMode === 'fromEstimate'
       ? !selectedEstimateId || !selectedHistoryDoc
@@ -469,15 +438,6 @@ function EstimateGeneratorContent() {
 
   const topicInputs = (
     <div className="space-y-4">
-      <details className="rounded-2xl border border-sky-100 bg-sky-50/90 px-4 py-3 text-sm text-slate-700 open:border-sky-200">
-        <summary className="cursor-pointer font-semibold text-slate-800 outline-none marker:text-sky-700">
-          입력 팁 (선택 항목을 권장하는 이유)
-        </summary>
-        <p className="mt-2 leading-6 text-slate-600">
-          행사명만 넣어도 초안은 만들 수 있지만, 인원과 장소를 함께 넣으면 단가와 항목 구성이 더 현실적으로 맞춰집니다.
-        </p>
-      </details>
-
       <div className="space-y-3 rounded-2xl border border-slate-200 bg-white px-4 py-4">
         <div className="text-[11px] font-bold uppercase tracking-wide text-slate-500">필수 정보</div>
         <div>
@@ -513,29 +473,35 @@ function EstimateGeneratorContent() {
         </div>
       </div>
 
-      <div className="text-[11px] font-bold uppercase tracking-wide text-slate-500 px-1">권장 · 선택</div>
-      <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
-        <Input
-          label="참석 인원(선택)"
-          value={headcount}
-          onChange={(e) => setHeadcount(e.target.value)}
-          placeholder="예) 80"
-          inputMode="numeric"
-        />
-        <Input
-          label="장소(선택)"
-          value={venue}
-          onChange={(e) => setVenue(e.target.value)}
-          placeholder="예) 잠실"
-        />
-      </div>
-      <Textarea
-        label="추가 메모(선택)"
-        value={notes}
-        onChange={(e) => setNotes(e.target.value)}
-        placeholder="예) VIP 동선 고려, 발표 시간/세션 구조 등"
-        rows={3}
-      />
+      <details className="rounded-2xl border border-slate-200 bg-slate-50/60 px-4 py-3">
+        <summary className="cursor-pointer text-sm font-semibold text-slate-800 outline-none marker:text-primary-700">
+          선택 입력 더보기 (인원/장소/메모)
+        </summary>
+        <div className="mt-3 space-y-3">
+          <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+            <Input
+              label="참석 인원(선택)"
+              value={headcount}
+              onChange={(e) => setHeadcount(e.target.value)}
+              placeholder="예) 80"
+              inputMode="numeric"
+            />
+            <Input
+              label="장소(선택)"
+              value={venue}
+              onChange={(e) => setVenue(e.target.value)}
+              placeholder="예) 잠실"
+            />
+          </div>
+          <Textarea
+            label="추가 메모(선택)"
+            value={notes}
+            onChange={(e) => setNotes(e.target.value)}
+            placeholder="예) VIP 동선 고려, 발표 시간/세션 구조 등"
+            rows={3}
+          />
+        </div>
+      </details>
     </div>
   )
 
@@ -546,22 +512,21 @@ function EstimateGeneratorContent() {
         <header className="flex flex-wrap items-start justify-between gap-4 border-b border-slate-200 bg-white/90 px-6 py-5 flex-shrink-0">
           <div>
             <h1 className="text-xl font-semibold tracking-tight text-slate-900">견적서 만들기</h1>
-            <p className="mt-1 text-sm leading-6 text-slate-600">필수 항목만 넣고 바로 고객에게 보낼 수 있는 견적 초안을 생성합니다.</p>
-            <p className="mt-1 text-xs text-slate-500">
-              {autoSaveState === 'saving'
-                ? '자동 저장 중...'
-                : lastAutoSavedAt
-                  ? `자동 저장됨 · ${new Date(lastAutoSavedAt).toLocaleTimeString('ko-KR', { hour12: false })}`
-                  : '자동 저장 대기 중'}
-            </p>
+            <p className="mt-1 text-sm leading-6 text-slate-600">주제와 예산만 입력하면 바로 견적 초안을 만듭니다.</p>
           </div>
           <div className="flex items-center gap-2">
             <button
               type="button"
-              onClick={handleResetDraft}
+              onClick={() => {
+                const next = !showAdvancedModes
+                setShowAdvancedModes(next)
+                if (!next && sourceMode !== 'fromTopic') {
+                  setSourceMode('fromTopic')
+                }
+              }}
               className="rounded-xl border border-slate-200 bg-white px-3 py-1.5 text-sm font-semibold text-slate-700 hover:bg-slate-50"
             >
-              임시저장 초기화
+              {showAdvancedModes ? '고급 방식 숨기기' : '고급 방식 보기'}
             </button>
             {me?.subscription?.planType === 'FREE' && (
               <span className="rounded-xl border border-amber-200 bg-amber-50 px-3 py-1.5 text-sm font-semibold text-amber-700">무료</span>
@@ -570,83 +535,13 @@ function EstimateGeneratorContent() {
         </header>
 
         <div className="flex-1 overflow-y-auto p-6 space-y-6">
-          <section className="sticky top-0 z-20 rounded-2xl border border-slate-200 bg-white/95 px-4 py-3 shadow-sm backdrop-blur-sm">
-            <div className="flex flex-wrap items-center justify-between gap-3">
-              <div className="min-w-0 space-y-1">
-                <p className="text-xs font-semibold tracking-wide text-primary-700">현재 진행 요약</p>
-                <p className="text-sm text-slate-700">
-                  <strong className="text-slate-900">기준:</strong> {selectedModeMeta?.title || '-'} ·{' '}
-                  <strong className="text-slate-900">목적:</strong> {objectiveByMode}
-                </p>
-                <p className="text-sm text-slate-700">
-                  <strong className="text-slate-900">완료율:</strong> {completion.done}/{completion.total} ({completion.percent}%)
-                </p>
-                <p className={readinessToneClass}>
-                  <strong className="text-slate-900">상태:</strong> {readinessText}
-                </p>
-                <p className="text-sm text-slate-700">
-                  <strong className="text-slate-900">남은 액션:</strong> {nextAction}
-                </p>
-              </div>
-              <button
-                type="button"
-                onClick={() => document.getElementById('wizard-step-3')?.scrollIntoView({ behavior: 'smooth', block: 'start' })}
-                className="rounded-xl border border-primary-200 bg-primary-50 px-3.5 py-2 text-sm font-semibold text-primary-800 hover:bg-primary-100"
-              >
-                생성 섹션으로 이동
-              </button>
-            </div>
-          </section>
-
           <SimpleGeneratorWizard
             title="견적서 만들기"
-            subtitle="입력량은 최소화하고, 결과는 바로 저장·다운로드할 수 있게 구성했습니다."
+            subtitle="필수 정보만 입력하고 바로 생성하세요."
             highlights={wizardHighlights}
             collapsibleHighlights
-            preStepContent={
-              <div className="space-y-2">
-                <div className="rounded-2xl border border-primary-200 bg-primary-50/70 p-4">
-                  <div className="text-xs font-semibold tracking-wide text-primary-700">한눈에 보기</div>
-                  <div className="mt-2 grid grid-cols-1 gap-2 text-sm text-slate-700 sm:grid-cols-2">
-                    <p>
-                      <strong className="text-slate-900">이번 목적:</strong> 고객에게 전달 가능한 견적 초안 만들기
-                    </p>
-                    <p>
-                      <strong className="text-slate-900">선택 기준:</strong> {selectedModeMeta?.title || '-'}
-                    </p>
-                    <p className="sm:col-span-2">
-                      <strong className="text-slate-900">기준 설명:</strong> {objectiveByMode}
-                    </p>
-                    <p className="sm:col-span-2">
-                      <strong className="text-slate-900">현재 상태:</strong>{' '}
-                      <span className={readinessToneClass}>
-                        {readinessText}
-                      </span>
-                    </p>
-                  </div>
-                </div>
-                <div className="text-base font-semibold text-slate-900">스타일·참고 견적</div>
-                <p className="text-sm leading-6 text-slate-600">
-                  문서 톤과 항목 스타일은 여기 설정과 참고 자료를 따릅니다. 바꾸려면 「참고 자료 관리」로 이동하세요.
-                </p>
-                <p className="text-[15px] leading-7 text-slate-700">
-                  전역 스타일:{' '}
-                  <strong>{globalStyleMode === 'userStyle' ? '사용자 참고 견적 스타일' : 'AI 추천 템플릿'}</strong>
-                  {activeReference ? (
-                    <>
-                      {' · '}
-                      활성 참고 파일: <strong>{activeReference.filename}</strong> (견적 생성에 반영 중)
-                    </>
-                  ) : (
-                    <> · 활성 참고 견적 없음 (「참고 자료」에서 업로드·활성화)</>
-                  )}
-                </p>
-                <Link href="/reference-estimate" className="inline-block text-[15px] font-semibold text-primary-700 hover:underline">
-                  참고 자료 관리 →
-                </Link>
-              </div>
-            }
-            modes={modes}
+            preStepContent={null}
+            modes={modesForWizard}
             modeId={sourceMode}
             onModeChange={(id) => {
               const next = id as SourceMode
@@ -729,7 +624,7 @@ function EstimateGeneratorContent() {
                 topicInputs
               )
             }
-            generateLabel="견적 생성"
+            generateLabel="견적 초안 만들기"
             onGenerate={handleGenerateEstimate}
             generating={generating}
             generationProgressLabel={generationProgressLabel}
