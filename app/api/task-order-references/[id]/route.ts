@@ -3,8 +3,9 @@ import { z } from 'zod'
 import { okResponse, errorResponse } from '@/lib/api/response'
 import { logError } from '@/lib/utils/logger'
 import { getUserIdFromSession } from '@/lib/auth-server'
-import { ensureFreeSubscription } from '@/lib/db/subscriptions-db'
+import { ensureFreeSubscription, getActiveSubscription } from '@/lib/db/subscriptions-db'
 import { getTaskOrderRefById } from '@/lib/db/task-order-refs-db'
+import { documentAccessMessage, isDocumentAllowedForPlan } from '@/lib/plan-access'
 
 const ParamsSchema = z.object({
   id: z.string().min(1),
@@ -40,6 +41,11 @@ export async function GET(req: NextRequest, { params }: { params: Promise<{ id?:
     const userId = await getUserIdFromSession()
     if (!userId) return errorResponse(401, 'UNAUTHORIZED', '로그인이 필요합니다.')
     await ensureFreeSubscription(userId)
+    const sub = await getActiveSubscription(userId)
+    const plan = sub?.planType ?? 'FREE'
+    if (!isDocumentAllowedForPlan(plan, 'taskOrderSummary')) {
+      return errorResponse(403, 'PLAN_UPGRADE_REQUIRED', documentAccessMessage('taskOrderSummary'))
+    }
 
     const parsed = ParamsSchema.safeParse(await params)
     if (!parsed.success) return errorResponse(400, 'INVALID_REQUEST', 'id가 올바르지 않습니다.')

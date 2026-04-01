@@ -2,9 +2,10 @@ import { NextRequest } from 'next/server'
 import { okResponse, errorResponse } from '@/lib/api/response'
 import { logError } from '@/lib/utils/logger'
 import { getUserIdFromSession } from '@/lib/auth-server'
-import { ensureFreeSubscription } from '@/lib/db/subscriptions-db'
+import { ensureFreeSubscription, getActiveSubscription } from '@/lib/db/subscriptions-db'
 import { listGeneratedDocsByType } from '@/lib/db/generated-docs-db'
 import { z } from 'zod'
+import { documentAccessMessage, isDocumentAllowedForPlan, type AppDocumentType } from '@/lib/plan-access'
 
 export const dynamic = 'force-dynamic'
 
@@ -18,6 +19,8 @@ export async function GET(req: NextRequest) {
     const userId = await getUserIdFromSession()
     if (!userId) return errorResponse(401, 'UNAUTHORIZED', '로그인이 필요합니다.')
     await ensureFreeSubscription(userId)
+    const sub = await getActiveSubscription(userId)
+    const plan = sub?.planType ?? 'FREE'
 
     const url = new URL(req.url)
     const parsed = QuerySchema.safeParse({
@@ -26,6 +29,10 @@ export async function GET(req: NextRequest) {
     })
     if (!parsed.success) {
       return errorResponse(400, 'INVALID_REQUEST', 'docType이 올바르지 않습니다.', parsed.error.flatten())
+    }
+    const docType = parsed.data.docType as AppDocumentType
+    if (!isDocumentAllowedForPlan(plan, docType)) {
+      return errorResponse(403, 'PLAN_UPGRADE_REQUIRED', documentAccessMessage(docType))
     }
 
     const limitNum = parsed.data.limit ? Number(parsed.data.limit) : undefined

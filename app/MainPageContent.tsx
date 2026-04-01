@@ -112,7 +112,7 @@ function planItems(plan: PlanType) {
     return [
       `월 ${limits.monthlyQuoteGenerateLimit}회 견적 생성`,
       '표준 하이브리드 품질(동일 파이프라인)',
-      '주제·자료 기반 생성·저장·편집',
+      '견적서·기획안·프로그램 제안서 생성',
       '기본 견적 레이아웃 · 참고 견적 1건 반영',
       `기업 정보 ${company} · 이력 ${history}`,
     ]
@@ -127,8 +127,8 @@ function planItems(plan: PlanType) {
     ]
   }
   return [
-    `월 최대 ${limits.monthlyQuoteGenerateLimit}회(표준 ${limits.monthlyStandardGenerationLimit} + 프리미엄 Opus ${limits.monthlyPremiumGenerationLimit})`,
-    '프리미엄 레이아웃 전체 · 우선 처리',
+    `월 ${limits.monthlyQuoteGenerateLimit}회 + 프리미엄 ${limits.monthlyPremiumGenerationLimit}회`,
+    '우선 처리 · 긴 문서 · 고급 정제',
     '고급 문서·브랜딩 출력에 맞춘 Opus 정제',
     `기업 정보 ${company} · 이력 ${history}`,
   ]

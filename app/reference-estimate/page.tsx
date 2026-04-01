@@ -9,10 +9,13 @@ import type { ReferenceDoc } from '@/lib/types'
 import { apiFetch } from '@/lib/api/client'
 import { toUserMessage } from '@/lib/errors/toUserMessage'
 import { MAX_UPLOAD_BYTES, formatUploadLimitText } from '@/lib/upload-limits'
+import type { PlanType } from '@/lib/plans'
+import { isDocumentAllowedForPlan, isFeatureAllowedForPlan } from '@/lib/plan-access'
 
 type StyleMode = 'userStyle' | 'aiTemplate'
 
 export default function ReferenceEstimatePage() {
+  const [plan, setPlan] = useState<PlanType>('FREE')
   const [styleMode, setStyleMode] = useState<StyleMode>('userStyle')
   const [refs, setRefs] = useState<ReferenceDoc[]>([])
   const [uploading, setUploading] = useState(false)
@@ -21,6 +24,12 @@ export default function ReferenceEstimatePage() {
   const showToast = useCallback((msg: string, type: 'ok' | 'err' = 'ok') => {
     setToast({ msg, type })
     setTimeout(() => setToast(null), 2500)
+  }, [])
+
+  useEffect(() => {
+    apiFetch<{ subscription: { planType: PlanType } }>('/api/me')
+      .then((m) => setPlan(m.subscription.planType))
+      .catch(() => setPlan('FREE'))
   }, [])
 
   useEffect(() => {
@@ -165,16 +174,32 @@ export default function ReferenceEstimatePage() {
                 견적 참고자료(현재)
               </Link>
               <Link
-                href="/task-order-summary"
-                className="snap-start shrink-0 min-w-[min(100%,11rem)] sm:min-w-0 rounded-xl border border-gray-200 bg-white px-3 py-2.5 text-sm font-semibold text-gray-700 hover:bg-gray-50 text-center"
+                href={
+                  isDocumentAllowedForPlan(plan, 'taskOrderSummary')
+                    ? '/task-order-summary'
+                    : '/plans'
+                }
+                className={clsx(
+                  'snap-start shrink-0 min-w-[min(100%,11rem)] sm:min-w-0 rounded-xl px-3 py-2.5 text-sm font-semibold text-center',
+                  isDocumentAllowedForPlan(plan, 'taskOrderSummary')
+                    ? 'border border-gray-200 bg-white text-gray-700 hover:bg-gray-50'
+                    : 'border border-amber-200 bg-amber-50 text-amber-800',
+                )}
               >
                 과업지시서 / 기획안 요약
+                {!isDocumentAllowedForPlan(plan, 'taskOrderSummary') ? ' (베이직)' : ''}
               </Link>
               <Link
-                href="/scenario-reference"
-                className="snap-start shrink-0 min-w-[min(100%,11rem)] sm:min-w-0 rounded-xl border border-gray-200 bg-white px-3 py-2.5 text-sm font-semibold text-gray-700 hover:bg-gray-50 text-center"
+                href={isFeatureAllowedForPlan(plan, 'scenarioReference') ? '/scenario-reference' : '/plans'}
+                className={clsx(
+                  'snap-start shrink-0 min-w-[min(100%,11rem)] sm:min-w-0 rounded-xl px-3 py-2.5 text-sm font-semibold text-center',
+                  isFeatureAllowedForPlan(plan, 'scenarioReference')
+                    ? 'border border-gray-200 bg-white text-gray-700 hover:bg-gray-50'
+                    : 'border border-amber-200 bg-amber-50 text-amber-800',
+                )}
               >
                 시나리오 참고자료 업로드
+                {!isFeatureAllowedForPlan(plan, 'scenarioReference') ? ' (베이직)' : ''}
               </Link>
             </div>
           </section>

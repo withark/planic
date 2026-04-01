@@ -12,6 +12,8 @@ import { exportToExcel } from '@/lib/exportExcel'
 import { exportToPdf } from '@/lib/exportPdf'
 import type { PlanType } from '@/lib/plans'
 import { buildTopicSeedDoc } from '@/lib/topic-seed-doc'
+import { isDocumentAllowedForPlan } from '@/lib/plan-access'
+import { PlanLockedNotice } from '@/components/plan/PlanLockedNotice'
 
 type MeLite = {
   subscription: { planType: PlanType }
@@ -205,6 +207,7 @@ export default function ScenarioGeneratorPage() {
 
   const topicInvalid = sourceMode === 'fromTopic' && generateDisabled && !topic.trim()
   const goalInvalid = sourceMode === 'fromTopic' && generateDisabled && !goal.trim()
+  const isScenarioLocked = !isDocumentAllowedForPlan(me?.subscription?.planType ?? 'FREE', 'scenario')
 
   return (
     <div className="flex h-screen overflow-hidden bg-gray-50/50">
@@ -223,6 +226,14 @@ export default function ScenarioGeneratorPage() {
         </header>
 
         <div className="flex-1 overflow-y-auto p-6 space-y-6">
+          {isScenarioLocked ? (
+            <PlanLockedNotice
+              title="시나리오는 베이직부터 사용할 수 있어요."
+              message="무료 플랜에서는 견적서·기획안·프로그램 제안서를 먼저 사용할 수 있습니다. 베이직으로 업그레이드하면 시나리오 생성이 열립니다."
+              ctaLabel="베이직으로 업그레이드"
+            />
+          ) : null}
+          {!isScenarioLocked ? (
           <SimpleGeneratorWizard
             title="시나리오 만들기"
             subtitle="연출 흐름과 진행 멘트를 같이 정리해 바로 리허설 문서로 쓸 수 있게 구성합니다."
@@ -316,8 +327,9 @@ export default function ScenarioGeneratorPage() {
             generateDisabled={generateDisabled}
             validationMessage={validationMessage}
           />
+          ) : null}
 
-          {doc && generatedDocId ? (
+          {!isScenarioLocked && doc && generatedDocId ? (
             <section className="rounded-2xl border border-gray-100 bg-white shadow-card overflow-hidden">
               <div className="p-4 border-b border-gray-100 bg-slate-50/50">
                 <div className="text-sm font-semibold text-gray-900">시나리오 결과</div>
@@ -362,7 +374,7 @@ export default function ScenarioGeneratorPage() {
                 />
               </div>
             </section>
-          ) : (
+          ) : !isScenarioLocked ? (
             <section className="rounded-2xl border border-dashed border-gray-200 bg-white p-8 text-center">
               <div className="text-sm font-semibold text-gray-900">
                 {doc ? '문서 컨텍스트 선택 후 생성하세요' : '입력 후 생성하세요'}
@@ -375,7 +387,7 @@ export default function ScenarioGeneratorPage() {
                     : '소스 선택과 필수 입력이 필요합니다'}
               </div>
             </section>
-          )}
+          ) : null}
         </div>
       </div>
       {toast && <Toast message={toast} onClose={() => setToast('')} />}

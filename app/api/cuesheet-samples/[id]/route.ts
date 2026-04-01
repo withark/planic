@@ -1,8 +1,9 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { logError } from '@/lib/utils/logger'
 import { getUserIdFromSession } from '@/lib/auth-server'
-import { ensureFreeSubscription } from '@/lib/db/subscriptions-db'
+import { ensureFreeSubscription, getActiveSubscription } from '@/lib/db/subscriptions-db'
 import { assertCuesheetSampleOwner, getCuesheetFile } from '@/lib/db/cuesheet-samples-db'
+import { featureAccessMessage, isFeatureAllowedForPlan } from '@/lib/plan-access'
 
 export async function GET(
   _req: NextRequest,
@@ -12,6 +13,11 @@ export async function GET(
     const userId = await getUserIdFromSession()
     if (!userId) return NextResponse.json({ error: '로그인이 필요합니다.' }, { status: 401 })
     await ensureFreeSubscription(userId)
+    const sub = await getActiveSubscription(userId)
+    const plan = sub?.planType ?? 'FREE'
+    if (!isFeatureAllowedForPlan(plan, 'cuesheetReference')) {
+      return NextResponse.json({ error: featureAccessMessage('cuesheetReference') }, { status: 403 })
+    }
 
     const { id } = await params
     const ok = await assertCuesheetSampleOwner(userId, id)

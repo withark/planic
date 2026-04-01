@@ -22,7 +22,7 @@ export function assertQuoteGenerateAllowed(plan: PlanType, usedCount: number): v
   if (usedCount >= limit) {
     throw new EntitlementError(
       plan === 'FREE'
-        ? `무료 플랜은 월 ${limit}건까지 견적을 만들 수 있어요. 업그레이드하면 더 많이 생성할 수 있습니다.`
+        ? `무료 플랜은 월 ${limit}건까지 문서를 생성할 수 있어요. 업그레이드하면 더 많이 생성할 수 있습니다.`
         : `이번 달 생성 가능 횟수(${limit}건)를 모두 사용했습니다. 다음 결제 주기까지 기다리거나 플랜을 업그레이드해 주세요.`,
       'QUOTA_EXCEEDED',
       plan === 'FREE' ? 'BASIC' : 'PREMIUM',
@@ -47,7 +47,7 @@ export function assertEstimateGenerationAllowed(
   const lim = PLAN_LIMITS.PREMIUM
   const stdCap = lim.monthlyStandardGenerationLimit ?? lim.monthlyQuoteGenerateLimit
   const premCap = lim.monthlyPremiumGenerationLimit
-  const totalCap = lim.monthlyQuoteGenerateLimit
+  const totalCap = stdCap + premCap
 
   const standardUsed = usage.quoteGeneratedCount - usage.premiumGeneratedCount
   const premiumUsed = usage.premiumGeneratedCount

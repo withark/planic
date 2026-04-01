@@ -6,10 +6,11 @@ import { logError } from '@/lib/utils/logger'
 import { getUserIdFromSession } from '@/lib/auth-server'
 import { ensureFreeSubscription, getActiveSubscription } from '@/lib/db/subscriptions-db'
 import { getOrCreateUsage } from '@/lib/db/usage-db'
-import { assertEstimateGenerationAllowed, EntitlementError } from '@/lib/entitlements'
+import { assertEstimateGenerationAllowed, assertQuoteGenerateAllowed, EntitlementError } from '@/lib/entitlements'
 import { shouldUsePremiumRefineModel } from '@/lib/ai/config'
 import type { PlanType } from '@/lib/plans'
 import { PLAN_LIMITS } from '@/lib/plans'
+import { documentAccessMessage, isDocumentAllowedForPlan, type AppDocumentType } from '@/lib/plan-access'
 import { isAiModeMockRaw, isEffectiveMockAi, isProductionRuntime } from '@/lib/ai/mode'
 import {
   executeGeneratePipeline,
@@ -85,6 +86,7 @@ export async function POST(req: NextRequest) {
     const body = parsed.data
     const scenarioRefIds = (body.scenarioRefIds || []).filter(Boolean)
     const cuesheetSampleIds = (body.cuesheetSampleIds || []).filter(Boolean)
+    const documentTarget = body.documentTarget as AppDocumentType
 
     const env = getEnv()
     const aiModeRawMock = isAiModeMockRaw()
@@ -107,10 +109,13 @@ export async function POST(req: NextRequest) {
         '과업지시서 연동 생성은 베이직 플랜부터 이용할 수 있어요.',
       )
     }
+    if (!isDocumentAllowedForPlan(plan, documentTarget)) {
+      return errorResponse(403, 'PLAN_UPGRADE_REQUIRED', documentAccessMessage(documentTarget))
+    }
 
     let forceStandardHybridRefine: boolean | undefined
+    const usage = await getOrCreateUsage(userId)
     if (body.documentTarget === 'estimate') {
-      const usage = await getOrCreateUsage(userId)
       const existing = body.existingDoc as { quoteTemplate?: string } | undefined
       const templateId = (existing?.quoteTemplate || body.quoteTemplate || 'default').trim() || 'default'
       const wantsPremiumRefine = shouldUsePremiumRefineModel(plan, templateId)
@@ -122,6 +127,8 @@ export async function POST(req: NextRequest) {
         forceStandardHybridRefine = true
       }
       assertEstimateGenerationAllowed(plan, usage, willUsePremiumRefine)
+    } else {
+      assertQuoteGenerateAllowed(plan, usage.quoteGeneratedCount)
     }
 
     const pipelineArgs = {

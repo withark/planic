@@ -155,7 +155,7 @@ function DashboardContent() {
   const plan = me?.subscription?.planType ?? 'FREE'
   const lines = useMemo(() => {
     if (!me) return []
-    const rows: UsageRow[] = [buildUsageRow('이번 달 견적 생성', me.usage.quoteGeneratedCount, me.limits.monthlyQuoteGenerateLimit)]
+    const rows: UsageRow[] = [buildUsageRow('이번 달 문서 생성', me.usage.quoteGeneratedCount, me.limits.monthlyQuoteGenerateLimit)]
     if (plan === 'PREMIUM') {
       rows.push(
         buildUsageRow(
@@ -467,7 +467,7 @@ function DashboardContent() {
             <div className="order-6 rounded-2xl border border-primary-100 bg-white px-5 py-5 shadow-card ring-1 ring-primary-50">
               <p className="text-sm font-semibold text-gray-900">무료 플랜 이용 중이에요</p>
               <p className="mt-2 text-sm text-slate-600 leading-snug">
-                현재 플랜은 월 견적 생성과 기업정보 저장이 제한됩니다. 업그레이드하면 생성 한도와 프리미엄 정제 기능을 더 넉넉하게 사용할 수 있어요.
+                현재 플랜은 월 문서 생성과 일부 고급 워크플로우가 제한됩니다. 업그레이드하면 생성 한도와 고급 문서 기능을 더 넉넉하게 사용할 수 있어요.
               </p>
               <div className="mt-4 flex flex-wrap items-center gap-2">
                 <Link

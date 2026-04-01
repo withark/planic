@@ -8,6 +8,9 @@ import type { ScenarioRefDoc } from '@/lib/types'
 import { apiFetch } from '@/lib/api/client'
 import { toUserMessage } from '@/lib/errors/toUserMessage'
 import { MAX_UPLOAD_BYTES, formatUploadLimitText } from '@/lib/upload-limits'
+import type { PlanType } from '@/lib/plans'
+import { isFeatureAllowedForPlan } from '@/lib/plan-access'
+import { PlanLockedNotice } from '@/components/plan/PlanLockedNotice'
 
 type ScenarioUploadResult = { warning?: string; summary?: string }
 
@@ -16,14 +19,26 @@ function detectAnalysisSkipped(summary: string) {
 }
 
 export default function ScenarioReferencePage() {
+  const [plan, setPlan] = useState<PlanType>('FREE')
   const [list, setList] = useState<ScenarioRefDoc[]>([])
   const [uploading, setUploading] = useState(false)
   const [toast, setToast] = useState<{ msg: string; type: 'ok' | 'err' } | null>(null)
   const fileRef = useRef<HTMLInputElement>(null)
 
   useEffect(() => {
-    apiFetch<ScenarioRefDoc[]>('/api/scenario-references').then(setList).catch(() => setList([]))
+    apiFetch<{ subscription: { planType: PlanType } }>('/api/me')
+      .then((m) => setPlan(m.subscription.planType))
+      .catch(() => setPlan('FREE'))
   }, [])
+
+  const isLocked = !isFeatureAllowedForPlan(plan, 'scenarioReference')
+  useEffect(() => {
+    if (isLocked) {
+      setList([])
+      return
+    }
+    apiFetch<ScenarioRefDoc[]>('/api/scenario-references').then(setList).catch(() => setList([]))
+  }, [isLocked])
 
   const showToast = (msg: string, type: 'ok' | 'err' = 'ok') => {
     setToast({ msg, type })
@@ -86,6 +101,14 @@ export default function ScenarioReferencePage() {
         </header>
 
         <div className="flex-1 overflow-y-auto p-6 space-y-6">
+          {isLocked ? (
+            <PlanLockedNotice
+              title="시나리오 참고자료는 베이직부터 사용할 수 있어요."
+              message="무료 플랜에서는 기본 문서 생성을 먼저 사용하고, 베이직 이상에서 시나리오 참고 업로드를 활용할 수 있습니다."
+              ctaLabel="베이직으로 업그레이드"
+            />
+          ) : null}
+          {!isLocked ? (
           <section className="rounded-2xl border border-gray-100 bg-white p-5 shadow-card">
             <div className="text-sm font-semibold text-gray-900">참고 자료 메뉴 안내</div>
             <div className="mt-3 grid grid-cols-1 sm:grid-cols-3 gap-2">
@@ -100,7 +123,9 @@ export default function ScenarioReferencePage() {
               </Link>
             </div>
           </section>
+          ) : null}
 
+          {!isLocked ? (
           <section className="rounded-2xl border border-gray-100 bg-white p-5 shadow-card">
             <div className="flex items-center justify-between flex-wrap gap-3">
               <div>
@@ -128,7 +153,9 @@ export default function ScenarioReferencePage() {
               지원 형식: txt/csv/md/pdf/xlsx/ppt/pptx/doc/docx · 파일 크기 {formatUploadLimitText()} 이하
             </div>
           </section>
+          ) : null}
 
+          {!isLocked ? (
           <section className="rounded-2xl border border-gray-100 bg-white p-5 shadow-card">
             {list.length === 0 ? (
               <div className="text-sm text-gray-500 py-10 rounded-2xl border border-dashed border-gray-200 bg-gray-50 text-center">
@@ -171,6 +198,7 @@ export default function ScenarioReferencePage() {
               </div>
             )}
           </section>
+          ) : null}
         </div>
       </div>
       {toast && <Toast message={toast.msg} type={toast.type} onClose={() => setToast(null)} />}

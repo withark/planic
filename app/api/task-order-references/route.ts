@@ -5,10 +5,11 @@ import { uid } from '@/lib/calc'
 import { okResponse, errorResponse } from '@/lib/api/response'
 import { logError } from '@/lib/utils/logger'
 import { getUserIdFromSession } from '@/lib/auth-server'
-import { ensureFreeSubscription } from '@/lib/db/subscriptions-db'
+import { ensureFreeSubscription, getActiveSubscription } from '@/lib/db/subscriptions-db'
 import { listTaskOrderRefs, insertTaskOrderRef, deleteTaskOrderRef } from '@/lib/db/task-order-refs-db'
 import { MAX_UPLOAD_BYTES, formatUploadLimitText } from '@/lib/upload-limits'
 import { toServerUserMessage } from '@/lib/errors/server-error-message'
+import { documentAccessMessage, isDocumentAllowedForPlan } from '@/lib/plan-access'
 
 function fallbackTaskOrderSummary(filename: string, rawText: string): string {
   const lines = (rawText || '')
@@ -52,6 +53,11 @@ export async function GET() {
     const userId = await getUserIdFromSession()
     if (!userId) return errorResponse(401, 'UNAUTHORIZED', '로그인이 필요합니다.')
     await ensureFreeSubscription(userId)
+    const sub = await getActiveSubscription(userId)
+    const plan = sub?.planType ?? 'FREE'
+    if (!isDocumentAllowedForPlan(plan, 'taskOrderSummary')) {
+      return errorResponse(403, 'PLAN_UPGRADE_REQUIRED', documentAccessMessage('taskOrderSummary'))
+    }
     const refs = await listTaskOrderRefs(userId)
     return okResponse(refs)
   } catch (e) {
@@ -65,6 +71,11 @@ export async function POST(req: NextRequest) {
     const userId = await getUserIdFromSession()
     if (!userId) return errorResponse(401, 'UNAUTHORIZED', '로그인이 필요합니다.')
     await ensureFreeSubscription(userId)
+    const sub = await getActiveSubscription(userId)
+    const plan = sub?.planType ?? 'FREE'
+    if (!isDocumentAllowedForPlan(plan, 'taskOrderSummary')) {
+      return errorResponse(403, 'PLAN_UPGRADE_REQUIRED', documentAccessMessage('taskOrderSummary'))
+    }
     const formData = await req.formData()
     const file = formData.get('file') as File | null
     if (!file) {
@@ -121,6 +132,11 @@ export async function DELETE(req: NextRequest) {
     const userId = await getUserIdFromSession()
     if (!userId) return errorResponse(401, 'UNAUTHORIZED', '로그인이 필요합니다.')
     await ensureFreeSubscription(userId)
+    const sub = await getActiveSubscription(userId)
+    const plan = sub?.planType ?? 'FREE'
+    if (!isDocumentAllowedForPlan(plan, 'taskOrderSummary')) {
+      return errorResponse(403, 'PLAN_UPGRADE_REQUIRED', documentAccessMessage('taskOrderSummary'))
+    }
     const { id } = (await req.json()) as { id?: string }
     if (!id) {
       return errorResponse(400, 'INVALID_REQUEST', 'id가 없습니다.')

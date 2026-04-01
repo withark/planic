@@ -5,7 +5,8 @@ import { okResponse, errorResponse } from '@/lib/api/response'
 import { getEnv } from '@/lib/env'
 import { logError } from '@/lib/utils/logger'
 import { getUserIdFromSession } from '@/lib/auth-server'
-import { ensureFreeSubscription } from '@/lib/db/subscriptions-db'
+import { ensureFreeSubscription, getActiveSubscription } from '@/lib/db/subscriptions-db'
+import { featureAccessMessage, isFeatureAllowedForPlan } from '@/lib/plan-access'
 
 export const maxDuration = 300
 
@@ -14,6 +15,11 @@ export async function POST(req: NextRequest) {
     const userId = await getUserIdFromSession()
     if (!userId) return errorResponse(401, 'UNAUTHORIZED', '로그인이 필요합니다.')
     await ensureFreeSubscription(userId)
+    const sub = await getActiveSubscription(userId)
+    const plan = sub?.planType ?? 'FREE'
+    if (!isFeatureAllowedForPlan(plan, 'pricingTable')) {
+      return errorResponse(403, 'PLAN_UPGRADE_REQUIRED', featureAccessMessage('pricingTable'))
+    }
     const env = getEnv()
     if (!env.ANTHROPIC_API_KEY && !env.OPENAI_API_KEY) {
       return errorResponse(

@@ -17,8 +17,8 @@ import { isPaidPlan, type PlanType } from '@/lib/plans'
 
 type MeLite = {
   subscription: { planType: PlanType }
-  usage: { quoteGeneratedCount: number }
-  limits: { monthlyQuoteGenerateLimit: number }
+  usage: { quoteGeneratedCount: number; premiumGeneratedCount: number }
+  limits: { monthlyQuoteGenerateLimit: number; monthlyPremiumGenerationLimit: number }
 }
 
 type SourceMode = 'fromEstimate' | 'fromTaskOrder' | 'fromTopic' | 'fromReferenceStyle'
@@ -528,6 +528,14 @@ function EstimateGeneratorContent() {
             <h1 className="text-xl font-semibold tracking-tight text-slate-900">견적서 만들기</h1>
             <p className="mt-1 text-sm leading-6 text-slate-600">주제와 예산만 입력하면 바로 견적 초안을 만듭니다.</p>
             <p className="mt-1 text-xs text-slate-500">{planFeatureHint}</p>
+            {me ? (
+              <p className="mt-1 text-xs text-slate-500">
+                이번 달 사용량: {me.usage.quoteGeneratedCount}/{me.limits.monthlyQuoteGenerateLimit}
+                {me.subscription.planType === 'PREMIUM'
+                  ? ` · 프리미엄 ${me.usage.premiumGeneratedCount}/${me.limits.monthlyPremiumGenerationLimit}`
+                  : ''}
+              </p>
+            ) : null}
           </div>
           <div className="flex items-center gap-2">
             {isAdvancedModeAvailable ? (

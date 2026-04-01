@@ -66,7 +66,7 @@ function PlansContent() {
     const plans: { plan: PlanType; title: string; desc: string; badge?: string; highlight?: boolean }[] = [
       { plan: 'FREE', title: planLabelKo('FREE'), desc: '표준 품질 유지 · 사용량으로 차별화' },
       { plan: 'BASIC', title: planLabelKo('BASIC'), desc: '실무 기능 전부 · 메인 유료 플랜', badge: '추천', highlight: true },
-      { plan: 'PREMIUM', title: planLabelKo('PREMIUM'), desc: '대량·Opus 정제·프리미엄 템플릿' },
+      { plan: 'PREMIUM', title: planLabelKo('PREMIUM'), desc: '대량·우선 처리·프리미엄 생성' },
     ]
     return plans
   }, [])
@@ -149,27 +149,41 @@ function PlansContent() {
               <tbody className="divide-y divide-slate-100">
                 <tr>
                   <th scope="row" className="px-4 py-3 font-medium text-slate-600 sm:px-5">
-                    월 견적 생성 (최대)
+                    월 생성 한도 (기본)
                   </th>
                   {(['FREE', 'BASIC', 'PREMIUM'] as const).map((p) => (
                     <td key={p} className="px-3 py-3 text-center tabular-nums sm:px-4">
-                      {p === 'PREMIUM'
-                        ? `최대 ${PLAN_LIMITS.PREMIUM.monthlyQuoteGenerateLimit}건`
-                        : Number.isFinite(PLAN_LIMITS[p].monthlyQuoteGenerateLimit)
-                          ? `${PLAN_LIMITS[p].monthlyQuoteGenerateLimit}건`
-                          : '—'}
+                      {Number.isFinite(PLAN_LIMITS[p].monthlyQuoteGenerateLimit)
+                        ? `${PLAN_LIMITS[p].monthlyQuoteGenerateLimit}건`
+                        : '—'}
                     </td>
                   ))}
                 </tr>
                 <tr>
                   <th scope="row" className="px-4 py-3 font-medium text-slate-600 sm:px-5">
-                    프리미엄 정제 (Opus)
+                    프로 프리미엄 생성
                   </th>
                   <td className="px-3 py-3 text-center text-slate-500 sm:px-4">—</td>
                   <td className="px-3 py-3 text-center text-slate-500 sm:px-4">—</td>
                   <td className="px-3 py-3 text-center tabular-nums sm:px-4">
                     월 {PLAN_LIMITS.PREMIUM.monthlyPremiumGenerationLimit}건 포함
                   </td>
+                </tr>
+                <tr>
+                  <th scope="row" className="px-4 py-3 font-medium text-slate-600 sm:px-5">
+                    문서 타입 접근
+                  </th>
+                  <td className="px-3 py-3 text-center sm:px-4">견적서 · 기획안 · 프로그램 제안서</td>
+                  <td className="px-3 py-3 text-center sm:px-4">모든 문서 타입</td>
+                  <td className="px-3 py-3 text-center sm:px-4">모든 문서 타입</td>
+                </tr>
+                <tr>
+                  <th scope="row" className="px-4 py-3 font-medium text-slate-600 sm:px-5">
+                    시나리오 · 큐시트 · 과업지시서 요약
+                  </th>
+                  <td className="px-3 py-3 text-center text-slate-500 sm:px-4">베이직부터</td>
+                  <td className="px-3 py-3 text-center sm:px-4">✓</td>
+                  <td className="px-3 py-3 text-center sm:px-4">✓</td>
                 </tr>
                 <tr>
                   <th scope="row" className="px-4 py-3 font-medium text-slate-600 sm:px-5">
@@ -324,13 +338,11 @@ function PlansContent() {
 
                 <ul className="mt-5 space-y-2 text-sm text-slate-700">
                   <li className="flex items-center justify-between">
-                    <span className="text-slate-600">월 견적 생성</span>
+                    <span className="text-slate-600">월 생성 한도</span>
                     <span className="font-semibold tabular-nums text-right">
-                      {c.plan === 'PREMIUM'
-                        ? `최대 ${limits.monthlyQuoteGenerateLimit}건`
-                        : Number.isFinite(limits.monthlyQuoteGenerateLimit)
-                          ? `${limits.monthlyQuoteGenerateLimit}건`
-                          : '—'}
+                      {Number.isFinite(limits.monthlyQuoteGenerateLimit)
+                        ? `${limits.monthlyQuoteGenerateLimit}건`
+                        : '—'}
                     </span>
                   </li>
                   {c.plan === 'PREMIUM' && (
@@ -369,10 +381,10 @@ function PlansContent() {
                         - 표준 하이브리드 품질(품질 의도적 하향 없음)
                       </li>
                       <li className={clsx('text-xs text-slate-500', !planDetailOpen[c.plan] && 'max-md:hidden')}>
-                        - 참고 견적 1건 · 과업지시서 연동 없음
+                        - 문서: 견적서·기획안·프로그램 제안서
                       </li>
                       <li className={clsx('text-xs text-slate-500', !planDetailOpen[c.plan] && 'max-md:hidden')}>
-                        - PDF는 베이직부터
+                        - 시나리오·큐시트·과업지시서 요약은 베이직부터
                       </li>
                     </>
                   )}
@@ -387,10 +399,10 @@ function PlansContent() {
                         - PDF·복제·이메일 공유
                       </li>
                       <li className={clsx('text-xs text-slate-500', !planDetailOpen[c.plan] && 'max-md:hidden')}>
-                        - 참고 견적 3건 · 과업지시서 연동
+                        - 모든 문서 타입 + 단가표 + 연동 워크플로우
                       </li>
                       <li className={clsx('text-xs text-slate-500', !planDetailOpen[c.plan] && 'max-md:hidden')}>
-                        - 견적 레이아웃 전체
+                        - 저장/재열기/수정 전체 오픈
                       </li>
                     </>
                   )}
@@ -402,10 +414,10 @@ function PlansContent() {
                           !planDetailOpen[c.plan] && 'max-md:hidden'
                         )}
                       >
-                        - 표준 180건 + Opus {limits.monthlyPremiumGenerationLimit}건(최대 200건)
+                        - 월 180건 + 프리미엄 생성 {limits.monthlyPremiumGenerationLimit}건
                       </li>
                       <li className={clsx('text-xs text-slate-500', !planDetailOpen[c.plan] && 'max-md:hidden')}>
-                        - 프리미엄 레이아웃·우선 처리
+                        - 우선 처리·긴 문서·고급 정제 경로
                       </li>
                       <li className={clsx('text-xs text-slate-500', !planDetailOpen[c.plan] && 'max-md:hidden')}>
                         - 참고 견적 5건

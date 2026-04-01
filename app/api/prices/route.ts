@@ -5,8 +5,9 @@ import type { PriceCategory } from '@/lib/types'
 import { PricesSchema } from '@/lib/schemas/prices'
 import { logError } from '@/lib/utils/logger'
 import { getUserIdFromSession } from '@/lib/auth-server'
-import { ensureFreeSubscription } from '@/lib/db/subscriptions-db'
+import { ensureFreeSubscription, getActiveSubscription } from '@/lib/db/subscriptions-db'
 import { getUserPrices, replaceUserPrices } from '@/lib/db/prices-db'
+import { featureAccessMessage, isFeatureAllowedForPlan } from '@/lib/plan-access'
 
 const PricesBodySchema = PricesSchema
 
@@ -15,6 +16,11 @@ export async function GET() {
     const userId = await getUserIdFromSession()
     if (!userId) return errorResponse(401, 'UNAUTHORIZED', '로그인이 필요합니다.')
     await ensureFreeSubscription(userId)
+    const sub = await getActiveSubscription(userId)
+    const plan = sub?.planType ?? 'FREE'
+    if (!isFeatureAllowedForPlan(plan, 'pricingTable')) {
+      return errorResponse(403, 'PLAN_UPGRADE_REQUIRED', featureAccessMessage('pricingTable'))
+    }
     const prices = await getUserPrices(userId)
     return okResponse(prices)
   } catch (e) {
@@ -28,6 +34,11 @@ export async function POST(req: NextRequest) {
     const userId = await getUserIdFromSession()
     if (!userId) return errorResponse(401, 'UNAUTHORIZED', '로그인이 필요합니다.')
     await ensureFreeSubscription(userId)
+    const sub = await getActiveSubscription(userId)
+    const plan = sub?.planType ?? 'FREE'
+    if (!isFeatureAllowedForPlan(plan, 'pricingTable')) {
+      return errorResponse(403, 'PLAN_UPGRADE_REQUIRED', featureAccessMessage('pricingTable'))
+    }
     const json = await req.json()
     const parsed = PricesBodySchema.safeParse(json)
     if (!parsed.success) {

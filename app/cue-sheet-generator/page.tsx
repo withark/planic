@@ -12,6 +12,8 @@ import { toUserMessage } from '@/lib/errors/toUserMessage'
 import { exportToExcel } from '@/lib/exportExcel'
 import { exportToPdf } from '@/lib/exportPdf'
 import { buildTopicSeedDoc } from '@/lib/topic-seed-doc'
+import { isDocumentAllowedForPlan } from '@/lib/plan-access'
+import { PlanLockedNotice } from '@/components/plan/PlanLockedNotice'
 
 type MeLite = {
   subscription: { planType: PlanType }
@@ -212,6 +214,7 @@ export default function CueSheetGeneratorPage() {
 
   const topicInvalid = sourceMode === 'fromTopic' && generateDisabled && !topic.trim()
   const goalInvalid = sourceMode === 'fromTopic' && generateDisabled && !goal.trim()
+  const isCuesheetLocked = !isDocumentAllowedForPlan(me?.subscription?.planType ?? 'FREE', 'cuesheet')
 
   return (
     <div className="flex h-screen overflow-hidden bg-gray-50/50">
@@ -228,6 +231,14 @@ export default function CueSheetGeneratorPage() {
         </header>
 
         <div className="flex-1 overflow-y-auto p-6 space-y-6">
+          {isCuesheetLocked ? (
+            <PlanLockedNotice
+              title="큐시트는 베이직부터 사용할 수 있어요."
+              message="무료 플랜에서는 기본 문서를 먼저 생성할 수 있습니다. 베이직 이상에서 큐시트 생성과 운영 워크플로우를 사용할 수 있습니다."
+              ctaLabel="베이직으로 업그레이드"
+            />
+          ) : null}
+          {!isCuesheetLocked ? (
           <SimpleGeneratorWizard
             title="큐시트 만들기"
             subtitle="시간, 담당자, 준비물, 멘트 큐를 한 번에 정리해 바로 현장 공유가 가능하도록 구성했습니다."
@@ -339,8 +350,9 @@ export default function CueSheetGeneratorPage() {
             generateDisabled={generateDisabled}
             validationMessage={validationMessage}
           />
+          ) : null}
 
-          {doc && generatedDocId ? (
+          {!isCuesheetLocked && doc && generatedDocId ? (
             <section className="rounded-2xl border border-gray-100 bg-white shadow-card overflow-hidden">
               <div className="p-4 border-b border-gray-100 bg-slate-50/50 flex items-center justify-between gap-4 flex-wrap">
                 <div>
@@ -388,14 +400,14 @@ export default function CueSheetGeneratorPage() {
                 />
               </div>
             </section>
-          ) : (
+          ) : !isCuesheetLocked ? (
             <section className="rounded-2xl border border-dashed border-gray-200 bg-white p-8 text-center">
               <div className="text-sm font-semibold text-gray-900">입력 후 생성하세요</div>
               <div className="text-xs text-gray-500 mt-2">
                 {sourceMode === 'fromTopic' ? '주제와 목표만 있으면 됩니다' : '소스를 선택하세요'}
               </div>
             </section>
-          )}
+          ) : null}
         </div>
       </div>
 

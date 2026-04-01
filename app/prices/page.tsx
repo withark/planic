@@ -7,6 +7,9 @@ import { uid } from '@/lib/calc'
 import clsx from 'clsx'
 import { apiFetch } from '@/lib/api/client'
 import { toUserMessage } from '@/lib/errors/toUserMessage'
+import type { PlanType } from '@/lib/plans'
+import { isFeatureAllowedForPlan } from '@/lib/plan-access'
+import { PlanLockedNotice } from '@/components/plan/PlanLockedNotice'
 
 const ALL_TYPES = [
   '기념식/개교기념','시상식/수료식','창립기념',
@@ -16,6 +19,7 @@ const ALL_TYPES = [
 ]
 
 export default function PricesPage() {
+  const [plan, setPlan] = useState<PlanType>('FREE')
   const [prices, setPrices] = useState<PriceCategory[]>([])
   const [dirty,  setDirty]  = useState(false)
   const [saving, setSaving] = useState(false)
@@ -24,10 +28,21 @@ export default function PricesPage() {
   const [suggesting, setSuggesting] = useState(false)
 
   useEffect(() => {
+    apiFetch<{ subscription: { planType: PlanType } }>('/api/me')
+      .then((m) => setPlan(m.subscription.planType))
+      .catch(() => setPlan('FREE'))
+  }, [])
+
+  const isLocked = !isFeatureAllowedForPlan(plan, 'pricingTable')
+  useEffect(() => {
+    if (isLocked) {
+      setPrices([])
+      return
+    }
     apiFetch<PriceCategory[]>('/api/prices')
       .then(setPrices)
       .catch(() => setPrices([]))
-  }, [])
+  }, [isLocked])
 
   const showToast = useCallback((m: string) => {
     setToast(m); setTimeout(() => setToast(''), 2500)
@@ -134,20 +149,35 @@ export default function PricesPage() {
               {dirty ? '변경사항 있음' : '저장됨'}
             </span>
             <span className="text-gray-200">|</span>
-            <div className="flex items-center gap-2">
-              <Button size="sm" variant="secondary" onClick={applyMarketAverages} disabled={suggesting || prices.length === 0}>
-                {suggesting ? '평균 산출 중...' : '시장 평균 적용'}
-              </Button>
-              <Button type="button" size="sm" variant="secondary" onClick={addCat}>+ 카테고리</Button>
-            </div>
-            <Button size="sm" variant="primary" onClick={save} disabled={saving}>
-              {saving ? '저장 중...' : '저장'}
-            </Button>
+            {!isLocked ? (
+              <>
+                <div className="flex items-center gap-2">
+                  <Button size="sm" variant="secondary" onClick={applyMarketAverages} disabled={suggesting || prices.length === 0}>
+                    {suggesting ? '평균 산출 중...' : '시장 평균 적용'}
+                  </Button>
+                  <Button type="button" size="sm" variant="secondary" onClick={addCat}>+ 카테고리</Button>
+                </div>
+                <Button size="sm" variant="primary" onClick={save} disabled={saving}>
+                  {saving ? '저장 중...' : '저장'}
+                </Button>
+              </>
+            ) : (
+              <span className="text-xs font-semibold text-amber-700">베이직 플랜에서 사용 가능</span>
+            )}
           </div>
         </header>
 
         {/* 내용 */}
         <div className="flex-1 overflow-y-auto p-6 space-y-6">
+          {isLocked ? (
+            <PlanLockedNotice
+              title="단가표는 베이직부터 사용할 수 있어요."
+              message="무료 플랜에서는 문서 생성 핵심 흐름을 먼저 경험할 수 있습니다. 베이직 업그레이드 시 단가표 저장/재사용이 열립니다."
+              ctaLabel="베이직으로 업그레이드"
+            />
+          ) : null}
+          {!isLocked ? (
+          <>
           <div className="rounded-lg border border-primary-100 bg-primary-50/50 px-4 py-2.5 text-xs text-gray-600">
             <span className="font-medium text-primary-700">참고</span> 참고 견적서를 업로드하면 AI가 분석해 단가표에 자동 반영합니다.
           </div>
@@ -266,6 +296,8 @@ export default function PricesPage() {
             className="w-full py-4 text-sm font-medium text-gray-500 border-2 border-dashed border-gray-200 rounded-xl hover:border-gray-300 hover:text-gray-700 hover:bg-gray-50/50 transition-colors">
             + 새 카테고리 추가
           </button>
+          </>
+          ) : null}
         </div>
       </div>
       {toast && <Toast message={toast} onClose={() => setToast('')} />}

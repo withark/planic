@@ -6,6 +6,9 @@ import type { TaskOrderDoc } from '@/lib/types'
 import { apiFetch } from '@/lib/api/client'
 import { toUserMessage } from '@/lib/errors/toUserMessage'
 import { MAX_UPLOAD_BYTES, formatUploadLimitText } from '@/lib/upload-limits'
+import type { PlanType } from '@/lib/plans'
+import { isDocumentAllowedForPlan } from '@/lib/plan-access'
+import { PlanLockedNotice } from '@/components/plan/PlanLockedNotice'
 
 type TaskOrderStructuredSummary = {
   projectTitle?: string
@@ -52,6 +55,7 @@ function detectTaskOrderStatus(rawSummary: string, parsed: TaskOrderStructuredSu
 }
 
 export default function TaskOrderSummaryPage() {
+  const [plan, setPlan] = useState<PlanType>('FREE')
   const [taskOrderRefs, setTaskOrderRefs] = useState<TaskOrderDoc[]>([])
   const [uploading, setUploading] = useState(false)
   const [toast, setToast] = useState<{ msg: string; type: 'ok' | 'err' } | null>(null)
@@ -70,8 +74,19 @@ export default function TaskOrderSummaryPage() {
   }
 
   useEffect(() => {
-    apiFetch<TaskOrderDoc[]>('/api/task-order-references').then(setTaskOrderRefs).catch(() => setTaskOrderRefs([]))
+    apiFetch<{ subscription: { planType: PlanType } }>('/api/me')
+      .then((m) => setPlan(m.subscription.planType))
+      .catch(() => setPlan('FREE'))
   }, [])
+
+  const isLocked = !isDocumentAllowedForPlan(plan, 'taskOrderSummary')
+  useEffect(() => {
+    if (isLocked) {
+      setTaskOrderRefs([])
+      return
+    }
+    apiFetch<TaskOrderDoc[]>('/api/task-order-references').then(setTaskOrderRefs).catch(() => setTaskOrderRefs([]))
+  }, [isLocked])
 
   async function uploadTaskOrder(file: File) {
     if (!file) return
@@ -112,6 +127,14 @@ export default function TaskOrderSummaryPage() {
 
         <div className="flex-1 overflow-y-auto">
           <div className="max-w-3xl mx-auto px-6 py-6 space-y-6">
+            {isLocked ? (
+              <PlanLockedNotice
+                title="과업지시서 요약은 베이직부터 사용할 수 있어요."
+                message="무료 플랜에서는 견적서·기획안·프로그램 제안서를 먼저 사용해 보세요. 베이직 업그레이드 시 과업지시서 요약 및 연동 생성이 열립니다."
+                ctaLabel="베이직으로 업그레이드"
+              />
+            ) : null}
+            {!isLocked ? (
             <section>
               <div className="mb-3">
                 <h2 className="text-base font-semibold text-gray-900">과업지시서/기획안 업로드</h2>
@@ -146,7 +169,9 @@ export default function TaskOrderSummaryPage() {
                 지원 형식: .txt, .csv, .md, .pdf, .xlsx, .ppt, .pptx, .doc, .docx · 파일 크기 {formatUploadLimitText()} 이하
               </p>
             </section>
+            ) : null}
 
+            {!isLocked ? (
             <section className="space-y-2">
               <div className="mb-2">
                 <h2 className="text-base font-semibold text-gray-900">저장된 요약</h2>
@@ -235,6 +260,7 @@ export default function TaskOrderSummaryPage() {
                 </ul>
               )}
             </section>
+            ) : null}
           </div>
         </div>
       </div>

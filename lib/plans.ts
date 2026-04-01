@@ -7,7 +7,7 @@ export type PlanType = 'FREE' | 'BASIC' | 'PREMIUM'
 export type BillingCycle = 'monthly' | 'annual' | null
 
 export type PlanLimits = {
-  /** 월간 견적 생성(카운트) 상한 — 프로는 표준+프리미엄 합산 최대 */
+  /** 월간 문서 생성(카운트) 기본 상한 */
   monthlyQuoteGenerateLimit: number
   /** 프로: Opus 정제 월 포함 횟수(0이면 해당 없음) */
   monthlyPremiumGenerationLimit: number
@@ -33,7 +33,7 @@ export const PLAN_LIMITS: Record<PlanType, PlanLimits> = {
     historyRetentionDays: 90,
   },
   PREMIUM: {
-    monthlyQuoteGenerateLimit: 200,
+    monthlyQuoteGenerateLimit: 180,
     monthlyPremiumGenerationLimit: 20,
     monthlyStandardGenerationLimit: 180,
     companyProfileLimit: Number.POSITIVE_INFINITY,

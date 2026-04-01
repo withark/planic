@@ -2,9 +2,10 @@ import { NextRequest } from 'next/server'
 import { okResponse, errorResponse } from '@/lib/api/response'
 import { logError } from '@/lib/utils/logger'
 import { getUserIdFromSession } from '@/lib/auth-server'
-import { ensureFreeSubscription } from '@/lib/db/subscriptions-db'
+import { ensureFreeSubscription, getActiveSubscription } from '@/lib/db/subscriptions-db'
 import { insertCuesheetSampleWithFile, listCuesheetSamples, deleteCuesheetSample } from '@/lib/db/cuesheet-samples-db'
 import { MAX_UPLOAD_BYTES, formatUploadLimitText } from '@/lib/upload-limits'
+import { featureAccessMessage, isFeatureAllowedForPlan } from '@/lib/plan-access'
 
 const ALLOWED_EXT = ['pdf', 'xlsx', 'png', 'jpg', 'jpeg', 'gif', 'webp', 'txt', 'csv', 'md', 'ppt', 'pptx', 'doc', 'docx']
 
@@ -17,6 +18,11 @@ export async function GET() {
   const userId = await getUserIdFromSession()
   if (!userId) return errorResponse(401, 'UNAUTHORIZED', '로그인이 필요합니다.')
   await ensureFreeSubscription(userId)
+  const sub = await getActiveSubscription(userId)
+  const plan = sub?.planType ?? 'FREE'
+  if (!isFeatureAllowedForPlan(plan, 'cuesheetReference')) {
+    return errorResponse(403, 'PLAN_UPGRADE_REQUIRED', featureAccessMessage('cuesheetReference'))
+  }
   const list = await listCuesheetSamples(userId)
   return okResponse(list)
 }
@@ -26,6 +32,11 @@ export async function POST(req: NextRequest) {
     const userId = await getUserIdFromSession()
     if (!userId) return errorResponse(401, 'UNAUTHORIZED', '로그인이 필요합니다.')
     await ensureFreeSubscription(userId)
+    const sub = await getActiveSubscription(userId)
+    const plan = sub?.planType ?? 'FREE'
+    if (!isFeatureAllowedForPlan(plan, 'cuesheetReference')) {
+      return errorResponse(403, 'PLAN_UPGRADE_REQUIRED', featureAccessMessage('cuesheetReference'))
+    }
 
     const formData = await req.formData()
     const file = formData.get('file') as File | null
@@ -50,6 +61,11 @@ export async function DELETE(req: NextRequest) {
     const userId = await getUserIdFromSession()
     if (!userId) return errorResponse(401, 'UNAUTHORIZED', '로그인이 필요합니다.')
     await ensureFreeSubscription(userId)
+    const sub = await getActiveSubscription(userId)
+    const plan = sub?.planType ?? 'FREE'
+    if (!isFeatureAllowedForPlan(plan, 'cuesheetReference')) {
+      return errorResponse(403, 'PLAN_UPGRADE_REQUIRED', featureAccessMessage('cuesheetReference'))
+    }
     const { id } = await req.json() as { id: string }
     if (!id) return errorResponse(400, 'INVALID_REQUEST', 'id가 없습니다.')
     await deleteCuesheetSample(userId, id)

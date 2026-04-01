@@ -4,8 +4,9 @@ import { organizeTaskOrderRef } from '@/lib/ai'
 import { okResponse, errorResponse } from '@/lib/api/response'
 import { logError } from '@/lib/utils/logger'
 import { getUserIdFromSession } from '@/lib/auth-server'
-import { ensureFreeSubscription } from '@/lib/db/subscriptions-db'
+import { ensureFreeSubscription, getActiveSubscription } from '@/lib/db/subscriptions-db'
 import { listTaskOrderRefs } from '@/lib/db/task-order-refs-db'
+import { documentAccessMessage, isDocumentAllowedForPlan } from '@/lib/plan-access'
 
 const BodySchema = z.object({
   id: z.string().min(1),
@@ -16,6 +17,11 @@ export async function POST(req: NextRequest) {
     const userId = await getUserIdFromSession()
     if (!userId) return errorResponse(401, 'UNAUTHORIZED', '로그인이 필요합니다.')
     await ensureFreeSubscription(userId)
+    const sub = await getActiveSubscription(userId)
+    const plan = sub?.planType ?? 'FREE'
+    if (!isDocumentAllowedForPlan(plan, 'taskOrderSummary')) {
+      return errorResponse(403, 'PLAN_UPGRADE_REQUIRED', documentAccessMessage('taskOrderSummary'))
+    }
 
     const json = await req.json()
     const parsed = BodySchema.safeParse(json)

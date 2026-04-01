@@ -435,7 +435,7 @@ export async function executeGeneratePipeline(
     repairFocusHistory: genMeta?.repairFocusHistory ?? [],
     topIssuesAfter: genMeta?.qualityIssuesAfterTop ?? [],
   }
-  const persistedEngineSnapshot = {
+  const persistedEngineSnapshotBase = {
     ...engineSnapshot,
     timings: timingsSnapshot,
     quality: qualitySnapshot,
@@ -462,13 +462,18 @@ export async function executeGeneratePipeline(
         }
       : undefined,
   }
+  const persistenceWarnings: string[] = []
+  let persistedEngineSnapshot: Record<string, unknown> = persistedEngineSnapshotBase
 
   await insertGeneratedDoc({
     userId,
     id: quoteId,
     docType: documentTarget as any,
     doc,
-  }).catch(() => {})
+  }).catch((err) => {
+    persistenceWarnings.push('generated_doc_insert_failed')
+    logError('generated_doc.insert', err)
+  })
 
   if (documentTarget === 'estimate') {
     await quotesDbAppend(
@@ -492,11 +497,25 @@ export async function executeGeneratePipeline(
         },
       },
       userId,
-    )
-
-    await incQuoteGenerated(userId, 1, new Date(), {
-      countAsPremium: genMeta?.hybridRefineTier === 'opus',
+    ).catch((err) => {
+      persistenceWarnings.push('quotes_append_failed')
+      logError('quotes.append', err)
     })
+
+  }
+
+  await incQuoteGenerated(userId, 1, new Date(), {
+    countAsPremium: documentTarget === 'estimate' && genMeta?.hybridRefineTier === 'opus',
+  }).catch((err) => {
+    persistenceWarnings.push('usage_increment_failed')
+    logError('usage.incQuoteGenerated', err)
+  })
+
+  if (persistenceWarnings.length > 0) {
+    persistedEngineSnapshot = {
+      ...persistedEngineSnapshotBase,
+      persistenceWarnings,
+    }
   }
 
   await insertGenerationRun({

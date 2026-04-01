@@ -2,10 +2,11 @@ import { NextRequest } from 'next/server'
 import { okResponse, errorResponse } from '@/lib/api/response'
 import { logError } from '@/lib/utils/logger'
 import { getUserIdFromSession } from '@/lib/auth-server'
-import { ensureFreeSubscription } from '@/lib/db/subscriptions-db'
+import { ensureFreeSubscription, getActiveSubscription } from '@/lib/db/subscriptions-db'
 import { getGeneratedDocById, updateGeneratedDocById } from '@/lib/db/generated-docs-db'
 import { z } from 'zod'
 import type { QuoteDoc } from '@/lib/types'
+import { documentAccessMessage, isDocumentAllowedForPlan, type AppDocumentType } from '@/lib/plan-access'
 
 export const dynamic = 'force-dynamic'
 
@@ -18,6 +19,8 @@ export async function GET(_req: NextRequest, { params }: { params: Promise<{ id:
     const userId = await getUserIdFromSession()
     if (!userId) return errorResponse(401, 'UNAUTHORIZED', '로그인이 필요합니다.')
     await ensureFreeSubscription(userId)
+    const sub = await getActiveSubscription(userId)
+    const plan = sub?.planType ?? 'FREE'
 
     const parsed = ParamsSchema.safeParse(await params)
     if (!parsed.success) {
@@ -26,6 +29,10 @@ export async function GET(_req: NextRequest, { params }: { params: Promise<{ id:
 
     const row = await getGeneratedDocById({ userId, id: parsed.data.id })
     if (!row) return errorResponse(404, 'NOT_FOUND', '문서를 찾을 수 없습니다.')
+    const docType = row.docType as AppDocumentType
+    if (!isDocumentAllowedForPlan(plan, docType)) {
+      return errorResponse(403, 'PLAN_UPGRADE_REQUIRED', documentAccessMessage(docType))
+    }
 
     return okResponse({ id: row.id, docType: row.docType, createdAt: row.createdAt, doc: row.payload })
   } catch (e) {
@@ -43,6 +50,8 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id
     const userId = await getUserIdFromSession()
     if (!userId) return errorResponse(401, 'UNAUTHORIZED', '로그인이 필요합니다.')
     await ensureFreeSubscription(userId)
+    const sub = await getActiveSubscription(userId)
+    const plan = sub?.planType ?? 'FREE'
 
     const parsedParams = ParamsSchema.safeParse(await params)
     if (!parsedParams.success) {
@@ -56,6 +65,10 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id
 
     const existing = await getGeneratedDocById({ userId, id: parsedParams.data.id })
     if (!existing) return errorResponse(404, 'NOT_FOUND', '문서를 찾을 수 없습니다.')
+    const docType = existing.docType as AppDocumentType
+    if (!isDocumentAllowedForPlan(plan, docType)) {
+      return errorResponse(403, 'PLAN_UPGRADE_REQUIRED', documentAccessMessage(docType))
+    }
 
     const nextDoc = parsedBody.data.doc as QuoteDoc
     await updateGeneratedDocById({
