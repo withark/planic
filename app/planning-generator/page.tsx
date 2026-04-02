@@ -56,6 +56,7 @@ export default function PlanningGeneratorPage() {
   const [saving, setSaving] = useState(false)
   const generatingTabs = useMemo(() => ({ planning: generating }), [generating])
   const [funLineIdx, setFunLineIdx] = useState(0)
+  const [generatingElapsedSec, setGeneratingElapsedSec] = useState(0)
   const wizardHighlights: WizardHighlight[] = useMemo(
     () => [
       { label: '필수 입력', value: '주제, 목표' },
@@ -258,6 +259,19 @@ export default function PlanningGeneratorPage() {
     return () => window.clearInterval(timer)
   }, [doc, generatedDocId, funLines.length])
 
+  useEffect(() => {
+    if (!generating) {
+      setGeneratingElapsedSec(0)
+      return
+    }
+    const startedAt = Date.now()
+    setGeneratingElapsedSec(0)
+    const timer = window.setInterval(() => {
+      setGeneratingElapsedSec(Math.floor((Date.now() - startedAt) / 1000))
+    }, 1000)
+    return () => window.clearInterval(timer)
+  }, [generating])
+
   return (
     <div className="flex h-screen overflow-hidden bg-gray-50/50">
       <GNB />
@@ -443,10 +457,15 @@ export default function PlanningGeneratorPage() {
                       {generating ? '기획 문서를 다듬고 있어요...' : '여기는 비워두고, 필요한 순간에 채워드릴게요.'}
                     </p>
                     <p className="mt-2 text-xs leading-5 text-slate-600">{funLines[funLineIdx]}</p>
-                    {generationProgressLabel ? (
-                      <p className="mt-2 inline-flex rounded-full bg-indigo-50 px-3 py-1 text-xs font-semibold text-indigo-700">
-                        진행 단계: {generationProgressLabel}
-                      </p>
+                    {generating ? (
+                      <div className="mt-2 flex flex-wrap items-center gap-2">
+                        <p className="inline-flex rounded-full bg-indigo-50 px-3 py-1 text-xs font-semibold text-indigo-700">
+                          경과 시간: {generatingElapsedSec}초
+                        </p>
+                        <p className="inline-flex rounded-full bg-violet-50 px-3 py-1 text-xs font-semibold text-violet-700">
+                          {generationProgressLabel ? `진행 단계: ${generationProgressLabel}` : 'AI가 문서 뼈대를 세우는 중'}
+                        </p>
+                      </div>
                     ) : null}
                   </div>
 
