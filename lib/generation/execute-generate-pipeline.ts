@@ -170,6 +170,7 @@ export async function executeGeneratePipeline(
   const generationMode = body.generationMode ?? 'normal'
   const documentTarget = body.documentTarget ?? 'estimate'
   const styleMode = body.styleMode ?? 'userStyle'
+  const isEstimateTarget = documentTarget === 'estimate'
   const existingDoc = body.existingDoc as QuoteDoc | undefined
   const taskOrderBaseId = (body.taskOrderBaseId || '').trim() || undefined
 
@@ -177,13 +178,14 @@ export async function executeGeneratePipeline(
 
   const contextStartedAt = Date.now()
   const needPrices = documentTarget === 'estimate'
-  const needReferences = styleMode === 'userStyle'
+  // 견적서는 활성 참고 견적(템플릿)을 항상 사용한다.
+  const needReferences = isEstimateTarget || styleMode === 'userStyle'
   const taskOrderRefsPromise =
     generationMode === 'taskOrderBase' && taskOrderBaseId
       ? getTaskOrderRefById(userId, taskOrderBaseId).then((r) => (r ? [r] : []))
       : Promise.resolve([])
 
-  const refLimit = referenceStyleDocLimitForPlan(plan)
+  const refLimit = isEstimateTarget ? 1 : referenceStyleDocLimitForPlan(plan)
   const [prices, settings, references, taskOrderRefs, scenarioRefs, cuesheetSampleContext, effectiveRaw] =
     await Promise.all([
       needPrices ? getUserPrices(userId) : Promise.resolve([]),
@@ -214,8 +216,19 @@ export async function executeGeneratePipeline(
   const realtimePolicy = applyRealtimeEnginePolicy(effectiveRaw)
   const effective = realtimePolicy.engine
 
-  const effectiveStyleMode: 'userStyle' | 'aiTemplate' =
-    styleMode === 'userStyle' && references.length > 0 ? 'userStyle' : 'aiTemplate'
+  if (isEstimateTarget && references.length === 0) {
+    throw new GeneratePipelineError(
+      400,
+      'MISSING_ESTIMATE_TEMPLATE',
+      '참고 자료에서 견적서 템플릿(엑셀)을 업로드하고 「견적 생성에 반영」을 먼저 설정해 주세요.',
+    )
+  }
+
+  const effectiveStyleMode: 'userStyle' | 'aiTemplate' = isEstimateTarget
+    ? 'userStyle'
+    : styleMode === 'userStyle' && references.length > 0
+      ? 'userStyle'
+      : 'aiTemplate'
   const referencesForPrompt = effectiveStyleMode === 'userStyle' ? references : []
 
   const pricesForPrompt: PriceCategory[] =

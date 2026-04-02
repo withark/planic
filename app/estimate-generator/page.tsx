@@ -23,9 +23,7 @@ type MeLite = {
   limits: { monthlyQuoteGenerateLimit: number; monthlyPremiumGenerationLimit: number }
 }
 
-type SourceMode = 'fromEstimate' | 'fromTaskOrder' | 'fromTopic' | 'fromReferenceStyle'
-
-type StyleMode = 'userStyle' | 'aiTemplate'
+type SourceMode = 'fromEstimate' | 'fromTaskOrder' | 'fromTopic'
 const DRAFT_STORAGE_KEY = 'planic:estimate-generator:draft:v1'
 
 type TaskOrderSummaryParsed = {
@@ -88,7 +86,6 @@ function EstimateGeneratorContent() {
   const [selectedTaskOrderId, setSelectedTaskOrderId] = useState<string | null>(null)
 
   const [referenceDocs, setReferenceDocs] = useState<ReferenceDoc[]>([])
-  const [globalStyleMode, setGlobalStyleMode] = useState<StyleMode>('userStyle')
 
   const [topic, setTopic] = useState('')
   const [headcount, setHeadcount] = useState('')
@@ -129,7 +126,6 @@ function EstimateGeneratorContent() {
   const modes: WizardMode[] = useMemo(
     () => [
       { id: 'fromTopic', title: '주제만 입력', desc: '행사 주제와 예산 범위만으로 빠르게 견적서를 생성합니다.' },
-      { id: 'fromReferenceStyle', title: '참고 견적서 스타일', desc: '기존 견적 문체와 항목 구조를 최대한 반영합니다.' },
       { id: 'fromTaskOrder', title: '과업지시서 기준', desc: '요구사항 문서를 바탕으로 바로 견적서를 생성합니다.' },
       { id: 'fromEstimate', title: '저장된 견적서 기준', desc: '기존 문서를 토대로 비슷한 유형의 견적을 재작성합니다.' },
     ],
@@ -149,9 +145,6 @@ function EstimateGeneratorContent() {
     apiFetch<MeLite>('/api/me').then(setMe).catch(() => {})
     apiFetch<CompanySettings>('/api/settings').then(setCompanySettings).catch(() => {})
     apiFetch<PriceCategory[]>('/api/prices').then(setPrices).catch(() => setPrices([]))
-    apiFetch<{ mode: StyleMode }>('/api/estimate-style-mode')
-      .then((d) => setGlobalStyleMode(d.mode))
-      .catch(() => setGlobalStyleMode('userStyle'))
     apiFetch<ReferenceDoc[]>('/api/upload-reference')
       .then(setReferenceDocs)
       .catch(() => setReferenceDocs([]))
@@ -235,7 +228,7 @@ function EstimateGeneratorContent() {
     setGeneratedDocId(null)
     if (sourceMode === 'fromEstimate') setSelectedTaskOrderId(null)
     if (sourceMode === 'fromTaskOrder') setSelectedEstimateId(null)
-    if (sourceMode === 'fromTopic' || sourceMode === 'fromReferenceStyle') {
+    if (sourceMode === 'fromTopic') {
       setSelectedEstimateId(null)
       setSelectedTaskOrderId(null)
     }
@@ -251,13 +244,7 @@ function EstimateGeneratorContent() {
     }
   }, [isAdvancedModeAvailable, showAdvancedModes, sourceMode])
 
-  const resolveStyleModeForRequest = useCallback((): StyleMode => {
-    if (sourceMode === 'fromReferenceStyle') return 'userStyle'
-    return globalStyleMode
-  }, [globalStyleMode, sourceMode])
-
   const requestBodyForEstimate = useCallback(() => {
-    const styleMode = resolveStyleModeForRequest()
     const base = {
       eventDate: '',
       eventDuration: '',
@@ -266,7 +253,7 @@ function EstimateGeneratorContent() {
       headcount: '',
       venue: '',
       budget,
-      styleMode,
+      styleMode: 'userStyle' as const,
       documentTarget: 'estimate' as const,
       clientName: '',
       clientManager: '',
@@ -326,8 +313,6 @@ function EstimateGeneratorContent() {
     }
   }, [
     budget,
-    globalStyleMode,
-    resolveStyleModeForRequest,
     selectedHistoryDoc,
     selectedTaskOrder,
     selectedTaskOrderParsed,
@@ -339,6 +324,10 @@ function EstimateGeneratorContent() {
   ])
 
   const handleGenerateEstimate = useCallback(async () => {
+    if (!activeReference) {
+      showToast('참고 자료에서 템플릿 엑셀을 업로드하고 「견적 생성에 반영」을 먼저 설정해 주세요.')
+      return
+    }
     const body = requestBodyForEstimate()
     if (!body) {
       if (sourceMode === 'fromEstimate') {
@@ -366,7 +355,7 @@ function EstimateGeneratorContent() {
       setGenerating(false)
       setGenerationProgressLabel(null)
     }
-  }, [requestBodyForEstimate, showToast, sourceMode])
+  }, [activeReference, requestBodyForEstimate, showToast, sourceMode])
 
   const handleSaveDoc = useCallback(
     async (nextDoc: QuoteDoc) => {
@@ -395,21 +384,19 @@ function EstimateGeneratorContent() {
     [generatedDocId, showToast],
   )
 
-  const generateDisabled =
-    sourceMode === 'fromEstimate'
-      ? !selectedEstimateId || !selectedHistoryDoc
-      : sourceMode === 'fromTaskOrder'
-        ? !selectedTaskOrderId || !selectedTaskOrder
-        : sourceMode === 'fromReferenceStyle'
-          ? !activeReference || !topic.trim()
-          : !topic.trim()
+  const generateDisabled = useMemo(() => {
+    if (!activeReference) return true
+    if (sourceMode === 'fromEstimate') return !selectedEstimateId || !selectedHistoryDoc
+    if (sourceMode === 'fromTaskOrder') return !selectedTaskOrderId || !selectedTaskOrder
+    return !topic.trim()
+  }, [activeReference, selectedEstimateId, selectedHistoryDoc, selectedTaskOrderId, selectedTaskOrder, sourceMode, topic])
 
   const validationMessage = useMemo(() => {
     if (!generateDisabled) return null
-    if (sourceMode === 'fromTopic' || sourceMode === 'fromReferenceStyle') {
-      if (sourceMode === 'fromReferenceStyle' && !activeReference) {
-        return null
-      }
+    if (!activeReference) {
+      return '참고 자료에서 템플릿 엑셀을 업로드하고 「견적 생성에 반영」을 먼저 설정해 주세요.'
+    }
+    if (sourceMode === 'fromTopic') {
       if (!topic.trim()) return '이벤트 주제를 입력해 주세요.'
       return null
     }
@@ -433,18 +420,16 @@ function EstimateGeneratorContent() {
   ])
 
   const showTopicInlineError =
-    (sourceMode === 'fromTopic' && !topic.trim()) || (sourceMode === 'fromReferenceStyle' && !!activeReference && !topic.trim())
+    sourceMode === 'fromTopic' && !topic.trim()
 
   const topicInvalidHighlight =
-    (sourceMode === 'fromTopic' && generateDisabled && !topic.trim()) ||
-    (sourceMode === 'fromReferenceStyle' && !!activeReference && generateDisabled && !topic.trim())
+    sourceMode === 'fromTopic' && generateDisabled && !topic.trim()
 
   const selectedModeMeta = useMemo(() => modes.find((m) => m.id === sourceMode) ?? null, [modes, sourceMode])
   const objectiveByMode = useMemo(() => {
     if (sourceMode === 'fromEstimate') return '기존 견적을 기반으로 빠르게 재작성'
     if (sourceMode === 'fromTaskOrder') return '과업지시서 요구사항 중심으로 견적서 구성'
-    if (sourceMode === 'fromReferenceStyle') return '활성 참고 견적의 문체/구조를 반영해 생성'
-    return '주제 중심으로 가장 빠르게 견적서 생성'
+    return '활성 템플릿 엑셀 기준으로 견적서 생성'
   }, [sourceMode])
   const readinessText = generateDisabled ? validationMessage || '필수 입력을 확인해 주세요.' : '생성 준비 완료'
   const readinessToneClass = generateDisabled ? 'text-amber-800' : 'text-emerald-700'
@@ -666,19 +651,6 @@ function EstimateGeneratorContent() {
                     ))}
                   </select>
                 </>
-              ) : sourceMode === 'fromReferenceStyle' ? (
-                <>
-                  {activeReference ? (
-                    <p className="rounded-2xl border border-emerald-100 bg-emerald-50 px-4 py-3 text-sm leading-6 text-emerald-800">
-                      참고 견적 「{activeReference.filename}」 스타일이 이번 생성에 적용됩니다.
-                    </p>
-                  ) : (
-                    <p className="rounded-2xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm leading-6 text-amber-900">
-                      활성 참고 견적이 없습니다. 참고 자료 메뉴에서 파일을 올리고 「견적 생성에 반영」을 눌러 주세요.
-                    </p>
-                  )}
-                  {topicInputs}
-                </>
               ) : (
                 topicInputs
               )
@@ -824,9 +796,7 @@ function EstimateGeneratorContent() {
                 <section className="rounded-2xl border border-dashed border-gray-200 bg-white p-8 text-center">
                   <div className="text-base font-semibold text-gray-900">입력 후 생성하세요</div>
                   <div className="text-sm text-gray-500 mt-2">
-                    {sourceMode === 'fromTopic' || sourceMode === 'fromReferenceStyle'
-                      ? '이벤트 주제만 입력하면 됩니다'
-                      : '소스 선택과 필수 입력이 필요합니다'}
+                    {sourceMode === 'fromTopic' ? '이벤트 주제만 입력하면 됩니다' : '소스 선택과 필수 입력이 필요합니다'}
                   </div>
                 </section>
               )}
