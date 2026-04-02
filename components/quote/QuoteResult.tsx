@@ -1229,6 +1229,7 @@ export function QuoteResult({
                 const update = (patch: Partial<typeof p>) => patchDoc(base => ({ ...base, planning: { ...(base.planning || p), ...patch } as any }))
                 const checklist = Array.isArray(p.checklist) ? p.checklist.filter(Boolean) : []
                 const topChecklist = checklist.slice(0, 8)
+                const blockColors = ['bg-[#1f4f82]', 'bg-[#e87722]', 'bg-[#1f7a4f]', 'bg-[#d5a223]']
                 const actionRows = topChecklist.map((item, idx) => {
                   const order = idx + 1
                   const timing = idx === 0 ? 'D-60' : idx === 1 ? 'D-45' : idx === 2 ? 'D-30' : idx === 3 ? 'D-14' : idx === 4 ? 'D-7' : idx === 5 ? 'D-Day' : `D+${idx - 5}`
@@ -1245,14 +1246,14 @@ export function QuoteResult({
                         <p className="mt-1 text-xs text-slate-500">{doc.eventDate || doc.quoteDate} · {doc.venue || '행사장'}</p>
                       </header>
 
-                      <section className="mt-6 space-y-2">
+                      <section className="mt-5 space-y-2">
                         <h5 className="text-lg font-bold text-[#1f4f82]">1. 배경 및 필요성</h5>
-                        <p className="text-[14px] leading-7 text-slate-700 whitespace-pre-line">{p.overview}</p>
+                        <p className="text-[13px] leading-6 text-slate-700 whitespace-pre-line">{p.overview}</p>
                       </section>
 
-                      <section className="mt-6 space-y-2">
+                      <section className="mt-5 space-y-2">
                         <h5 className="text-lg font-bold text-[#1f4f82]">2. 프로그램 개요</h5>
-                        <table className="w-full border-collapse text-[13px]">
+                        <table className="w-full border-collapse text-[12px]">
                           <tbody>
                             {[
                               ['목표', p.approach],
@@ -1270,15 +1271,15 @@ export function QuoteResult({
                         </table>
                       </section>
 
-                      <section className="mt-6 space-y-3">
+                      <section className="mt-5 space-y-3">
                         <h5 className="text-lg font-bold text-[#1f4f82]">3. 세부 액션 프로그램</h5>
                         <div className="space-y-3">
                           {(d.program?.programRows || []).slice(0, 8).map((row, idx) => (
                             <div key={`${row.content}-${idx}`} className="grid grid-cols-[56px_1fr] gap-0 rounded-xl border border-slate-200 bg-white">
-                              <div className="flex items-center justify-center rounded-l-xl bg-[#1f4f82] text-sm font-bold text-white">{String(idx + 1).padStart(2, '0')}</div>
+                              <div className={`flex items-center justify-center rounded-l-xl text-sm font-bold text-white ${blockColors[idx % blockColors.length]}`}>{String(idx + 1).padStart(2, '0')}</div>
                               <div className="px-4 py-3">
                                 <p className="text-sm font-semibold text-slate-800">{row.content || row.kind || '세션 내용'}</p>
-                                <p className="mt-1 text-xs leading-6 text-slate-600 whitespace-pre-line">{row.notes || row.tone || '세부 설명'}</p>
+                                <p className="mt-1 text-[12px] leading-5 text-slate-600 whitespace-pre-line">{row.notes || row.tone || '세부 설명'}</p>
                                 <p className="mt-1 text-xs text-slate-500">{row.time || '-'} · {row.audience || '전체 참여자'}</p>
                               </div>
                             </div>
@@ -1286,9 +1287,9 @@ export function QuoteResult({
                         </div>
                       </section>
 
-                      <section className="mt-6 space-y-2">
+                      <section className="mt-5 space-y-2">
                         <h5 className="text-lg font-bold text-[#1f4f82]">4. 액션 플랜 (Action Plan)</h5>
-                        <table className="w-full border-collapse text-[13px]">
+                        <table className="w-full border-collapse text-[12px]">
                           <thead>
                             <tr className="bg-[#1f4f82] text-white">
                               <th className="border border-slate-300 px-3 py-2 text-left">단계</th>
@@ -1310,7 +1311,7 @@ export function QuoteResult({
                         </table>
                       </section>
 
-                      <section className="mt-6 space-y-2">
+                      <section className="mt-5 space-y-2">
                         <h5 className="text-lg font-bold text-[#1f4f82]">5. 기대 효과</h5>
                         <div className="grid gap-3 md:grid-cols-2">
                           <div className="rounded-xl border border-slate-300 bg-slate-50 p-3">
