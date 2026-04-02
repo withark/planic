@@ -41,9 +41,18 @@ export async function exportToPdf(
   company?: CompanySettings | null,
   kind: PdfExportDocumentKind = 'estimate',
 ) {
-  const liveQuoteEl = document.querySelector('.quote-wrapper') as HTMLElement | null
-  if (liveQuoteEl) {
-    await exportElementToPdf(liveQuoteEl, doc, kind)
+  // 문서 종류별로 "PDF에 넣을 영역"을 선별한다.
+  // - planning: 상단의 기획안 미리보기만 저장 (원문 편집 textarea는 제외)
+  // - 그 외: 현재 탭의 문서 wrapper를 저장
+  const preferredSelector = kind === 'planning' ? '.planning-proposal-print' : '.quote-wrapper'
+  const fallbackSelector = '.quote-wrapper'
+  const liveEl =
+    (document.querySelector(preferredSelector) as HTMLElement | null) ||
+    (preferredSelector !== fallbackSelector ? (document.querySelector(fallbackSelector) as HTMLElement | null) : null)
+
+  // 견적서는 화면 DOM(펼치기·max-w 등)을 캡처하면 버튼·가독성 문제가 생기므로 항상 인쇄용 HTML 경로 사용
+  if (liveEl && kind !== 'estimate') {
+    await exportElementToPdf(liveEl, doc, kind)
     return
   }
 
@@ -52,20 +61,26 @@ export async function exportToPdf(
     import('jspdf'),
   ])
 
-  // 임시 DOM 생성
+  // 임시 DOM 생성 (견적서·또는 라이브 캡처 불가 시)
   const container = document.createElement('div')
+  const isEstimatePdf = kind === 'estimate'
   container.style.cssText = `
     position: fixed; top: -9999px; left: -9999px;
-    width: 794px; padding: 40px; padding-bottom: 80px;
-    background: white; font-family: 'Pretendard', sans-serif;
-    font-size: 12px; color: #111;
+    width: 794px; padding: ${isEstimatePdf ? '36px 40px' : '40px'}; padding-bottom: 80px;
+    background: white;
+    font-family: 'Pretendard', 'Apple SD Gothic Neo', 'Malgun Gothic', sans-serif;
+    font-size: ${isEstimatePdf ? '13px' : '12px'};
+    color: #0f172a;
+    -webkit-font-smoothing: antialiased;
   `
   container.innerHTML = buildPdfFallbackHtml(doc, company, kind)
   document.body.appendChild(container)
 
   try {
     const canvas = await html2canvas(container, {
-      scale: 2, useCORS: true, logging: false,
+      scale: isEstimatePdf ? 2.75 : 2,
+      useCORS: true,
+      logging: false,
       backgroundColor: '#ffffff',
     })
 
@@ -97,12 +112,37 @@ export async function exportElementToPdf(
     import('html2canvas').then(m => m.default),
     import('jspdf'),
   ])
-  const canvas = await html2canvas(el, {
-    scale: 2,
-    useCORS: true,
-    logging: false,
-    backgroundColor: '#ffffff',
-  })
+
+  // 스크롤 컨테이너/overflow 영향으로 캡처가 잘리는 케이스를 피하기 위해,
+  // 대상 엘리먼트를 오프스크린에 복제해 "독립된 레이아웃"으로 캡처한다.
+  const wrapper = document.createElement('div')
+  wrapper.style.cssText = `
+    position: fixed; top: -9999px; left: -9999px;
+    background: #ffffff;
+  `
+  const rect = el.getBoundingClientRect()
+  // width를 고정해 레이아웃이 바뀌는 것을 최소화
+  if (rect.width && Number.isFinite(rect.width)) {
+    wrapper.style.width = `${Math.ceil(rect.width)}px`
+  }
+  const clone = el.cloneNode(true) as HTMLElement
+  wrapper.appendChild(clone)
+  document.body.appendChild(wrapper)
+
+  let canvas: HTMLCanvasElement
+  try {
+    canvas = await html2canvas(wrapper, {
+      scale: 2.25,
+      useCORS: true,
+      logging: false,
+      backgroundColor: '#ffffff',
+      // windowWidth를 wrapper 기준으로 맞춰 테이블/그리드가 눌리지 않게
+      windowWidth: wrapper.scrollWidth || undefined,
+    })
+  } finally {
+    document.body.removeChild(wrapper)
+  }
+
   const imgData = canvas.toDataURL('image/png')
   const pdf = new jsPDF({ orientation: 'portrait', unit: 'mm', format: 'a4' })
   const pageW = pdf.internal.pageSize.getWidth()
@@ -463,83 +503,87 @@ function buildHtml(doc: QuoteDoc, company?: CompanySettings | null): string {
   const subByKind = subtotalsByKind(doc)
   const tableCellBorder = tpl.pdf.tableStyle === 'bordered' ? 'border:1px solid #ddd;' : ''
   const rows = KIND_ORDER.map(kind => `
-    <tr style="background:${sectionBg};border-top:1px solid ${accentBorder}">
-      <td colspan="7" style="padding:6px 8px;font-size:10px;font-weight:600;color:${sectionText};letter-spacing:.05em;${tableCellBorder}">${kind}</td>
+    <tr style="background:${sectionBg};border-top:2px solid ${accentBorder}">
+      <td colspan="7" style="padding:9px 10px;font-size:12px;font-weight:700;color:${sectionText};letter-spacing:.03em;${tableCellBorder}">${kind}</td>
     </tr>
     ${(byKind.get(kind) || []).map(it => `
-    <tr style="border-bottom:0.5px solid #eee">
-      <td style="padding:6px 8px;${tableCellBorder}">${it.name}</td>
-      <td style="padding:6px 8px;color:#888;${tableCellBorder}">${it.spec||''}</td>
-      <td style="padding:6px 8px;text-align:right;${tableCellBorder}">${it.qty}</td>
-      <td style="padding:6px 8px;${tableCellBorder}">${it.unit||'식'}</td>
-      <td style="padding:6px 8px;text-align:right;${tableCellBorder}">${fmtKRW(it.unitPrice)}</td>
-      <td style="padding:6px 8px;text-align:right;font-weight:500;${tableCellBorder}">${fmtKRW(it.total)}</td>
-      <td style="padding:6px 8px;color:#888;font-size:10px;${tableCellBorder}">${it.note||''}</td>
+    <tr style="border-bottom:1px solid #e2e8f0">
+      <td style="padding:8px 10px;font-size:12px;font-weight:500;color:#0f172a;line-height:1.45;${tableCellBorder}">${it.name}</td>
+      <td style="padding:8px 10px;color:#475569;font-size:11px;line-height:1.45;${tableCellBorder}">${it.spec||''}</td>
+      <td style="padding:8px 10px;text-align:right;font-size:12px;color:#334155;${tableCellBorder}">${it.qty}</td>
+      <td style="padding:8px 10px;font-size:12px;color:#334155;${tableCellBorder}">${it.unit||'식'}</td>
+      <td style="padding:8px 10px;text-align:right;font-size:11px;color:#334155;${tableCellBorder}">${fmtKRW(it.unitPrice)}</td>
+      <td style="padding:8px 10px;text-align:right;font-size:12px;font-weight:600;color:#0f172a;${tableCellBorder}">${fmtKRW(it.total)}</td>
+      <td style="padding:8px 10px;color:#64748b;font-size:11px;line-height:1.4;${tableCellBorder}">${it.note||''}</td>
     </tr>`).join('')}
-    <tr style="background:#f5f5f0;border-bottom:1px solid #ddd">
-      <td colspan="5" style="padding:5px 8px;text-align:right;font-size:10px;font-weight:600;color:#555;${tableCellBorder}">소계</td>
-      <td style="padding:5px 8px;text-align:right;font-weight:600;${tableCellBorder}">${fmtKRW(subByKind.get(kind) ?? 0)}</td>
-      <td style="padding:5px 8px;${tableCellBorder}"></td>
+    <tr style="background:#f1f5f9;border-bottom:1px solid #cbd5e1">
+      <td colspan="5" style="padding:7px 10px;text-align:right;font-size:12px;font-weight:700;color:#475569;${tableCellBorder}">소계</td>
+      <td style="padding:7px 10px;text-align:right;font-size:12px;font-weight:700;color:#0f172a;${tableCellBorder}">${fmtKRW(subByKind.get(kind) ?? 0)}</td>
+      <td style="padding:7px 10px;${tableCellBorder}"></td>
     </tr>
   `).join('')
 
   const quotePart = `
-  <div style="border-bottom:2px solid ${accentBorder};padding-bottom:12px;margin-bottom:16px;display:flex;justify-content:space-between;align-items:flex-end">
+  <div style="border-bottom:3px solid ${accentBorder};padding-bottom:14px;margin-bottom:18px;display:flex;justify-content:space-between;align-items:flex-end;gap:16px">
     <div>
-      <div style="font-size:22px;font-weight:600;letter-spacing:.2em;color:${sectionText}">견 적 서</div>
-      <div style="color:#888;margin-top:4px;font-size:11px">${doc.eventName} · ${doc.clientName}</div>
+      <div style="font-size:26px;font-weight:700;letter-spacing:.12em;color:${sectionText};line-height:1.2">견 적 서</div>
+      <div style="color:#475569;margin-top:8px;font-size:13px;font-weight:500;line-height:1.4">${escapeHtml(doc.eventName)} · ${escapeHtml(doc.clientName || '')}</div>
     </div>
-    <div style="text-align:right;font-size:11px;color:#666;line-height:1.8">
-      <div>견적일: <strong style="color:#111">${doc.quoteDate}</strong></div>
-      <div>유효기간: ${doc.validDays}일</div>
+    <div style="text-align:right;font-size:12px;color:#475569;line-height:1.85;flex-shrink:0">
+      <div>견적일 <strong style="color:#0f172a;font-size:13px">${escapeHtml(doc.quoteDate)}</strong></div>
+      <div>유효기간 <strong style="color:#0f172a">${doc.validDays}일</strong></div>
     </div>
   </div>
 
-  <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:16px">
+  <div style="display:grid;grid-template-columns:1fr 1fr;gap:14px;margin-bottom:18px">
     <div style="${infoBox}">
-      <div style="font-size:9px;font-weight:700;color:#999;letter-spacing:.08em;text-transform:uppercase;margin-bottom:8px">수신 (발주처)</div>
+      <div style="font-size:10px;font-weight:700;color:#64748b;letter-spacing:.06em;text-transform:uppercase;margin-bottom:10px">수신 (발주처)</div>
       ${[
         ['업체명',doc.clientName],['담당자',doc.clientManager],['연락처',doc.clientTel],
         ['행사명',doc.eventName],['행사 종류',doc.eventType],
         ['행사일',doc.eventDate],['행사 시간',doc.eventDuration],
         ['장소',doc.venue],['참석인원',doc.headcount],
       ].map(([l,v])=>`
-      <div style="display:flex;gap:6px;margin-bottom:3px;font-size:11px">
-        <span style="color:#aaa;min-width:56px;flex-shrink:0">${l}</span>
-        <span style="color:#333">${v||'—'}</span>
+      <div style="display:flex;gap:8px;margin-bottom:5px;font-size:12px;line-height:1.45">
+        <span style="color:#94a3b8;min-width:64px;flex-shrink:0;font-weight:500">${l}</span>
+        <span style="color:#0f172a;font-weight:500">${escapeHtml(String(v||'—'))}</span>
       </div>`).join('')}
     </div>
     <div style="${infoBox}">
-      <div style="font-size:9px;font-weight:700;color:#999;letter-spacing:.08em;text-transform:uppercase;margin-bottom:8px">공급자</div>
+      <div style="font-size:10px;font-weight:700;color:#64748b;letter-spacing:.06em;text-transform:uppercase;margin-bottom:10px">공급자</div>
       ${[
         ['상호명', company?.name ?? '—'], ['사업자번호', company?.biz ?? '—'],
         ['대표자', company?.ceo ?? '—'], ['담당자', company?.contact ?? '—'],
         ['연락처', company?.tel ?? '—'], ['주소', company?.addr ?? '—'],
       ].map(([l,v])=>`
-      <div style="display:flex;gap:6px;margin-bottom:3px;font-size:11px">
-        <span style="color:#aaa;min-width:56px;flex-shrink:0">${l}</span>
-        <span style="color:#333">${v||'—'}</span>
+      <div style="display:flex;gap:8px;margin-bottom:5px;font-size:12px;line-height:1.45">
+        <span style="color:#94a3b8;min-width:64px;flex-shrink:0;font-weight:500">${l}</span>
+        <span style="color:#0f172a;font-weight:500">${escapeHtml(String(v||'—'))}</span>
       </div>`).join('')}
     </div>
   </div>
 
-  <table style="width:100%;border-collapse:collapse;margin-bottom:8px">
+  <table style="width:100%;border-collapse:collapse;margin-bottom:12px;table-layout:fixed">
+    <colgroup>
+      <col style="width:16%" /><col style="width:22%" /><col style="width:7%" /><col style="width:7%" />
+      <col style="width:11%" /><col style="width:12%" /><col style="width:25%" />
+    </colgroup>
     <thead>
-      <tr style="background:#e8e8e3;border-bottom:1px solid #ccc">
-        <th style="padding:7px 8px;text-align:left;font-size:10px;color:#666;font-weight:600;${tableCellBorder}">항목명</th>
-        <th style="padding:7px 8px;text-align:left;font-size:10px;color:#666;font-weight:600;${tableCellBorder}">규격/내용</th>
-        <th style="padding:7px 8px;text-align:right;font-size:10px;color:#666;font-weight:600;${tableCellBorder}">수량</th>
-        <th style="padding:7px 8px;text-align:left;font-size:10px;color:#666;font-weight:600;${tableCellBorder}">단위</th>
-        <th style="padding:7px 8px;text-align:right;font-size:10px;color:#666;font-weight:600;${tableCellBorder}">단가</th>
-        <th style="padding:7px 8px;text-align:right;font-size:10px;color:#666;font-weight:600;${tableCellBorder}">금액</th>
-        <th style="padding:7px 8px;text-align:left;font-size:10px;color:#666;font-weight:600;${tableCellBorder}">비고</th>
+      <tr style="background:#e2e8f0;border-bottom:2px solid #94a3b8">
+        <th style="padding:9px 8px;text-align:left;font-size:11px;color:#334155;font-weight:700;${tableCellBorder}">항목명</th>
+        <th style="padding:9px 8px;text-align:left;font-size:11px;color:#334155;font-weight:700;${tableCellBorder}">규격/내용</th>
+        <th style="padding:9px 8px;text-align:right;font-size:11px;color:#334155;font-weight:700;${tableCellBorder}">수량</th>
+        <th style="padding:9px 8px;text-align:left;font-size:11px;color:#334155;font-weight:700;${tableCellBorder}">단위</th>
+        <th style="padding:9px 8px;text-align:right;font-size:11px;color:#334155;font-weight:700;${tableCellBorder}">단가</th>
+        <th style="padding:9px 8px;text-align:right;font-size:11px;color:#334155;font-weight:700;${tableCellBorder}">금액</th>
+        <th style="padding:9px 8px;text-align:left;font-size:11px;color:#334155;font-weight:700;${tableCellBorder}">비고</th>
       </tr>
     </thead>
     <tbody>${rows}</tbody>
   </table>
 
-  <div style="display:flex;justify-content:flex-end;margin-bottom:16px">
-    <div style="min-width:200px;font-size:11px;${totalBox}">
+  <div style="display:flex;justify-content:flex-end;margin-bottom:18px">
+    <div style="min-width:240px;font-size:12px;${totalBox}">
       ${[
         ['소계',fmtKRW(T.sub)+'원'],
         [`제경비(${doc.expenseRate}%)`,fmtKRW(T.exp)+'원'],
@@ -547,29 +591,29 @@ function buildHtml(doc: QuoteDoc, company?: CompanySettings | null): string {
         ['부가세(10%)',fmtKRW(T.vat)+'원'],
         ['절사 (공제)',`-${fmtKRW(doc.cutAmount)}원`],
       ].map(([l,v])=>`
-      <div style="display:flex;justify-content:space-between;padding:2px 4px;color:#666">${l}<span>${v}</span></div>
+      <div style="display:flex;justify-content:space-between;padding:4px 6px;color:#475569;font-size:12px"><span>${l}</span><span style="font-variant-numeric:tabular-nums">${v}</span></div>
       `).join('')}
-      <div style="display:flex;justify-content:space-between;padding:6px 4px;font-size:14px;font-weight:700;border-top:1.5px solid #333;margin-top:4px">
-        <span>합계 금액</span><span>${fmtKRW(T.grand)}원</span>
+      <div style="display:flex;justify-content:space-between;align-items:baseline;padding:10px 8px;margin-top:6px;font-size:18px;font-weight:800;color:#0f172a;border-top:2px solid #0f172a">
+        <span>합계 (VAT 포함)</span><span style="font-variant-numeric:tabular-nums">${fmtKRW(T.grand)}원</span>
       </div>
     </div>
   </div>
 
-  <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:20px">
+  <div style="display:grid;grid-template-columns:1fr 1fr;gap:14px;margin-bottom:24px">
     <div style="${infoBox}">
-      <div style="font-size:9px;font-weight:700;color:#999;letter-spacing:.08em;text-transform:uppercase;margin-bottom:6px">계약 조건/특이사항</div>
-      <div style="font-size:11px;color:#555;line-height:1.7;white-space:pre-line">${doc.notes||''}</div>
+      <div style="font-size:10px;font-weight:700;color:#64748b;letter-spacing:.06em;text-transform:uppercase;margin-bottom:8px">계약 조건 / 특이사항</div>
+      <div style="font-size:12px;color:#334155;line-height:1.65;white-space:pre-line">${escapeHtml(doc.notes||'')}</div>
     </div>
     <div style="${infoBox}">
-      <div style="font-size:9px;font-weight:700;color:#999;letter-spacing:.08em;text-transform:uppercase;margin-bottom:6px">결제 조건</div>
-      <div style="font-size:11px;color:#555;line-height:1.7;white-space:pre-line">${doc.paymentTerms||''}</div>
+      <div style="font-size:10px;font-weight:700;color:#64748b;letter-spacing:.06em;text-transform:uppercase;margin-bottom:8px">결제 조건</div>
+      <div style="font-size:12px;color:#334155;line-height:1.65;white-space:pre-line">${escapeHtml(doc.paymentTerms||'')}</div>
     </div>
   </div>
 
-  <div style="display:flex;justify-content:flex-end;margin-bottom:48px">
-    <div style="border:1px solid #ccc;border-radius:8px;padding:10px 24px;text-align:center;min-width:120px">
-      <div style="font-size:10px;color:#aaa;margin-bottom:20px">공급자 확인</div>
-      <div style="font-size:11px;font-weight:600;border-bottom:1px solid #ccc;padding-bottom:4px">${sn}</div>
+  <div style="display:flex;justify-content:flex-end;margin-bottom:40px">
+    <div style="border:1px solid #cbd5e1;border-radius:10px;padding:12px 28px;text-align:center;min-width:140px;background:#f8fafc">
+      <div style="font-size:10px;color:#94a3b8;margin-bottom:16px;letter-spacing:.05em">공급자 확인</div>
+      <div style="font-size:13px;font-weight:700;color:#0f172a;border-bottom:1px solid #94a3b8;padding-bottom:6px">${escapeHtml(sn)}</div>
     </div>
   </div>`
 
