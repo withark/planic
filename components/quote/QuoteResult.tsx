@@ -51,8 +51,10 @@ interface Props {
   /** 현재 탭·큐시트 모드에 맞는 PDF 종류는 부모에서 exportPdf.pdfKindFromQuoteTab 등으로 매핑 */
   onPdf: (ctx: { tab: DocTab; showCueSheetEditor: boolean }) => void | Promise<void>
   onLoadPrevious?: () => void
-  /** onLoadPrevious 버튼 문구 (기본: 기존 견적서 불러오기) */
+  /** onLoadPrevious 버튼 문구 (기본: 과거 문서 불러오기) */
   loadPreviousLabel?: string
+  /** 버튼 툴팁 — 불러오기 = 과거본 편집용(이어쓰기 아님) 안내 */
+  loadPreviousTitle?: string
   onGenerateTab?: (tab: DocTab) => void | Promise<void>
   generatingTabs?: Partial<Record<DocTab, boolean>>
   generationProgressLabel?: string | null
@@ -185,6 +187,7 @@ export function QuoteResult({
   onPdf,
   onLoadPrevious,
   loadPreviousLabel,
+  loadPreviousTitle,
   onGenerateTab,
   generatingTabs = {},
   generationProgressLabel = null,
@@ -448,8 +451,16 @@ export function QuoteResult({
               </span>
             )}
             {onLoadPrevious && (
-              <Button size="sm" variant="secondary" onClick={onLoadPrevious}>
-                {loadPreviousLabel ?? '기존 견적서 불러오기'}
+              <Button
+                size="sm"
+                variant="secondary"
+                onClick={onLoadPrevious}
+                title={
+                  loadPreviousTitle ??
+                  '예전에 저장한 문서를 불러와 내용만 수정·저장·내보낼 수 있습니다. (작성 중 화면을 이어쓰는 기능은 아닙니다.)'
+                }
+              >
+                {loadPreviousLabel ?? '과거 문서 불러오기'}
               </Button>
             )}
             {onRegenerate && (

@@ -173,7 +173,7 @@ export default function ScenarioGeneratorPage() {
     ({ doc: nextDoc, id }: { doc: QuoteDoc; id: string }) => {
       setDoc(nextDoc)
       setGeneratedDocId(id)
-      showToast('저장된 문서를 불러왔습니다.')
+      showToast('과거에 저장한 문서를 불러왔습니다. 내용을 수정한 뒤 저장·다운로드하세요.')
     },
     [showToast],
   )
@@ -392,7 +392,7 @@ export default function ScenarioGeneratorPage() {
                     }
                   }}
                   onLoadPrevious={() => setLoadSavedOpen(true)}
-                  loadPreviousLabel="저장된 시나리오 불러오기"
+                  loadPreviousLabel="과거 시나리오 불러오기"
                     />
                   </div>
                 </section>
@@ -413,8 +413,11 @@ export default function ScenarioGeneratorPage() {
                     onClick={() => setLoadSavedOpen(true)}
                     className="mt-4 text-sm font-semibold text-primary-700 underline-offset-2 hover:text-primary-800 hover:underline"
                   >
-                    저장된 시나리오 불러오기
+                    과거 시나리오 불러오기
                   </button>
+                  <p className="mt-2 text-xs text-slate-500">
+                    예전에 저장한 문서를 불러와 내용만 수정·전송할 수 있습니다. (이어쓰기 아님)
+                  </p>
                 </section>
               )}
             </div>

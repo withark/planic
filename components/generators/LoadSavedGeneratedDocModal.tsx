@@ -101,9 +101,11 @@ export function LoadSavedGeneratedDocModal(props: {
         onClick={(e) => e.stopPropagation()}
       >
         <h2 id="load-saved-doc-title" className="text-base font-semibold text-slate-900">
-          저장된 {label} 불러오기
+          과거에 만든 {label} 불러오기
         </h2>
-        <p className="mt-1 text-xs text-slate-500">이전에 생성해 저장한 문서를 불러와 편집합니다.</p>
+        <p className="mt-1 text-xs leading-relaxed text-slate-600">
+          작성 중이던 화면을 이어쓰는 기능이 아니라, 예전에 저장해 둔 문서 본문을 그대로 불러옵니다. 내용만 수정한 뒤 저장·다운로드·공유하면 됩니다.
+        </p>
 
         {fetching ? (
           <p className="mt-4 text-sm text-slate-600">목록을 불러오는 중…</p>

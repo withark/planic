@@ -5,6 +5,7 @@ import { useSearchParams } from 'next/navigation'
 import { GNB } from '@/components/GNB'
 import QuoteResult from '@/components/quote/QuoteResult'
 import SimpleGeneratorWizard, { type WizardMode } from '@/components/generators/SimpleGeneratorWizard'
+import { LoadSavedGeneratedDocModal } from '@/components/generators/LoadSavedGeneratedDocModal'
 import GenerationProgressPanel, { appendStageLine } from '@/components/generators/GenerationProgressPanel'
 import { Input, Textarea, Toast } from '@/components/ui'
 import type { CompanySettings, HistoryRecord, PriceCategory, QuoteDoc, ReferenceDoc, TaskOrderDoc } from '@/lib/types'
@@ -104,6 +105,7 @@ function EstimateGeneratorContent() {
   const [generationProgressLabel, setGenerationProgressLabel] = useState<string | null>(null)
   const [generationStageLog, setGenerationStageLog] = useState<string[]>([])
   const [saving, setSaving] = useState(false)
+  const [loadSavedOpen, setLoadSavedOpen] = useState(false)
   const generatingTabs = useMemo(() => ({ estimate: generating }), [generating])
 
   const activeReference = useMemo(() => referenceDocs.find((r) => r.isActive) ?? null, [referenceDocs])
@@ -399,6 +401,15 @@ function EstimateGeneratorContent() {
       }
     },
     [generatedDocId, showToast],
+  )
+
+  const handleLoadSavedDoc = useCallback(
+    ({ doc: nextDoc, id }: { doc: QuoteDoc; id: string }) => {
+      setDoc(nextDoc)
+      setGeneratedDocId(id)
+      showToast('과거에 저장한 문서를 불러왔습니다. 내용을 수정한 뒤 저장·다운로드하세요.')
+    },
+    [showToast],
   )
 
   const generateDisabled =
@@ -825,6 +836,8 @@ function EstimateGeneratorContent() {
                       showToast(toUserMessage(e, '저장 실패'))
                     }
                   }}
+                  onLoadPrevious={() => setLoadSavedOpen(true)}
+                  loadPreviousLabel="과거 견적서 불러오기"
                 />
               </div>
               </section>
@@ -836,11 +849,28 @@ function EstimateGeneratorContent() {
                     ? '이벤트 주제만 입력하면 됩니다'
                     : '소스 선택과 필수 입력이 필요합니다'}
                 </div>
+                <button
+                  type="button"
+                  onClick={() => setLoadSavedOpen(true)}
+                  className="mt-4 text-sm font-semibold text-primary-700 underline-offset-2 hover:text-primary-800 hover:underline"
+                >
+                  과거 견적서 불러오기
+                </button>
+                <p className="mt-2 text-xs text-slate-500">
+                  예전에 저장한 견적 본문을 불러와 수정·전송할 수 있습니다. (작성 중 화면 이어쓰기 아님)
+                </p>
               </section>
             )}
           </div>
         </div>
       </div>
+
+      <LoadSavedGeneratedDocModal
+        open={loadSavedOpen}
+        onClose={() => setLoadSavedOpen(false)}
+        docType="estimate"
+        onLoaded={handleLoadSavedDoc}
+      />
 
       {toast && <Toast message={toast} onClose={() => setToast('')} />}
     </div>
