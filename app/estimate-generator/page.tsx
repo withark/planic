@@ -586,26 +586,11 @@ function EstimateGeneratorContent() {
               </p>
             ) : null}
           </div>
-          <div className="flex items-center gap-2">
-            {isAdvancedModeAvailable ? (
-              <button
-                type="button"
-                onClick={() => {
-                  const next = !showAdvancedModes
-                  setShowAdvancedModes(next)
-                  if (!next && sourceMode !== 'fromTopic') {
-                    setSourceMode('fromTopic')
-                  }
-                }}
-                className="rounded-xl border border-slate-200 bg-white px-3 py-1.5 text-sm font-semibold text-slate-700 hover:bg-slate-50"
-              >
-                {showAdvancedModes ? '고급 방식 숨기기' : '고급 방식 보기'}
-              </button>
-            ) : null}
-            {me?.subscription?.planType === 'FREE' && (
+          {me?.subscription?.planType === 'FREE' ? (
+            <div className="flex items-center gap-2">
               <span className="rounded-xl border border-amber-200 bg-amber-50 px-3 py-1.5 text-sm font-semibold text-amber-700">무료</span>
-            )}
-          </div>
+            </div>
+          ) : null}
         </header>
 
         <div className="flex-1 overflow-hidden p-6">
@@ -615,6 +600,23 @@ function EstimateGeneratorContent() {
                 title="견적서 생성하기"
                 subtitle="필수 정보만 입력하고 바로 생성하세요."
                 preStepContent={null}
+                step1HeaderExtra={
+                  isAdvancedModeAvailable ? (
+                    <button
+                      type="button"
+                      onClick={() => {
+                        const next = !showAdvancedModes
+                        setShowAdvancedModes(next)
+                        if (!next && sourceMode !== 'fromTopic') {
+                          setSourceMode('fromTopic')
+                        }
+                      }}
+                      className="rounded-full border border-primary-400 bg-white px-3.5 py-1.5 text-sm font-semibold text-slate-800 shadow-sm hover:bg-primary-50"
+                    >
+                      {showAdvancedModes ? '고급 방식 숨기기' : '고급 방식 보기'}
+                    </button>
+                  ) : null
+                }
                 modes={modesForWizard}
                 modeId={sourceMode}
                 onModeChange={(id) => {

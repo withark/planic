@@ -43,6 +43,8 @@ export default function SimpleGeneratorWizard({
   generationProgressLabel = null,
   validationMessage,
   preStepContent,
+  /** 1단계「기준 선택」제목 줄 오른쪽에 붙는 보조 UI(예: 고급 생성 방식 토글) */
+  step1HeaderExtra,
   showValidationBanner = true,
   step2ActionLabel = '생성 단계로 이동',
 }: {
@@ -59,6 +61,7 @@ export default function SimpleGeneratorWizard({
   generationProgressLabel?: string | null
   validationMessage?: string | null
   preStepContent?: ReactNode
+  step1HeaderExtra?: ReactNode
   showValidationBanner?: boolean
   step2ActionLabel?: string
 }) {
@@ -261,9 +264,14 @@ export default function SimpleGeneratorWizard({
         {preStepContent ? <div className="rounded-2xl border border-slate-200 bg-slate-50/50 p-4 sm:p-5">{preStepContent}</div> : null}
 
         <section ref={step1Ref} id="wizard-step-1" className="scroll-mt-4">
-          <div className="mb-3 flex items-center gap-2">
-            <span className="inline-flex h-6 min-w-6 items-center justify-center rounded-full bg-slate-900 px-2 text-xs font-semibold text-white">1</span>
-            <div className="text-[17px] font-semibold text-slate-900">기준 선택</div>
+          <div className="mb-3 flex flex-wrap items-center justify-between gap-2">
+            <div className="flex items-center gap-2">
+              <span className="inline-flex h-6 min-w-6 items-center justify-center rounded-full bg-slate-900 px-2 text-xs font-semibold text-white">1</span>
+              <div className="text-[17px] font-semibold text-slate-900">기준 선택</div>
+            </div>
+            {step1HeaderExtra ? (
+              <div className="flex flex-wrap items-center justify-end gap-2">{step1HeaderExtra}</div>
+            ) : null}
           </div>
           <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 xl:grid-cols-4">
             {modes.map((m) => {
