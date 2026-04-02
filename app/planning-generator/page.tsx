@@ -55,8 +55,6 @@ export default function PlanningGeneratorPage() {
   const [generationProgressLabel, setGenerationProgressLabel] = useState<string | null>(null)
   const [saving, setSaving] = useState(false)
   const generatingTabs = useMemo(() => ({ planning: generating }), [generating])
-  const [funLineIdx, setFunLineIdx] = useState(0)
-  const [generatingElapsedSec, setGeneratingElapsedSec] = useState(0)
   const wizardHighlights: WizardHighlight[] = useMemo(
     () => [
       { label: '필수 입력', value: '주제, 목표' },
@@ -198,6 +196,14 @@ export default function PlanningGeneratorPage() {
     [generatedDocId, showToast],
   )
 
+  const handleRegenerate = useCallback(() => {
+    setGeneratedDocId(null)
+    setGenerationProgressLabel(null)
+    if (sourceMode === 'fromTopic') {
+      setDoc(null)
+    }
+  }, [sourceMode])
+
   const generateDisabled =
     sourceMode === 'fromEstimate'
       ? !selectedEstimateId || !doc
@@ -224,53 +230,6 @@ export default function PlanningGeneratorPage() {
 
   const topicInvalid = sourceMode === 'fromTopic' && generateDisabled && !topic.trim()
   const goalInvalid = sourceMode === 'fromTopic' && generateDisabled && !goal.trim()
-  const funLines = useMemo(
-    () => [
-      '좋은 기획안은 멋진 문장보다 실행 순서가 먼저 보여야 해요.',
-      '운영팀이 바로 움직일 수 있는 문장으로 바꿔드릴게요.',
-      '리스크는 감추지 않고, 대응 시나리오까지 같이 적어야 진짜 문서예요.',
-      '고객 공유용 톤과 내부 실행용 디테일을 동시에 맞추는 중이에요.',
-      '액션 플랜 표는 “누가 언제 무엇을” 한 줄로 끝나야 강해요.',
-    ],
-    [],
-  )
-  const readyChecklist = useMemo(
-    () => [
-      { label: '기준 선택', done: true },
-      {
-        label: '핵심 정보 입력',
-        done:
-          sourceMode === 'fromTopic'
-            ? !!topic.trim() && !!goal.trim()
-            : sourceMode === 'fromTaskOrder'
-              ? !!selectedTaskOrderBaseId && !!doc
-              : !!selectedEstimateId && !!doc,
-      },
-      { label: '생성 실행', done: !!doc && !!generatedDocId },
-    ],
-    [doc, generatedDocId, goal, selectedEstimateId, selectedTaskOrderBaseId, sourceMode, topic],
-  )
-
-  useEffect(() => {
-    if (doc && generatedDocId) return
-    const timer = window.setInterval(() => {
-      setFunLineIdx((prev) => (prev + 1) % funLines.length)
-    }, 2600)
-    return () => window.clearInterval(timer)
-  }, [doc, generatedDocId, funLines.length])
-
-  useEffect(() => {
-    if (!generating) {
-      setGeneratingElapsedSec(0)
-      return
-    }
-    const startedAt = Date.now()
-    setGeneratingElapsedSec(0)
-    const timer = window.setInterval(() => {
-      setGeneratingElapsedSec(Math.floor((Date.now() - startedAt) / 1000))
-    }, 1000)
-    return () => window.clearInterval(timer)
-  }, [generating])
 
   return (
     <div className="flex h-screen overflow-hidden bg-gray-50/50">
@@ -419,6 +378,8 @@ export default function PlanningGeneratorPage() {
                   prices={prices}
                   planType={me?.subscription?.planType ?? 'FREE'}
                   onChange={setDoc}
+                  onRegenerate={handleRegenerate}
+                  regenerating={generating}
                   generatingTabs={generatingTabs}
                   generationProgressLabel={generationProgressLabel}
                   hideOnDemandGenerate
@@ -440,7 +401,7 @@ export default function PlanningGeneratorPage() {
                       return
                     }
                     try {
-                      await exportToPdf(doc, companySettings ?? undefined, 'planning')
+                      await exportToPdf(doc, companySettings ?? undefined)
                       showToast('PDF 저장 완료!')
                     } catch (e) {
                       showToast(toUserMessage(e, '저장 실패'))
@@ -450,42 +411,16 @@ export default function PlanningGeneratorPage() {
                 </div>
               </section>
             ) : (
-              <section className="min-h-0 overflow-y-auto rounded-2xl border border-slate-200 bg-white p-6">
-                <div className="flex min-h-[420px] flex-col justify-between rounded-2xl border border-dashed border-slate-300 bg-gradient-to-b from-slate-50 to-white p-6">
-                  <div>
-                    <p className="text-sm font-semibold text-slate-900">
-                      {generating ? '기획 문서를 다듬고 있어요...' : '여기는 비워두고, 필요한 순간에 채워드릴게요.'}
-                    </p>
-                    <p className="mt-2 text-xs leading-5 text-slate-600">{funLines[funLineIdx]}</p>
-                    {generating ? (
-                      <div className="mt-2 flex flex-wrap items-center gap-2">
-                        <p className="inline-flex rounded-full bg-indigo-50 px-3 py-1 text-xs font-semibold text-indigo-700">
-                          경과 시간: {generatingElapsedSec}초
-                        </p>
-                        <p className="inline-flex rounded-full bg-violet-50 px-3 py-1 text-xs font-semibold text-violet-700">
-                          {generationProgressLabel ? `진행 단계: ${generationProgressLabel}` : 'AI가 문서 뼈대를 세우는 중'}
-                        </p>
-                      </div>
-                    ) : null}
-                  </div>
-
-                  <div className="mt-5 space-y-2">
-                    {readyChecklist.map((item) => (
-                      <div key={item.label} className="flex items-center gap-2 rounded-xl border border-slate-200 bg-white px-3 py-2">
-                        <span
-                          className={`inline-flex h-5 w-5 items-center justify-center rounded-full text-[11px] font-bold ${
-                            item.done ? 'bg-emerald-100 text-emerald-700' : 'bg-amber-100 text-amber-700'
-                          }`}
-                        >
-                          {item.done ? '✓' : '!'}
-                        </span>
-                        <span className="text-xs font-medium text-slate-700">{item.label}</span>
-                      </div>
-                    ))}
-                  </div>
+              <section className="min-h-0 overflow-y-auto rounded-2xl border border-dashed border-gray-200 bg-white p-8 text-center">
+                <div className="text-sm font-semibold text-gray-900">
+                  {doc ? '문서 컨텍스트 선택 후 생성하세요' : '입력 후 생성하세요'}
                 </div>
-                <div className="mt-4 rounded-xl border border-dashed border-amber-300 bg-amber-50 px-4 py-3 text-xs text-amber-800">
-                  {validationMessage || '좌측에서 핵심 정보를 입력하고 “기획 문서 생성”을 눌러 결과를 만드세요.'}
+                <div className="mt-2 text-xs text-gray-500">
+                  {doc
+                    ? '생성 후 편집 영역이 열립니다.'
+                    : sourceMode === 'fromTopic'
+                      ? '주제/목표만 입력하면 됩니다'
+                      : '소스 선택과 필수 입력이 필요합니다'}
                 </div>
               </section>
             )}

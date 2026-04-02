@@ -489,7 +489,7 @@ export function QuoteResult({
               <Button size="sm" variant="secondary" onClick={onLoadPrevious}>기존 견적서 불러오기</Button>
             )}
             {onRegenerate && (
-              <Button size="sm" onClick={onRegenerate} disabled={regenerating}>{regenerating ? '재작성 중...' : '재작성'}</Button>
+              <Button size="sm" onClick={onRegenerate} disabled={regenerating}>{regenerating ? '다시 생성 중...' : '다시 생성하기'}</Button>
             )}
             {currentExcelView ? (
               <Button size="sm" onClick={() => onExcel(currentExcelView)} disabled={exportDisabled}>엑셀 다운로드</Button>
