@@ -341,7 +341,7 @@ export default function EmceeScriptGeneratorPage() {
                       return
                     }
                     try {
-                      await exportToPdf(doc, companySettings ?? undefined)
+                      await exportToPdf(doc, companySettings ?? undefined, 'emceeScript')
                       showToast('PDF 저장 완료!')
                     } catch (e) {
                       showToast(toUserMessage(e, '저장 실패'))

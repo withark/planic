@@ -3,17 +3,53 @@ import { calcTotals, fmtKRW, getQuoteDateForFilename } from '@/lib/calc'
 import { KIND_ORDER, groupQuoteItemsByKind, subtotalsByKind } from '@/lib/quoteGroup'
 import { getQuoteTemplate } from '@/lib/quoteTemplates'
 
-type PdfExportView = 'quote' | 'planning'
+/** PDF 저장 시 파일명·오프스크린 HTML 분기 (견적서 기본) */
+export type PdfExportDocumentKind =
+  | 'estimate'
+  | 'planning'
+  | 'scenario'
+  | 'program'
+  | 'timetable'
+  | 'cuesheet'
+  | 'emceeScript'
+
+function pdfFilename(doc: QuoteDoc, kind: PdfExportDocumentKind): string {
+  const date = getQuoteDateForFilename(doc.quoteDate)
+  const name = doc.eventName.replace(/\s/g, '_')
+  const prefix =
+    kind === 'planning'
+      ? '기획안'
+      : kind === 'scenario'
+        ? '시나리오'
+        : kind === 'program'
+          ? '프로그램제안'
+          : kind === 'timetable'
+            ? '타임테이블'
+            : kind === 'cuesheet'
+              ? '큐시트'
+              : kind === 'emceeScript'
+                ? '사회자멘트'
+                : '견적서'
+  return `${prefix}_${name}_${date}.pdf`
+}
+
+function escapeHtml(s: string): string {
+  return s
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;')
+}
 
 // html2canvas + jsPDF를 동적 import (클라이언트 전용)
-export async function exportToPdf(doc: QuoteDoc, company?: CompanySettings | null, view: PdfExportView = 'quote') {
-  if (view === 'planning') {
-    await exportPlanningToPdf(doc)
-    return
-  }
+export async function exportToPdf(
+  doc: QuoteDoc,
+  company?: CompanySettings | null,
+  kind: PdfExportDocumentKind = 'estimate',
+) {
   const liveQuoteEl = document.querySelector('.quote-wrapper') as HTMLElement | null
   if (liveQuoteEl) {
-    await exportElementToPdf(liveQuoteEl, doc)
+    await exportElementToPdf(liveQuoteEl, doc, kind)
     return
   }
 
@@ -30,7 +66,7 @@ export async function exportToPdf(doc: QuoteDoc, company?: CompanySettings | nul
     background: white; font-family: 'Pretendard', sans-serif;
     font-size: 12px; color: #111;
   `
-  container.innerHTML = buildHtml(doc, company)
+  container.innerHTML = buildPdfFallbackHtml(doc, company, kind)
   document.body.appendChild(container)
 
   try {
@@ -52,144 +88,17 @@ export async function exportToPdf(doc: QuoteDoc, company?: CompanySettings | nul
       yPos += pageH
     }
 
-    const date = getQuoteDateForFilename(doc.quoteDate)
-    pdf.save(`견적서_${doc.eventName.replace(/\s/g,'_')}_${date}.pdf`)
+    pdf.save(pdfFilename(doc, kind))
   } finally {
     document.body.removeChild(container)
   }
 }
 
-async function exportPlanningToPdf(doc: QuoteDoc): Promise<void> {
-  const [html2canvas, { jsPDF }] = await Promise.all([
-    import('html2canvas').then(m => m.default),
-    import('jspdf'),
-  ])
-
-  const planning = doc.planning || {
-    overview: '',
-    scope: '',
-    approach: '',
-    operationPlan: '',
-    deliverablesPlan: '',
-    staffingConditions: '',
-    risksAndCautions: '',
-    checklist: [],
-  }
-  const checklist = (planning.checklist || []).filter(Boolean)
-  const rows = (doc.program?.programRows || []).slice(0, 8)
-  const actionRows = checklist.slice(0, 6).map((item, idx) => {
-    const labels = ['1단계', '2단계', '3단계', '4단계', '5단계', '6단계']
-    const periods = ['D-60', 'D-45', 'D-30', 'D-14', 'D-Day', 'D+7']
-    return { step: labels[idx] || `${idx + 1}단계`, period: periods[idx] || '-', task: item }
-  })
-  const colorChip = ['#1D4ED8', '#EA580C', '#15803D', '#CA8A04', '#7C3AED', '#0369A1', '#BE185D', '#4D7C0F']
-
-  const html = `
-  <div style="width:794px;background:#fff;padding:36px 34px 56px;font-family:'Pretendard','Malgun Gothic',sans-serif;color:#0f172a">
-    <div style="text-align:center;border-bottom:2px solid #dbeafe;padding-bottom:16px;">
-      <div style="font-size:10px;letter-spacing:.18em;color:#64748b;font-weight:700;">PLANNING DOCUMENT</div>
-      <h1 style="margin:8px 0 4px;font-size:30px;color:#1e3a8a;line-height:1.2;">${doc.eventName || '행사 기획안'}</h1>
-      <div style="font-size:12px;color:#6b7280;">${doc.eventDate || '일정 미정'} · ${doc.venue || '장소 미정'}</div>
-    </div>
-
-    <div style="margin-top:18px;border:1px solid #dbeafe;border-radius:12px;padding:14px 16px;background:#f8fbff;">
-      <h2 style="font-size:16px;margin:0 0 8px;color:#0f172a;">1. 배경 및 필요성</h2>
-      <p style="margin:0;font-size:12px;line-height:1.8;white-space:pre-line;">${planning.overview || '-'}</p>
-    </div>
-
-    <div style="margin-top:12px;border:1px solid #e2e8f0;border-radius:12px;padding:12px 14px;">
-      <h2 style="font-size:16px;margin:0 0 8px;color:#0f172a;">2. 프로그램 개요</h2>
-      <p style="margin:0;font-size:12px;line-height:1.8;white-space:pre-line;">${planning.scope || '-'}</p>
-    </div>
-
-    <div style="margin-top:12px;">
-      <h2 style="font-size:16px;margin:0 0 8px;color:#0f172a;">3. 세부 액션 프로그램</h2>
-      ${(rows.length > 0
-        ? rows
-            .map(
-              (row, idx) => `
-            <div style="display:flex;gap:10px;border:1px solid #e2e8f0;border-radius:10px;padding:10px 12px;margin-top:8px;">
-              <div style="min-width:42px;height:42px;border-radius:8px;background:${colorChip[idx % colorChip.length]};display:flex;align-items:center;justify-content:center;color:#fff;font-weight:800;font-size:12px;">
-                ${String(idx + 1).padStart(2, '0')}
-              </div>
-              <div>
-                <div style="font-size:13px;font-weight:700;color:#0f172a;">${row.content || '프로그램 항목'}</div>
-                <div style="margin-top:3px;font-size:11px;line-height:1.7;color:#475569;">${row.notes || row.tone || '-'}</div>
-                <div style="margin-top:3px;font-size:10px;color:#64748b;">${row.time || '-'} · ${row.audience || '전체 대상'}</div>
-              </div>
-            </div>
-          `,
-            )
-            .join('')
-        : `<div style="border:1px dashed #cbd5e1;border-radius:10px;padding:12px;color:#64748b;font-size:11px;">프로그램 항목이 아직 없습니다.</div>`)}
-    </div>
-
-    <div style="margin-top:14px;">
-      <h2 style="font-size:16px;margin:0 0 8px;color:#0f172a;">4. 액션 플랜 (Action Plan)</h2>
-      <table style="width:100%;border-collapse:collapse;border:1px solid #cbd5e1;font-size:11px;">
-        <thead>
-          <tr style="background:#0f2f57;color:#fff;">
-            <th style="padding:8px;text-align:left;">단계</th>
-            <th style="padding:8px;text-align:left;">시기</th>
-            <th style="padding:8px;text-align:left;">주요 내용</th>
-          </tr>
-        </thead>
-        <tbody>
-          ${
-            actionRows.length > 0
-              ? actionRows
-                  .map(
-                    (r) => `
-                <tr style="border-top:1px solid #e2e8f0;">
-                  <td style="padding:7px;">${r.step}</td>
-                  <td style="padding:7px;">${r.period}</td>
-                  <td style="padding:7px;line-height:1.6;">${r.task}</td>
-                </tr>
-              `,
-                  )
-                  .join('')
-              : `<tr><td colspan="3" style="padding:10px;text-align:center;color:#64748b;">체크리스트를 입력하면 액션 플랜이 채워집니다.</td></tr>`
-          }
-        </tbody>
-      </table>
-    </div>
-
-    <div style="margin-top:14px;border:1px solid #e2e8f0;border-radius:12px;padding:12px;">
-      <h2 style="font-size:16px;margin:0 0 8px;color:#0f172a;">5. 리스크 및 운영 포인트</h2>
-      <p style="margin:0;font-size:12px;line-height:1.8;white-space:pre-line;">${planning.risksAndCautions || '-'}</p>
-    </div>
-  </div>
-  `
-
-  const container = document.createElement('div')
-  container.style.cssText = `
-    position: fixed; top: -9999px; left: -9999px;
-    width: 794px; background: white;
-  `
-  container.innerHTML = html
-  document.body.appendChild(container)
-
-  try {
-    const canvas = await html2canvas(container, { scale: 2, useCORS: true, logging: false, backgroundColor: '#ffffff' })
-    const imgData = canvas.toDataURL('image/png')
-    const pdf = new jsPDF({ orientation: 'portrait', unit: 'mm', format: 'a4' })
-    const pageW = pdf.internal.pageSize.getWidth()
-    const pageH = pdf.internal.pageSize.getHeight()
-    const imgH = (canvas.height * pageW) / canvas.width
-    let yPos = 0
-    while (yPos < imgH) {
-      if (yPos > 0) pdf.addPage()
-      pdf.addImage(imgData, 'PNG', 0, -yPos, pageW, imgH)
-      yPos += pageH
-    }
-    const date = getQuoteDateForFilename(doc.quoteDate)
-    pdf.save(`기획문서_${doc.eventName.replace(/\s/g, '_')}_${date}.pdf`)
-  } finally {
-    document.body.removeChild(container)
-  }
-}
-
-async function exportElementToPdf(el: HTMLElement, doc: QuoteDoc): Promise<void> {
+export async function exportElementToPdf(
+  el: HTMLElement,
+  doc: QuoteDoc,
+  kind: PdfExportDocumentKind = 'estimate',
+): Promise<void> {
   const [html2canvas, { jsPDF }] = await Promise.all([
     import('html2canvas').then(m => m.default),
     import('jspdf'),
@@ -211,8 +120,287 @@ async function exportElementToPdf(el: HTMLElement, doc: QuoteDoc): Promise<void>
     pdf.addImage(imgData, 'PNG', 0, -yPos, pageW, imgH)
     yPos += pageH
   }
-  const date = getQuoteDateForFilename(doc.quoteDate)
-  pdf.save(`견적서_${doc.eventName.replace(/\s/g,'_')}_${date}.pdf`)
+  pdf.save(pdfFilename(doc, kind))
+}
+
+function buildPdfFallbackHtml(
+  doc: QuoteDoc,
+  company: CompanySettings | null | undefined,
+  kind: PdfExportDocumentKind,
+): string {
+  if (kind === 'estimate') return buildHtml(doc, company)
+  const tpl = getQuoteTemplate(doc.quoteTemplate as import('@/lib/quoteTemplates').QuoteTemplateId)
+  if (kind === 'planning') return wrapFrame(buildPlanningFullPdfHtml(doc), tpl)
+  if (kind === 'scenario') return wrapFrame(buildScenarioPdfHtml(doc), tpl)
+  if (kind === 'program') return wrapFrame(buildProgramHtmlForPdf(doc), tpl)
+  if (kind === 'timetable') return wrapFrame(buildTimetablePdfHtml(doc), tpl)
+  if (kind === 'cuesheet') return wrapFrame(buildCuePdfHtml(doc), tpl)
+  if (kind === 'emceeScript') return wrapFrame(buildEmceePdfHtml(doc), tpl)
+  return buildHtml(doc, company)
+}
+
+function buildPlanningFullPdfHtml(doc: QuoteDoc): string {
+  const p = doc.planning
+  if (!p) {
+    return `<div style="padding:24px;font-size:12px;color:#666;">기획 문서 데이터가 없습니다.</div>`
+  }
+  const parts: string[] = []
+  const h = (t: string) =>
+    `<div style="font-size:12px;font-weight:700;color:#1e3a8a;border-bottom:2px solid #93c5fd;padding-bottom:4px;margin:16px 0 8px;">${t}</div>`
+
+  parts.push(`<div style="text-align:center;border-bottom:4px solid #1e3a5f;padding-bottom:12px;margin-bottom:16px;">
+    <div style="font-size:20px;font-weight:700;color:#1e3a5f;">${escapeHtml(doc.eventName)}</div>
+    ${p.subtitle ? `<div style="margin-top:8px;font-size:12px;font-weight:600;color:#d97706;">${escapeHtml(p.subtitle)}</div>` : ''}
+    <div style="margin-top:6px;font-size:10px;color:#64748b;">기획 제안서</div>
+  </div>`)
+
+  const stats = p.backgroundStats || []
+  if (stats.length) {
+    parts.push(h('1. 배경 및 필요성'))
+    parts.push(
+      `<table style="width:100%;border-collapse:collapse;font-size:11px;margin-bottom:12px;">
+      <tbody>${stats
+        .map(
+          (s) =>
+            `<tr><td style="border:1px solid #e2e8f0;padding:10px;width:28%;text-align:center;font-weight:700;color:#d97706;font-size:18px;vertical-align:top;">${escapeHtml(s.value || '—')}</td>
+            <td style="border:1px solid #e2e8f0;padding:10px;vertical-align:top;"><div style="font-weight:600;">${escapeHtml(s.label || '')}</div>${s.detail ? `<div style="margin-top:6px;color:#475569;font-size:10px;">${escapeHtml(s.detail)}</div>` : ''}</td></tr>`,
+        )
+        .join('')}</tbody></table>`,
+    )
+  }
+
+  const ov = p.programOverviewRows || []
+  if (ov.length) {
+    parts.push(h('2. 프로그램 개요'))
+    parts.push(
+      `<table style="width:100%;border-collapse:collapse;font-size:11px;margin-bottom:12px;">
+      <tbody>${ov
+        .map(
+          (row, idx) =>
+            `<tr style="background:${idx % 2 === 0 ? '#f8fafc' : '#fff'}">
+            <td style="border:1px solid #e2e8f0;padding:8px;width:26%;font-weight:600;color:#1e3a5f;">${escapeHtml(row.label)}</td>
+            <td style="border:1px solid #e2e8f0;padding:8px;"><div style="font-weight:500;">${escapeHtml(row.value)}</div>${row.detail ? `<div style="margin-top:4px;color:#64748b;font-size:10px;">${escapeHtml(row.detail)}</div>` : ''}</td></tr>`,
+        )
+        .join('')}</tbody></table>`,
+    )
+  }
+
+  const blocks = p.actionProgramBlocks || []
+  if (blocks.length) {
+    parts.push(h('3. 세부 액션 프로그램'))
+    const bar: Record<string, string> = {
+      blue: '#1d4ed8',
+      orange: '#d97706',
+      green: '#059669',
+      yellow: '#ca8a04',
+      slate: '#475569',
+    }
+    blocks.forEach((b) => {
+      const c = bar[b.accent || 'blue'] || bar.blue
+      parts.push(`<div style="display:flex;border:1px solid #e2e8f0;margin-bottom:10px;border-radius:8px;overflow:hidden;">
+        <div style="width:40px;min-width:40px;background:#1e293b;color:#fff;display:flex;align-items:center;justify-content:center;font-weight:700;font-size:12px;">${String(b.order).padStart(2, '0')}</div>
+        <div style="flex:1;border-left:6px solid ${c};padding:10px 12px;background:#fafafa;">
+          <div style="font-size:10px;font-weight:700;color:#d97706;">${escapeHtml(b.dayLabel)}</div>
+          <div style="font-size:12px;font-weight:700;margin-top:4px;color:#0f172a;">${escapeHtml(b.title)}</div>
+          <div style="margin-top:8px;font-size:11px;line-height:1.55;color:#334155;white-space:pre-wrap;">${escapeHtml(b.description)}</div>
+          <div style="margin-top:8px;padding-top:8px;border-top:1px solid #e2e8f0;font-size:10px;color:#64748b;">
+            <span style="font-weight:600;color:#94a3b8;">시간</span> ${escapeHtml(b.timeRange)} · <span style="font-weight:600;color:#94a3b8;">대상</span> ${escapeHtml(b.participants)}
+          </div>
+        </div>
+      </div>`)
+    })
+  }
+
+  const apt = p.actionPlanTable || []
+  if (apt.length) {
+    parts.push(h('4. 액션 플랜'))
+    parts.push(
+      `<table style="width:100%;border-collapse:collapse;font-size:10px;margin-bottom:12px;">
+      <thead><tr style="background:#1e3a5f;color:#fff;">
+        <th style="padding:6px 8px;text-align:left;">단계</th>
+        <th style="padding:6px 8px;text-align:left;">시기</th>
+        <th style="padding:6px 8px;text-align:left;">주요 내용</th>
+        <th style="padding:6px 8px;text-align:left;">담당</th>
+      </tr></thead>
+      <tbody>${apt
+        .map(
+          (row, i) =>
+            `<tr style="background:${i % 2 === 0 ? '#f8fafc' : '#fff'}">
+            <td style="border:1px solid #e2e8f0;padding:6px 8px;font-weight:600;color:#d97706;">${escapeHtml(row.step)}</td>
+            <td style="border:1px solid #e2e8f0;padding:6px 8px;">${escapeHtml(row.timing)}</td>
+            <td style="border:1px solid #e2e8f0;padding:6px 8px;">${escapeHtml(row.content)}</td>
+            <td style="border:1px solid #e2e8f0;padding:6px 8px;color:#64748b;">${escapeHtml(row.owner)}</td>
+          </tr>`,
+        )
+        .join('')}</tbody></table>`,
+    )
+  }
+
+  const st = p.expectedEffectsShortTerm || []
+  const lt = p.expectedEffectsLongTerm || []
+  if (st.length || lt.length) {
+    parts.push(h('5. 기대 효과'))
+    parts.push(`<div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:12px;">
+      <div style="border:1px solid #fcd34d;background:#fffbeb;padding:12px;border-radius:8px;">
+        <div style="font-size:10px;font-weight:700;color:#b45309;margin-bottom:6px;">단기 효과</div>
+        <ul style="margin:0;padding-left:18px;font-size:11px;color:#1e293b;line-height:1.5;">${st.map((x) => `<li>${escapeHtml(x)}</li>`).join('')}</ul>
+      </div>
+      <div style="border:1px solid #6ee7b7;background:#ecfdf5;padding:12px;border-radius:8px;">
+        <div style="font-size:10px;font-weight:700;color:#047857;margin-bottom:6px;">장기 효과</div>
+        <ul style="margin:0;padding-left:18px;font-size:11px;color:#1e293b;line-height:1.5;">${lt.map((x) => `<li>${escapeHtml(x)}</li>`).join('')}</ul>
+      </div>
+    </div>`)
+  }
+
+  parts.push(h('6. 본문 섹션'))
+  const narrative: Array<[string, string]> = [
+    ['개요', p.overview],
+    ['범위', p.scope],
+    ['접근/전략', p.approach],
+    ['운영 계획', p.operationPlan],
+    ['산출물 계획', p.deliverablesPlan],
+    ['인력/조건', p.staffingConditions],
+    ['리스크/주의', p.risksAndCautions],
+    ['체크리스트', (p.checklist || []).join('\n')],
+  ]
+  narrative.forEach(([label, val]) => {
+    if (!(val || '').trim()) return
+    parts.push(
+      `<div style="margin-bottom:10px;"><div style="font-size:10px;font-weight:700;color:#64748b;margin-bottom:4px;">${escapeHtml(label)}</div>
+      <div style="font-size:11px;line-height:1.6;color:#334155;white-space:pre-wrap;border:1px solid #e2e8f0;padding:10px;border-radius:6px;background:#fff;">${escapeHtml(val)}</div></div>`,
+    )
+  })
+
+  return `<div style="font-family:'Malgun Gothic',Pretendard,sans-serif;">${parts.join('')}</div>`
+}
+
+function buildScenarioPdfHtml(doc: QuoteDoc): string {
+  const s = doc.scenario
+  if (!s) return `<div style="padding:24px;">시나리오 데이터가 없습니다.</div>`
+  const box = (title: string, body: string) =>
+    body.trim()
+      ? `<div style="margin-bottom:12px;"><div style="font-size:10px;font-weight:700;color:#64748b;margin-bottom:4px;">${escapeHtml(title)}</div>
+        <div style="font-size:11px;line-height:1.6;border:1px solid #e2e8f0;padding:10px;border-radius:8px;background:#fafafa;white-space:pre-wrap;">${escapeHtml(body)}</div></div>`
+      : ''
+  const points = (s.mainPoints || []).filter((x) => (x || '').trim()).map((x) => `<li>${escapeHtml(x)}</li>`).join('')
+  return `<div style="font-family:'Malgun Gothic',Pretendard,sans-serif;">
+    <div style="font-size:16px;font-weight:700;margin-bottom:8px;color:#1e3a5f;">시나리오 · ${escapeHtml(doc.eventName)}</div>
+    ${box('한 줄 요약', s.summaryTop)}
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:12px;">
+      <div>${box('오프닝', s.opening)}</div>
+      <div>${box('전개', s.development)}</div>
+    </div>
+    ${points ? `<div style="margin-bottom:12px;"><div style="font-size:10px;font-weight:700;color:#64748b;margin-bottom:4px;">핵심 포인트</div><ul style="margin:0;padding-left:18px;font-size:11px;line-height:1.5;">${points}</ul></div>` : ''}
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;">
+      <div>${box('클로징', s.closing)}</div>
+      <div>${box('진행 메모/방향성', s.directionNotes)}</div>
+    </div>
+  </div>`
+}
+
+function buildProgramHtmlForPdf(doc: QuoteDoc): string {
+  return `<div style="margin-top:0;">${buildProgramHtml(doc).replace('margin-top:72px', 'margin-top:0')}</div>`
+}
+
+function buildTimetablePdfHtml(doc: QuoteDoc): string {
+  const rows = (doc.program?.timeline || [])
+    .map(
+      (t) =>
+        `<tr style="border-bottom:1px solid #eee">
+      <td style="padding:6px 8px;font-size:10px;font-weight:500">${escapeHtml(t.time || '—')}</td>
+      <td style="padding:6px 8px">${escapeHtml(t.content || '')}</td>
+      <td style="padding:6px 8px;color:#666;font-size:10px">${escapeHtml(t.detail || '')}</td>
+      <td style="padding:6px 8px;font-size:10px">${escapeHtml(t.manager || '')}</td>
+    </tr>`,
+    )
+    .join('')
+  return `<div style="font-family:'Malgun Gothic',Pretendard,sans-serif;">
+    <div style="font-size:16px;font-weight:700;margin-bottom:8px;color:#1e3a5f;">진행 타임테이블</div>
+    <div style="font-size:11px;color:#666;margin-bottom:12px;">${escapeHtml(doc.eventName)}</div>
+    <table style="width:100%;border-collapse:collapse;font-size:11px;">
+      <thead><tr style="background:#e8e8e3;border-bottom:2px solid #ccc">
+        <th style="padding:6px 8px;text-align:left;">시간</th>
+        <th style="padding:6px 8px;text-align:left;">내용</th>
+        <th style="padding:6px 8px;text-align:left;">세부</th>
+        <th style="padding:6px 8px;text-align:left;">담당</th>
+      </tr></thead>
+      <tbody>${rows || '<tr><td colspan="4" style="padding:8px;color:#888;">일정 없음</td></tr>'}</tbody>
+    </table>
+  </div>`
+}
+
+function buildCuePdfHtml(doc: QuoteDoc): string {
+  const cueRows = doc.program?.cueRows || []
+  const rows = cueRows
+    .map(
+      (row) =>
+        `<tr>
+      <td style="border:1px solid #e5e7eb;padding:6px;font-size:10px;">${escapeHtml(row.time)}</td>
+      <td style="border:1px solid #e5e7eb;padding:6px;font-size:10px;">${escapeHtml(row.order)}</td>
+      <td style="border:1px solid #e5e7eb;padding:6px;font-size:10px;">${escapeHtml(row.content)}</td>
+      <td style="border:1px solid #e5e7eb;padding:6px;font-size:10px;">${escapeHtml(row.staff)}</td>
+      <td style="border:1px solid #e5e7eb;padding:6px;font-size:10px;">${escapeHtml(row.prep)}</td>
+      <td style="border:1px solid #e5e7eb;padding:6px;font-size:10px;">${escapeHtml(row.script)}</td>
+      <td style="border:1px solid #e5e7eb;padding:6px;font-size:10px;">${escapeHtml(row.special)}</td>
+    </tr>`,
+    )
+    .join('')
+  return `<div style="font-family:'Malgun Gothic',Pretendard,sans-serif;">
+    <div style="font-size:16px;font-weight:700;margin-bottom:8px;color:#1e3a5f;">큐시트 · ${escapeHtml(doc.eventName)}</div>
+    ${doc.program?.cueSummary ? `<div style="font-size:11px;margin-bottom:12px;line-height:1.5;color:#475569;">${escapeHtml(doc.program.cueSummary)}</div>` : ''}
+    <table style="width:100%;border-collapse:collapse;font-size:9px;">
+      <thead><tr style="background:#1e3a5f;color:#fff;">
+        <th style="padding:4px 6px;text-align:left;">시간</th>
+        <th style="padding:4px 6px;text-align:left;">순서</th>
+        <th style="padding:4px 6px;text-align:left;">내용</th>
+        <th style="padding:4px 6px;text-align:left;">담당</th>
+        <th style="padding:4px 6px;text-align:left;">준비</th>
+        <th style="padding:4px 6px;text-align:left;">대본</th>
+        <th style="padding:4px 6px;text-align:left;">특이</th>
+      </tr></thead>
+      <tbody>${rows || '<tr><td colspan="7" style="padding:8px;color:#888;">큐 행 없음</td></tr>'}</tbody>
+    </table>
+  </div>`
+}
+
+function buildEmceePdfHtml(doc: QuoteDoc): string {
+  const e = doc.emceeScript
+  if (!e) return `<div style="padding:24px;">사회자 멘트 데이터가 없습니다.</div>`
+  const lines = (e.lines || [])
+    .map(
+      (line) =>
+        `<tr>
+      <td style="border:1px solid #e5e7eb;padding:6px;font-size:10px;vertical-align:top;">${escapeHtml(line.order)}</td>
+      <td style="border:1px solid #e5e7eb;padding:6px;font-size:10px;vertical-align:top;">${escapeHtml(line.time)}</td>
+      <td style="border:1px solid #e5e7eb;padding:6px;font-size:10px;vertical-align:top;">${escapeHtml(line.segment)}</td>
+      <td style="border:1px solid #e5e7eb;padding:6px;font-size:10px;vertical-align:top;white-space:pre-wrap;">${escapeHtml(line.script)}</td>
+      <td style="border:1px solid #e5e7eb;padding:6px;font-size:10px;vertical-align:top;">${escapeHtml(line.notes)}</td>
+    </tr>`,
+    )
+    .join('')
+  return `<div style="font-family:'Malgun Gothic',Pretendard,sans-serif;">
+    <div style="font-size:16px;font-weight:700;margin-bottom:8px;color:#1e3a5f;">사회자 멘트 · ${escapeHtml(doc.eventName)}</div>
+    ${box('한 줄 요약', e.summaryTop)}
+    ${e.hostGuidelines?.trim() ? `<div style="margin-bottom:12px;"><div style="font-size:10px;font-weight:700;color:#64748b;">MC 지침</div>
+      <div style="font-size:11px;line-height:1.6;border:1px solid #e2e8f0;padding:10px;border-radius:8px;white-space:pre-wrap;">${escapeHtml(e.hostGuidelines)}</div></div>` : ''}
+    <table style="width:100%;border-collapse:collapse;font-size:10px;">
+      <thead><tr style="background:#1e3a5f;color:#fff;">
+        <th style="padding:6px;text-align:left;">순서</th>
+        <th style="padding:6px;text-align:left;">시간</th>
+        <th style="padding:6px;text-align:left;">구간</th>
+        <th style="padding:6px;text-align:left;">멘트</th>
+        <th style="padding:6px;text-align:left;">큐</th>
+      </tr></thead>
+      <tbody>${lines || '<tr><td colspan="5" style="padding:8px;color:#888;">멘트 행 없음</td></tr>'}</tbody>
+    </table>
+  </div>`
+}
+
+function box(title: string, body: string): string {
+  return body.trim()
+    ? `<div style="margin-bottom:12px;"><div style="font-size:10px;font-weight:700;color:#64748b;margin-bottom:4px;">${escapeHtml(title)}</div>
+        <div style="font-size:11px;line-height:1.6;border:1px solid #e2e8f0;padding:10px;border-radius:8px;background:#fafafa;white-space:pre-wrap;">${escapeHtml(body)}</div></div>`
+    : ''
 }
 
 function boxStyle(tpl: import('@/lib/quoteTemplates').QuoteTemplateMeta, isTotal = false): string {

@@ -396,7 +396,7 @@ export default function CueSheetGeneratorPage() {
                       return
                     }
                     try {
-                      await exportToPdf(doc, companySettings ?? undefined)
+                      await exportToPdf(doc, companySettings ?? undefined, 'cuesheet')
                       showToast('PDF 저장 완료!')
                     } catch (e) {
                       showToast(toUserMessage(e, '저장 실패'))

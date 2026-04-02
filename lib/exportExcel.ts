@@ -26,7 +26,7 @@ export async function exportToExcel(
   const name = doc.eventName.replace(/\s/g, '_')
 
   if (view === 'quote') {
-    buildQuoteSheet(ExcelJS, workbook, doc, company)
+    await buildQuoteSheet(ExcelJS, workbook, doc, company)
     buildQuoteProgramPlanSheet(ExcelJS, workbook, doc)
     await downloadWorkbook(workbook, `견적서_${name}_${date}.xlsx`)
     return
@@ -46,7 +46,7 @@ export async function exportToExcel(
 
   if (view === 'planning') {
     buildPlanningSheet(ExcelJS, workbook, doc)
-    await downloadWorkbook(workbook, `기획문서_${name}_${date}.xlsx`)
+    await downloadWorkbook(workbook, `기획안_${name}_${date}.xlsx`)
     return
   }
 
@@ -180,7 +180,30 @@ function applyBorderRange(
   }
 }
 
-function buildQuoteSheet(
+function logoExtFromUrl(url: string): 'png' | 'jpeg' | null {
+  const clean = url.split('?')[0].toLowerCase()
+  if (clean.endsWith('.png')) return 'png'
+  if (clean.endsWith('.jpg') || clean.endsWith('.jpeg')) return 'jpeg'
+  return null
+}
+
+async function fetchAsDataUrl(url: string): Promise<string | null> {
+  try {
+    const res = await fetch(url, { cache: 'no-store' })
+    if (!res.ok) return null
+    const blob = await res.blob()
+    return await new Promise<string>((resolve, reject) => {
+      const reader = new FileReader()
+      reader.onload = () => resolve(String(reader.result || ''))
+      reader.onerror = () => reject(reader.error)
+      reader.readAsDataURL(blob)
+    })
+  } catch {
+    return null
+  }
+}
+
+async function buildQuoteSheet(
   ExcelJS: typeof import('exceljs'),
   workbook: ExcelJS.Workbook,
   doc: QuoteDoc,
@@ -208,10 +231,10 @@ function buildQuoteSheet(
     fitToWidth: 1,
     fitToHeight: 1,
     margins: {
-      left: 0.2,
-      right: 0.2,
-      top: 0.39,
-      bottom: 0.39,
+      left: 0.197,
+      right: 0.197,
+      top: 0.394,
+      bottom: 0.394,
       header: 0.2,
       footer: 0.2,
     },
@@ -230,11 +253,26 @@ function buildQuoteSheet(
 
   let r = 1
 
-  merge(ws, r, 1, r + 3, 3)
-  setCell(ws, r, 1, '[ LOGO ]', { align: 'center', bold: true, bg: 'F5F9FF' })
-  ws.getCell(r, 1).alignment = { horizontal: 'center', vertical: 'middle', wrapText: true }
+  merge(ws, r, 1, r + 2, 3)
+  let logoInserted = false
+  const logoUrl = company?.logoUrl || ''
+  const logoExt = logoExtFromUrl(logoUrl)
+  if (logoUrl && logoExt) {
+    const dataUrl = await fetchAsDataUrl(logoUrl)
+    if (dataUrl) {
+      const imageId = workbook.addImage({ base64: dataUrl, extension: logoExt })
+      ws.addImage(imageId, 'A1:C3')
+      logoInserted = true
+    }
+  }
+  if (logoInserted) {
+    setCell(ws, r, 1, '', { align: 'center', bg: 'F5F9FF' })
+  } else {
+    setCell(ws, r, 1, '[ LOGO ]', { align: 'center', bold: true, bg: 'F5F9FF' })
+    ws.getCell(r, 1).alignment = { horizontal: 'center', vertical: 'middle', wrapText: true }
+  }
 
-  merge(ws, r, 4, r + 3, 8)
+  merge(ws, r, 4, r + 2, 8)
   setCell(ws, r, 4, '견  적  서', { align: 'center', bold: true, size: 20 })
   ws.getCell(r, 4).alignment = { horizontal: 'center', vertical: 'middle', wrapText: true }
 
@@ -248,17 +286,13 @@ function buildQuoteSheet(
   setCell(ws, r + 2, 9, '행사일자', { bold: true, align: 'center', bg: SECTION_BG })
   merge(ws, r + 2, 9, r + 2, 10)
   setCell(ws, r + 2, 11, doc.eventDate || '', { align: 'center' })
-  setCell(ws, r + 3, 9, '유효기간', { bold: true, align: 'center', bg: SECTION_BG })
-  merge(ws, r + 3, 9, r + 3, 10)
-  setCell(ws, r + 3, 11, `${doc.validDays || 0}일`, { align: 'center' })
 
-  ws.getRow(1).height = 24
-  ws.getRow(2).height = 24
-  ws.getRow(3).height = 24
-  ws.getRow(4).height = 24
-  applyOuterBorder(ws, 1, 1, 4, 11, 'medium')
+  ws.getRow(1).height = 28
+  ws.getRow(2).height = 28
+  ws.getRow(3).height = 28
+  applyOuterBorder(ws, 1, 1, 3, 11, 'medium')
 
-  r = 6
+  r = 5
   const partyBlockStart = r
   setCell(ws, r, 1, '수신', { bold: true, align: 'center', bg: SECTION_BG })
   merge(ws, r, 1, r, 5)
@@ -288,6 +322,8 @@ function buildQuoteSheet(
     ['담당자', company?.contact || '—'],
     ['전화번호', company?.tel || '—'],
   ]
+  if (company?.email?.trim()) supplierRows.push(['이메일', company.email.trim()])
+  if (company?.websiteUrl?.trim()) supplierRows.push(['웹사이트', company.websiteUrl.trim()])
 
   const maxRows = Math.max(receiverRows.length, supplierRows.length)
   for (let i = 0; i < maxRows; i += 1) {
@@ -325,7 +361,7 @@ function buildQuoteSheet(
 
   r += 3
   const tableHeaderRow = r
-  ;['구분', '항목', '상세 내역', '수량', '단위', '단가', '기간', '금액', '부가세', '합계', '비고'].forEach(
+  ;['구분', '항목명', '상세 내역', '수량', '단위', '단가', '기간', '금액', '부가세', '합계', '비고'].forEach(
     (label, idx) => {
       setCell(ws, r, idx + 1, label, {
         bold: true,
@@ -509,7 +545,14 @@ function buildQuoteSheet(
 
   setCell(ws, r, 8, '계좌 정보', { align: 'right', bold: true, bg: 'F5F9FF' })
   merge(ws, r, 8, r, 9)
-  setCell(ws, r, 10, doc.paymentTerms || '결제 계좌 정보를 입력하세요.', {})
+  const hasBankAccount =
+    Boolean(company?.bankAccount?.bankName?.trim()) ||
+    Boolean(company?.bankAccount?.accountNumber?.trim()) ||
+    Boolean(company?.bankAccount?.accountHolder?.trim())
+  const accountText = hasBankAccount
+    ? `입금 계좌: ${company?.bankAccount?.bankName || ''} ${company?.bankAccount?.accountNumber || ''} (${company?.bankAccount?.accountHolder || ''})`
+    : '계좌 정보를 설정에서 입력해주세요'
+  setCell(ws, r, 10, accountText, {})
   merge(ws, r, 10, r, 11)
   ws.getCell(r, 10).alignment = { horizontal: 'left', vertical: 'middle', wrapText: true }
   ws.getRow(r).height = 24
@@ -617,7 +660,8 @@ function buildQuoteProgramPlanSheet(
     r += 1
   }
 
-  applyOuterBorder(ws, headerRow, 1, r - 1, 8, 'thin')
+  applyBorderRange(ws, headerRow, 1, r - 1, 8, 'thin')
+  applyOuterBorder(ws, headerRow, 1, r - 1, 8, 'medium')
   ws.eachRow((row) => {
     row.eachCell((cell) => {
       if (!cell.font) {
@@ -772,27 +816,30 @@ function buildProgramSheet(
   }
 }
 
-function buildPlanningSheet(
-  ExcelJS: typeof import('exceljs'),
-  workbook: ExcelJS.Workbook,
-  doc: QuoteDoc,
+function stylePlanningSectionRow(ws: ExcelJS.Worksheet, row: ExcelJS.Row, colCount: number) {
+  row.eachCell({ includeEmpty: true }, (cell, col) => {
+    if (col > colCount) return
+    cell.font = {
+      name: DEFAULT_FONT,
+      size: 10,
+      bold: true,
+      color: { argb: 'FFFFFFFF' },
+    }
+    cell.alignment = { vertical: 'middle', wrapText: true }
+    cell.border = baseBorder()
+    cell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FF1F3864' } }
+  })
+}
+
+function addPlanningKeyValueBlock(
+  ws: ExcelJS.Worksheet,
+  rows: Array<[string, string]>,
+  startHighlight: boolean,
 ) {
-  const ws = workbook.addWorksheet('기획 문서')
-  ws.columns = [{ width: 18 }, { width: 80 }]
-  const planning = doc.planning
-  const rows: Array<[string, string]> = [
-    ['행사명', doc.eventName],
-    ['개요', planning?.overview || ''],
-    ['범위', planning?.scope || ''],
-    ['접근 방식', planning?.approach || ''],
-    ['운영 계획', planning?.operationPlan || ''],
-    ['산출물 계획', planning?.deliverablesPlan || ''],
-    ['인력/조건', planning?.staffingConditions || ''],
-    ['리스크/주의', planning?.risksAndCautions || ''],
-    ['체크리스트', (planning?.checklist || []).join('\n')],
-  ]
   rows.forEach(([label, value], index) => {
-    const row = ws.addRow([label, value])
+    const row = ws.addRow([label, value, '', ''])
+    const rn = row.number
+    merge(ws, rn, 2, rn, 4)
     row.eachCell((cell, cellIndex) => {
       cell.font = { name: DEFAULT_FONT, size: 10, bold: cellIndex === 1 }
       cell.alignment = { vertical: 'top', wrapText: true }
@@ -801,11 +848,203 @@ function buildPlanningSheet(
         cell.fill = {
           type: 'pattern',
           pattern: 'solid',
-          fgColor: { argb: index === 0 ? 'FFD5D5CE' : 'FFE8EDE8' },
+          fgColor: { argb: startHighlight && index === 0 ? 'FFD5D5CE' : 'FFE8EDE8' },
         }
       }
     })
   })
+}
+
+function buildPlanningSheet(
+  ExcelJS: typeof import('exceljs'),
+  workbook: ExcelJS.Workbook,
+  doc: QuoteDoc,
+) {
+  const ws = workbook.addWorksheet('기획 문서')
+  ws.columns = [{ width: 22 }, { width: 36 }, { width: 36 }, { width: 28 }]
+  const planning = doc.planning
+
+  let r = 1
+  const head = ws.addRow([`기획 제안서 · ${doc.eventName}`])
+  merge(ws, r, 1, r, 4)
+  head.getCell(1).font = { name: DEFAULT_FONT, size: 14, bold: true, color: { argb: 'FFFFFFFF' } }
+  head.getCell(1).alignment = { vertical: 'middle', horizontal: 'center', wrapText: true }
+  head.getCell(1).fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FF1F3864' } }
+  head.getCell(1).border = baseBorder()
+  r += 1
+
+  if (planning?.subtitle?.trim()) {
+    const sub = ws.addRow(['부제(슬로건)', planning.subtitle])
+    merge(ws, r, 2, r, 4)
+    sub.eachCell((cell, cellIndex) => {
+      cell.font = { name: DEFAULT_FONT, size: 10, bold: cellIndex === 1 }
+      cell.alignment = { vertical: 'top', wrapText: true }
+      cell.border = baseBorder()
+      if (cellIndex === 1) {
+        cell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFE8EDE8' } }
+      }
+    })
+    r += 1
+  }
+
+  const stats = planning?.backgroundStats || []
+  if (stats.length > 0) {
+    const sec = ws.addRow(['1. 배경 및 필요성 (지표)'])
+    merge(ws, r, 1, r, 4)
+    stylePlanningSectionRow(ws, sec, 4)
+    r += 1
+    const h = ws.addRow(['수치/지표', '제목', '설명', ''])
+    h.eachCell((cell, col) => {
+      cell.font = { name: DEFAULT_FONT, size: 10, bold: true }
+      cell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFD6E4F7' } }
+      cell.border = baseBorder()
+      cell.alignment = { vertical: 'middle', wrapText: true }
+    })
+    r += 1
+    stats.forEach((s) => {
+      ws.addRow([s.value || '—', s.label || '—', s.detail || '', '']).eachCell((cell) => {
+        cell.font = { name: DEFAULT_FONT, size: 10 }
+        cell.alignment = { vertical: 'top', wrapText: true }
+        cell.border = baseBorder()
+      })
+      r += 1
+    })
+    ws.addRow([])
+    r += 1
+  }
+
+  const overviewRows = planning?.programOverviewRows || []
+  if (overviewRows.length > 0) {
+    const sec = ws.addRow(['2. 프로그램 개요'])
+    merge(ws, r, 1, r, 4)
+    stylePlanningSectionRow(ws, sec, 4)
+    r += 1
+    const h = ws.addRow(['항목', '내용', '세부', ''])
+    h.eachCell((cell) => {
+      cell.font = { name: DEFAULT_FONT, size: 10, bold: true }
+      cell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFD6E4F7' } }
+      cell.border = baseBorder()
+      cell.alignment = { vertical: 'middle', wrapText: true }
+    })
+    r += 1
+    overviewRows.forEach((row) => {
+      ws.addRow([row.label, row.value, row.detail || '', '']).eachCell((cell) => {
+        cell.font = { name: DEFAULT_FONT, size: 10 }
+        cell.alignment = { vertical: 'top', wrapText: true }
+        cell.border = baseBorder()
+      })
+      r += 1
+    })
+    ws.addRow([])
+    r += 1
+  }
+
+  const blocks = planning?.actionProgramBlocks || []
+  if (blocks.length > 0) {
+    const sec = ws.addRow(['3. 세부 액션 프로그램'])
+    merge(ws, r, 1, r, 4)
+    stylePlanningSectionRow(ws, sec, 4)
+    r += 1
+    const h = ws.addRow(['순서', '일차/라벨', '제목', '설명 / 시간 / 대상'])
+    h.eachCell((cell) => {
+      cell.font = { name: DEFAULT_FONT, size: 10, bold: true }
+      cell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFD6E4F7' } }
+      cell.border = baseBorder()
+      cell.alignment = { vertical: 'middle', wrapText: true }
+    })
+    r += 1
+    blocks.forEach((b) => {
+      const detail = [b.description, `시간: ${b.timeRange}`, `대상: ${b.participants}`]
+        .filter(Boolean)
+        .join('\n')
+      ws.addRow([String(b.order), b.dayLabel, b.title, detail]).eachCell((cell) => {
+        cell.font = { name: DEFAULT_FONT, size: 10 }
+        cell.alignment = { vertical: 'top', wrapText: true }
+        cell.border = baseBorder()
+      })
+      r += 1
+    })
+    ws.addRow([])
+    r += 1
+  }
+
+  const apt = planning?.actionPlanTable || []
+  if (apt.length > 0) {
+    const sec = ws.addRow(['4. 액션 플랜'])
+    merge(ws, r, 1, r, 4)
+    stylePlanningSectionRow(ws, sec, 4)
+    r += 1
+    const h = ws.addRow(['단계', '시기', '주요 내용', '담당'])
+    h.eachCell((cell) => {
+      cell.font = { name: DEFAULT_FONT, size: 10, bold: true }
+      cell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFD6E4F7' } }
+      cell.border = baseBorder()
+      cell.alignment = { vertical: 'middle', wrapText: true }
+    })
+    r += 1
+    apt.forEach((row) => {
+      ws.addRow([row.step, row.timing, row.content, row.owner]).eachCell((cell) => {
+        cell.font = { name: DEFAULT_FONT, size: 10 }
+        cell.alignment = { vertical: 'top', wrapText: true }
+        cell.border = baseBorder()
+      })
+      r += 1
+    })
+    ws.addRow([])
+    r += 1
+  }
+
+  const shortFx = planning?.expectedEffectsShortTerm || []
+  const longFx = planning?.expectedEffectsLongTerm || []
+  if (shortFx.length > 0 || longFx.length > 0) {
+    const sec = ws.addRow(['5. 기대 효과'])
+    merge(ws, r, 1, r, 4)
+    stylePlanningSectionRow(ws, sec, 4)
+    r += 1
+    const h = ws.addRow(['단기 효과', '', '장기 효과', ''])
+    merge(ws, r, 1, r, 2)
+    merge(ws, r, 3, r, 4)
+    h.getCell(1).font = { name: DEFAULT_FONT, size: 10, bold: true }
+    h.getCell(1).fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFFFF4E5' } }
+    h.getCell(3).font = { name: DEFAULT_FONT, size: 10, bold: true }
+    h.getCell(3).fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFE8F5E9' } }
+    h.eachCell((cell) => {
+      cell.border = baseBorder()
+      cell.alignment = { vertical: 'top', wrapText: true }
+    })
+    r += 1
+    const maxLen = Math.max(shortFx.length, longFx.length)
+    for (let i = 0; i < maxLen; i += 1) {
+      const row = ws.addRow([shortFx[i] ? `· ${shortFx[i]}` : '', '', longFx[i] ? `· ${longFx[i]}` : '', ''])
+      merge(ws, r, 1, r, 2)
+      merge(ws, r, 3, r, 4)
+      row.eachCell((cell) => {
+        cell.font = { name: DEFAULT_FONT, size: 10 }
+        cell.alignment = { vertical: 'top', wrapText: true }
+        cell.border = baseBorder()
+      })
+      r += 1
+    }
+    ws.addRow([])
+    r += 1
+  }
+
+  const secNarr = ws.addRow(['6. 본문 섹션 (편집용 원문)'])
+  merge(ws, r, 1, r, 4)
+  stylePlanningSectionRow(ws, secNarr, 4)
+  r += 1
+
+  const narrative: Array<[string, string]> = [
+    ['개요', planning?.overview || ''],
+    ['범위', planning?.scope || ''],
+    ['접근/전략', planning?.approach || ''],
+    ['운영 계획', planning?.operationPlan || ''],
+    ['산출물 계획', planning?.deliverablesPlan || ''],
+    ['인력/조건', planning?.staffingConditions || ''],
+    ['리스크/주의', planning?.risksAndCautions || ''],
+    ['체크리스트', (planning?.checklist || []).join('\n')],
+  ]
+  addPlanningKeyValueBlock(ws, narrative, true)
 }
 
 function buildScenarioSheet(
