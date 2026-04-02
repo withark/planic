@@ -13,6 +13,37 @@ export type PdfExportDocumentKind =
   | 'cuesheet'
   | 'emceeScript'
 
+/** QuoteResult 탭 → PDF 종류 (프로그램 탭 + 큐시트 편집기면 큐시트 PDF) */
+export type QuoteResultDocTab =
+  | 'estimate'
+  | 'program'
+  | 'timetable'
+  | 'planning'
+  | 'scenario'
+  | 'emceeScript'
+
+export function pdfKindFromQuoteTab(
+  tab: QuoteResultDocTab,
+  opts?: { showCueSheetEditor?: boolean },
+): PdfExportDocumentKind {
+  switch (tab) {
+    case 'estimate':
+      return 'estimate'
+    case 'timetable':
+      return 'timetable'
+    case 'planning':
+      return 'planning'
+    case 'scenario':
+      return 'scenario'
+    case 'emceeScript':
+      return 'emceeScript'
+    case 'program':
+      return opts?.showCueSheetEditor ? 'cuesheet' : 'program'
+    default:
+      return 'estimate'
+  }
+}
+
 function pdfFilename(doc: QuoteDoc, kind: PdfExportDocumentKind): string {
   const date = getQuoteDateForFilename(doc.quoteDate)
   const name = doc.eventName.replace(/\s/g, '_')

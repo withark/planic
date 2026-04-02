@@ -3,7 +3,14 @@ import type { QuoteDoc, CompanySettings } from '@/lib/types'
 import { getQuoteDateForFilename } from '@/lib/calc'
 import { KIND_ORDER, groupQuoteItemsByKind } from '@/lib/quoteGroup'
 
-export type ExcelExportView = 'quote' | 'timeline' | 'program' | 'planning' | 'scenario' | 'cuesheet'
+export type ExcelExportView =
+  | 'quote'
+  | 'timeline'
+  | 'program'
+  | 'planning'
+  | 'scenario'
+  | 'cuesheet'
+  | 'emceeScript'
 
 const EXCEL_MIME = 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'
 const DEFAULT_FONT = 'Malgun Gothic'
@@ -53,6 +60,12 @@ export async function exportToExcel(
   if (view === 'scenario') {
     buildScenarioSheet(ExcelJS, workbook, doc)
     await downloadWorkbook(workbook, `시나리오_${name}_${date}.xlsx`)
+    return
+  }
+
+  if (view === 'emceeScript') {
+    buildEmceeScriptSheet(ExcelJS, workbook, doc)
+    await downloadWorkbook(workbook, `사회자멘트_${name}_${date}.xlsx`)
     return
   }
 
@@ -1047,37 +1060,179 @@ function buildPlanningSheet(
   addPlanningKeyValueBlock(ws, narrative, true)
 }
 
+/** 시나리오 시트: 오프닝/전개·클로징/노트 2열 블록 */
+function addScenarioTwoColumnBlock(
+  ws: ExcelJS.Worksheet,
+  r: number,
+  leftTitle: string,
+  leftValue: string,
+  rightTitle: string,
+  rightValue: string,
+): number {
+  const h = ws.addRow([leftTitle, '', rightTitle, ''])
+  merge(ws, r, 1, r, 2)
+  merge(ws, r, 3, r, 4)
+  ;[1, 3].forEach((col) => {
+    const c = h.getCell(col)
+    c.font = { name: DEFAULT_FONT, size: 10, bold: true, color: { argb: 'FFFFFFFF' } }
+    c.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FF1F3864' } }
+    c.alignment = { vertical: 'middle', wrapText: true }
+    c.border = baseBorder()
+  })
+  r += 1
+  const b = ws.addRow([leftValue, '', rightValue, ''])
+  merge(ws, r, 1, r, 2)
+  merge(ws, r, 3, r, 4)
+  b.getCell(1).font = { name: DEFAULT_FONT, size: 10 }
+  b.getCell(1).alignment = { vertical: 'top', wrapText: true }
+  b.getCell(1).border = baseBorder()
+  b.getCell(3).font = { name: DEFAULT_FONT, size: 10 }
+  b.getCell(3).alignment = { vertical: 'top', wrapText: true }
+  b.getCell(3).border = baseBorder()
+  r += 1
+  ws.addRow([])
+  return r + 1
+}
+
 function buildScenarioSheet(
   ExcelJS: typeof import('exceljs'),
   workbook: ExcelJS.Workbook,
   doc: QuoteDoc,
 ) {
   const ws = workbook.addWorksheet('시나리오')
-  ws.columns = [{ width: 18 }, { width: 80 }]
+  ws.columns = [{ width: 22 }, { width: 36 }, { width: 22 }, { width: 36 }]
   const scenario = doc.scenario
-  const rows: Array<[string, string]> = [
-    ['행사명', doc.eventName],
-    ['상단 요약', scenario?.summaryTop || ''],
-    ['오프닝', scenario?.opening || ''],
-    ['전개', scenario?.development || ''],
-    ['핵심 포인트', (scenario?.mainPoints || []).join('\n')],
-    ['클로징', scenario?.closing || ''],
-    ['연출/운영 노트', scenario?.directionNotes || ''],
-  ]
-  rows.forEach(([label, value], index) => {
-    const row = ws.addRow([label, value])
-    row.eachCell((cell, cellIndex) => {
-      cell.font = { name: DEFAULT_FONT, size: 10, bold: cellIndex === 1 }
+  let r = 1
+
+  const head = ws.addRow([`시나리오 · ${doc.eventName}`])
+  merge(ws, r, 1, r, 4)
+  head.getCell(1).font = { name: DEFAULT_FONT, size: 14, bold: true, color: { argb: 'FFFFFFFF' } }
+  head.getCell(1).alignment = { vertical: 'middle', horizontal: 'center', wrapText: true }
+  head.getCell(1).fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FF1F3864' } }
+  head.getCell(1).border = baseBorder()
+  r += 1
+
+  if (scenario?.summaryTop?.trim()) {
+    const t = ws.addRow(['한 줄 요약'])
+    merge(ws, r, 1, r, 4)
+    stylePlanningSectionRow(ws, t, 4)
+    r += 1
+    const v = ws.addRow([scenario.summaryTop, '', '', ''])
+    merge(ws, r, 1, r, 4)
+    v.getCell(1).font = { name: DEFAULT_FONT, size: 10 }
+    v.getCell(1).alignment = { vertical: 'top', wrapText: true }
+    v.getCell(1).border = baseBorder()
+    r += 1
+    ws.addRow([])
+    r += 1
+  }
+
+  r = addScenarioTwoColumnBlock(
+    ws,
+    r,
+    '오프닝',
+    scenario?.opening || '—',
+    '전개',
+    scenario?.development || '—',
+  )
+
+  const pts = (scenario?.mainPoints || []).map((x) => String(x ?? '').trim()).filter(Boolean)
+  if (pts.length > 0) {
+    const sec = ws.addRow(['핵심 포인트'])
+    merge(ws, r, 1, r, 4)
+    stylePlanningSectionRow(ws, sec, 4)
+    r += 1
+    pts.forEach((p) => {
+      const row = ws.addRow([`· ${p}`, '', '', ''])
+      merge(ws, r, 1, r, 4)
+      row.getCell(1).font = { name: DEFAULT_FONT, size: 10 }
+      row.getCell(1).alignment = { vertical: 'top', wrapText: true }
+      row.getCell(1).border = baseBorder()
+      r += 1
+    })
+    ws.addRow([])
+    r += 1
+  }
+
+  addScenarioTwoColumnBlock(
+    ws,
+    r,
+    '클로징',
+    scenario?.closing || '—',
+    '연출/운영 노트',
+    scenario?.directionNotes || '—',
+  )
+}
+
+function buildEmceeScriptSheet(
+  ExcelJS: typeof import('exceljs'),
+  workbook: ExcelJS.Workbook,
+  doc: QuoteDoc,
+) {
+  const ws = workbook.addWorksheet('사회자 멘트')
+  ws.columns = [{ width: 8 }, { width: 10 }, { width: 18 }, { width: 46 }, { width: 22 }]
+  const e = doc.emceeScript
+  let r = 1
+
+  const head = ws.addRow([`사회자 멘트 · ${doc.eventName}`])
+  merge(ws, r, 1, r, 5)
+  head.getCell(1).font = { name: DEFAULT_FONT, size: 14, bold: true, color: { argb: 'FFFFFFFF' } }
+  head.getCell(1).alignment = { vertical: 'middle', horizontal: 'center', wrapText: true }
+  head.getCell(1).fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FF1F3864' } }
+  head.getCell(1).border = baseBorder()
+  r += 1
+
+  if (e?.summaryTop?.trim()) {
+    const t = ws.addRow(['한 줄 요약'])
+    merge(ws, r, 1, r, 5)
+    stylePlanningSectionRow(ws, t, 5)
+    r += 1
+    const v = ws.addRow([e.summaryTop, '', '', '', ''])
+    merge(ws, r, 1, r, 5)
+    v.getCell(1).font = { name: DEFAULT_FONT, size: 10 }
+    v.getCell(1).alignment = { vertical: 'top', wrapText: true }
+    v.getCell(1).border = baseBorder()
+    r += 1
+  }
+
+  if (e?.hostGuidelines?.trim()) {
+    const t = ws.addRow(['MC 지침'])
+    merge(ws, r, 1, r, 5)
+    stylePlanningSectionRow(ws, t, 5)
+    r += 1
+    const v = ws.addRow([e.hostGuidelines, '', '', '', ''])
+    merge(ws, r, 1, r, 5)
+    v.getCell(1).font = { name: DEFAULT_FONT, size: 10 }
+    v.getCell(1).alignment = { vertical: 'top', wrapText: true }
+    v.getCell(1).border = baseBorder()
+    r += 1
+  }
+
+  ws.addRow([])
+  r += 1
+
+  const hdr = ws.addRow(['순서', '시간', '구간', '멘트', '큐'])
+  hdr.eachCell((cell) => {
+    cell.font = { name: DEFAULT_FONT, size: 10, bold: true, color: { argb: 'FFFFFFFF' } }
+    cell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: `FF${TABLE_HEADER_BG}` } }
+    cell.alignment = { vertical: 'middle', wrapText: true }
+    cell.border = baseBorder()
+  })
+  r += 1
+
+  ;(e?.lines || []).forEach((line) => {
+    ws.addRow([
+      line.order || '',
+      line.time || '',
+      line.segment || '',
+      line.script || '',
+      line.notes || '',
+    ]).eachCell((cell) => {
+      cell.font = { name: DEFAULT_FONT, size: 10 }
       cell.alignment = { vertical: 'top', wrapText: true }
       cell.border = baseBorder()
-      if (cellIndex === 1) {
-        cell.fill = {
-          type: 'pattern',
-          pattern: 'solid',
-          fgColor: { argb: index === 0 ? 'FFD5D5CE' : 'FFE8EDE8' },
-        }
-      }
     })
+    r += 1
   })
 }
 
@@ -1096,16 +1251,36 @@ function buildCueSheetSheet(
     { width: 24 },
     { width: 24 },
   ]
-  ws.addRow(['행사명', doc.eventName])
-  ws.addRow(['큐시트 요약', doc.program?.cueSummary || ''])
+  let r = 1
+  const head = ws.addRow([`큐시트 · ${doc.eventName}`])
+  merge(ws, r, 1, r, 7)
+  head.getCell(1).font = { name: DEFAULT_FONT, size: 14, bold: true, color: { argb: 'FFFFFFFF' } }
+  head.getCell(1).alignment = { vertical: 'middle', horizontal: 'center', wrapText: true }
+  head.getCell(1).fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FF1F3864' } }
+  head.getCell(1).border = baseBorder()
+  r += 1
+
+  if ((doc.program?.cueSummary || '').trim()) {
+    const row = ws.addRow(['요약', doc.program!.cueSummary, '', '', '', '', ''])
+    merge(ws, r, 2, r, 7)
+    row.getCell(1).font = { name: DEFAULT_FONT, size: 10, bold: true }
+    row.getCell(1).fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFE8EDE8' } }
+    row.getCell(1).border = baseBorder()
+    row.getCell(2).font = { name: DEFAULT_FONT, size: 10 }
+    row.getCell(2).alignment = { vertical: 'top', wrapText: true }
+    row.getCell(2).border = baseBorder()
+    r += 1
+  }
+
   ws.addRow([])
+  r += 1
 
   const header = ws.addRow(['시간', '순서', '내용', '담당', '준비', '스크립트', '특이사항'])
   header.eachCell((cell) => {
-    cell.font = { name: DEFAULT_FONT, size: 10, bold: true }
+    cell.font = { name: DEFAULT_FONT, size: 10, bold: true, color: { argb: 'FFFFFFFF' } }
     cell.alignment = { vertical: 'middle', wrapText: true }
     cell.border = baseBorder()
-    cell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFD5D5CE' } }
+    cell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: `FF${TABLE_HEADER_BG}` } }
   })
 
   ;(doc.program?.cueRows || []).forEach((rowValue) => {

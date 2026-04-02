@@ -12,7 +12,7 @@ import { toUserMessage } from '@/lib/errors/toUserMessage'
 import { LoadingState } from '@/components/ui/AsyncState'
 import { ESTIMATE_BUDGET_OPTIONS } from '@/lib/estimate-budget-options'
 import { exportToExcel } from '@/lib/exportExcel'
-import { exportToPdf } from '@/lib/exportPdf'
+import { exportToPdf, pdfKindFromQuoteTab } from '@/lib/exportPdf'
 import { isPaidPlan, type PlanType } from '@/lib/plans'
 import { calcTotals, fmtKRW } from '@/lib/calc'
 
@@ -804,13 +804,17 @@ function EstimateGeneratorContent() {
                       showToast(toUserMessage(e, '엑셀 다운로드 실패'))
                     }
                   }}
-                  onPdf={async () => {
+                  onPdf={async ({ tab, showCueSheetEditor }) => {
                     if (me?.subscription?.planType === 'FREE') {
                       showToast('PDF 다운로드는 베이직 플랜부터 이용할 수 있어요.')
                       return
                     }
                     try {
-                      await exportToPdf(doc, companySettings ?? undefined, 'estimate')
+                      await exportToPdf(
+                        doc,
+                        companySettings ?? undefined,
+                        pdfKindFromQuoteTab(tab, { showCueSheetEditor }),
+                      )
                       showToast('PDF 저장 완료!')
                     } catch (e) {
                       showToast(toUserMessage(e, '저장 실패'))

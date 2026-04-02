@@ -9,7 +9,7 @@ import type { CompanySettings, PriceCategory, QuoteDoc } from '@/lib/types'
 import { apiFetch, apiGenerateStream } from '@/lib/api/client'
 import { toUserMessage } from '@/lib/errors/toUserMessage'
 import { exportToExcel } from '@/lib/exportExcel'
-import { exportToPdf } from '@/lib/exportPdf'
+import { exportToPdf, pdfKindFromQuoteTab } from '@/lib/exportPdf'
 import type { PlanType } from '@/lib/plans'
 import { buildTopicSeedDoc } from '@/lib/topic-seed-doc'
 
@@ -335,13 +335,17 @@ export default function EmceeScriptGeneratorPage() {
                     exportToExcel(doc, companySettings ?? undefined, view)
                     showToast('엑셀 다운로드 완료!')
                   }}
-                  onPdf={async () => {
+                  onPdf={async ({ tab, showCueSheetEditor }) => {
                     if (me?.subscription?.planType === 'FREE') {
                       showToast('PDF 다운로드는 베이직 플랜부터 이용할 수 있어요.')
                       return
                     }
                     try {
-                      await exportToPdf(doc, companySettings ?? undefined, 'emceeScript')
+                      await exportToPdf(
+                        doc,
+                        companySettings ?? undefined,
+                        pdfKindFromQuoteTab(tab, { showCueSheetEditor }),
+                      )
                       showToast('PDF 저장 완료!')
                     } catch (e) {
                       showToast(toUserMessage(e, '저장 실패'))

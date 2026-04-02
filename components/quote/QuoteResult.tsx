@@ -47,7 +47,8 @@ interface Props {
   onRegenerate?: () => void
   regenerating?: boolean
   onExcel: (view: ExcelExportView) => void
-  onPdf: () => void
+  /** 현재 탭·큐시트 모드에 맞는 PDF 종류는 부모에서 exportPdf.pdfKindFromQuoteTab 등으로 매핑 */
+  onPdf: (ctx: { tab: DocTab; showCueSheetEditor: boolean }) => void | Promise<void>
   onLoadPrevious?: () => void
   onGenerateTab?: (tab: DocTab) => void | Promise<void>
   generatingTabs?: Partial<Record<DocTab, boolean>>
@@ -273,7 +274,9 @@ export function QuoteResult({
             ? 'planning'
             : tab === 'scenario'
               ? 'scenario'
-              : null
+              : tab === 'emceeScript'
+                ? 'emceeScript'
+                : null
   const tabLabel =
     tab === 'estimate'
       ? '견적서'
@@ -461,7 +464,14 @@ export function QuoteResult({
                 {saving ? '저장 중…' : '저장하기'}
               </Button>
             ) : null}
-            <Button size="sm" variant="primary" onClick={onPdf} disabled={exportDisabled}>PDF 저장</Button>
+            <Button
+              size="sm"
+              variant="primary"
+              onClick={() => void onPdf({ tab, showCueSheetEditor })}
+              disabled={exportDisabled}
+            >
+              PDF 저장
+            </Button>
             {planType !== 'FREE' && (
               <Button size="sm" variant="secondary" onClick={() => alert('이메일 공유 기능은 준비 중입니다.')}>이메일 공유</Button>
             )}
