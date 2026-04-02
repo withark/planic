@@ -165,7 +165,6 @@ async function runGenerateMeasures(page, baseUrl) {
       requirements: '실행형 액션플랜 중심, 리스크 대응과 체크리스트를 누락 없이 포함',
       briefGoal: '행사 종료 후 재계약 전환율 개선',
       briefNotes: 'VIP 동선 분리, 전환 지연 최소화',
-      styleMode: 'aiTemplate',
       documentTarget: 'estimate',
       generationMode: 'normal',
     }
