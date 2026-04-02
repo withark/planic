@@ -2278,6 +2278,8 @@ export async function generateQuoteWithMeta(input: GenerateInput): Promise<{ doc
   const stageBrief = buildStageBrief(input)
   const stageStructurePlan = buildStageStructurePlan(input, stageBrief)
   const generationProfile = input.generationProfile ?? 'realtime'
+  const realtimeTarget = input.documentTarget ?? 'estimate'
+  const isHeavyRealtimeTarget = ['planning', 'program', 'scenario', 'cuesheet', 'emceeScript'].includes(realtimeTarget)
   const stagedInput: GenerateInput = {
     ...input,
     stageBrief,
@@ -2316,7 +2318,8 @@ export async function generateQuoteWithMeta(input: GenerateInput): Promise<{ doc
 
   async function runOnce(extra = '', kind: 'primary' | 'retry'): Promise<string> {
     try {
-      const draftTimeoutMs = generationProfile === 'realtime' ? 60_000 : 90_000
+      const draftTimeoutMs =
+        generationProfile === 'realtime' ? (isHeavyRealtimeTarget ? 110_000 : 70_000) : 90_000
       const { text, usage, latencyMs } = await callLLMWithUsage(prompt + extra, {
         maxTokens: resolveDraftMaxOut(),
         timeoutMs: draftTimeoutMs,
@@ -2492,7 +2495,8 @@ export async function generateQuoteWithMeta(input: GenerateInput): Promise<{ doc
         try {
           const repairEngine = refineEff ?? eff
           const repairMax = resolveGenerateMaxTokens(repairEngine.maxTokens, repairEngine.provider)
-          const repairTimeoutMs = generationProfile === 'realtime' ? 45_000 : 90_000
+          const repairTimeoutMs =
+            generationProfile === 'realtime' ? (isHeavyRealtimeTarget ? 70_000 : 55_000) : 90_000
           const { text: refinedText, usage: repairU, latencyMs: repairMs } = await callLLMWithUsage(repairPrompt, {
             maxTokens: repairMax,
             timeoutMs: repairTimeoutMs,
