@@ -13,7 +13,8 @@
     "test:admin-auth-security": "tsx scripts/test-admin-auth-security.ts",
     "test:ai-quality": "tsx scripts/test-ai-quality.ts",
     "test:db-fallback": "tsx scripts/test-db-fallback.ts",
-    "test:e2e": "playwright test"
+    "test:e2e": "playwright test",
+    "test:pdf-kind": "tsx scripts/test-pdf-export-kind.ts"
   },
   "dependencies": {
     "@anthropic-ai/sdk": "^0.24.0",
