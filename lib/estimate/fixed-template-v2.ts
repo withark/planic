@@ -95,8 +95,56 @@ function buildPriceLookup(prices: PriceCategory[]): Map<string, { unit: string; 
   return map
 }
 
+function inferItemKind(categoryName: string, itemName: string): QuoteItemKind {
+  const text = `${categoryName} ${itemName}`.toLowerCase()
+  if (/(인건비|운영|기획|pm|총괄|스탭|요원|진행|사회자|심판|기록원)/.test(text)) return '인건비'
+  if (/(선택|옵션|추가)/.test(text)) return '선택1'
+  if (/(예비|돌발|비상|잡비)/.test(text)) return '선택2'
+  return '필수'
+}
+
 export function applyFixedEstimateTemplateV2(doc: QuoteDoc, prices: PriceCategory[] = []): QuoteDoc {
   const generatedItems = (doc.quoteItems || []).flatMap((category) => category.items || [])
+  const hasUserPriceTemplate = (prices || []).some((category) => (category.items || []).length > 0)
+
+  if (hasUserPriceTemplate) {
+    const quoteItems = (prices || [])
+      .filter((category) => (category.items || []).length > 0)
+      .map((category) => ({
+        category: category.name || '기타',
+        items: (category.items || []).map((item) => {
+          const matchedGenerated = findMatchingItem(item.name, generatedItems)
+          const qty = Math.max(0, Math.round(matchedGenerated?.qty || 1))
+          const unitPrice = Number.isFinite(item.price) ? Math.max(0, Math.round(item.price)) : 0
+          const unit = (item.unit || matchedGenerated?.unit || '식').trim() || '식'
+          const spec = (item.spec || matchedGenerated?.spec || '').trim()
+          const note = (item.note || matchedGenerated?.note || '').trim()
+          const kind = matchedGenerated?.kind || inferItemKind(category.name, item.name)
+          return {
+            name: item.name || '항목',
+            spec,
+            qty,
+            unit,
+            unitPrice,
+            total: qty * unitPrice,
+            note,
+            kind,
+          }
+        }),
+      }))
+
+    return {
+      ...doc,
+      quoteItems,
+      expenseRate: 7,
+      profitRate: 7,
+      validDays: 30,
+      paymentTerms: TEMPLATE_PAYMENT_TERMS,
+      notes: TEMPLATE_NOTES,
+      quoteTemplate: 'fixed-v2',
+    }
+  }
+
   const priceLookup = buildPriceLookup(prices)
 
   const categoryMap = new Map<string, QuoteLineItem[]>()

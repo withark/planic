@@ -108,7 +108,6 @@ export default function EmceeScriptGeneratorPage() {
       eventType: d.eventType,
       budget: '',
       requirements: requirementsText,
-      styleMode: 'userStyle' as const,
     }
   }, [])
 

@@ -132,7 +132,6 @@ export default function ProgramProposalGeneratorPage() {
         eventType: d.eventType,
         budget: '',
         requirements: requirementsText,
-        styleMode: 'userStyle' as const,
         generationMode: sourceMode === 'fromTaskOrder' && selectedTaskOrderBaseId ? 'taskOrderBase' : undefined,
         taskOrderBaseId: sourceMode === 'fromTaskOrder' ? selectedTaskOrderBaseId : undefined,
       }

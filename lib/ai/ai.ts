@@ -59,7 +59,6 @@ export type GenerateTimingMeta = {
   }
   costEstimateUsd?: number
   usedReferenceSources: string[]
-  styleMode?: GenerateInput['styleMode']
   premiumMode: boolean
   hybridPipeline: boolean
   /** 하이브리드 2단계 정제 모델 티어(메타·로그) */
@@ -582,7 +581,6 @@ function fillWeakOutputs(doc: QuoteDoc, input: GenerateInput): QuoteDoc {
   }
 
   const getUserCategoryOrder = (): string[] => {
-    if (input.styleMode !== 'userStyle') return []
     const first = input.references?.[0]?.summary
     if (!first) return []
     try {
@@ -2121,18 +2119,9 @@ export async function generateQuoteWithMeta(input: GenerateInput): Promise<{ doc
   if (mock) {
     const start = input.eventStartHHmm || '19:00'
     const end = input.eventEndHHmm || '21:00'
-    const userStyleHint = (input.references || [])
-      .map(r => (r.summary || '').replace(/\s+/g, ' ').trim())
-      .filter(Boolean)
-      .join(' ')
-    const prefersUserStyle = input.styleMode === 'userStyle' && userStyleHint.length > 0
-    const itemName = prefersUserStyle ? '총괄 PM' : input.styleMode === 'aiTemplate' ? 'AI 템플릿 운영안' : '기획/운영'
-    const categoryName = prefersUserStyle ? '인건비/운영' : '기본'
-    const noteText = prefersUserStyle
-      ? '사용자 학습 스타일(명사형/실무형)을 반영한 모의 결과'
-      : input.styleMode === 'aiTemplate'
-        ? 'AI 추천 템플릿 구조를 우선 적용한 모의 결과'
-        : ''
+    const itemName = '기획/운영'
+    const categoryName = '기본'
+    const noteText = ''
     let mockDoc = normalizeQuoteDoc(
       {
         eventName: input.eventName,
@@ -2258,7 +2247,6 @@ export async function generateQuoteWithMeta(input: GenerateInput): Promise<{ doc
         draftProvider: 'mock',
         draftModel: 'mock',
         usedReferenceSources: (input.references || []).map((r) => r.filename || r.id || '').filter(Boolean),
-        styleMode: input.styleMode,
         premiumMode: false,
         hybridPipeline: false,
         hybridRefineTier: 'skipped',
@@ -2684,7 +2672,6 @@ export async function generateQuoteWithMeta(input: GenerateInput): Promise<{ doc
       },
       costEstimateUsd,
       usedReferenceSources: (input.references || []).map((r) => r.filename || r.id || '').filter(Boolean),
-      styleMode: input.styleMode,
       premiumMode,
       hybridPipeline: hybrid != null,
       hybridRefineTier,

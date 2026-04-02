@@ -248,7 +248,6 @@ function EstimateGeneratorContent() {
       headcount: '',
       venue: '',
       budget,
-      styleMode: 'aiTemplate' as const,
       documentTarget: 'estimate' as const,
       clientName: '',
       clientManager: '',

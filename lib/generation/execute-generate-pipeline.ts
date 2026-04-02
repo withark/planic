@@ -5,12 +5,9 @@ import { DEFAULT_SETTINGS } from '@/lib/defaults'
 import { quotesDbAppend } from '@/lib/db/quotes-db'
 import { normalizeTemplateForPlan } from '@/lib/plan-entitlements'
 import type { PlanType } from '@/lib/plans'
-import { referenceStyleDocLimitForPlan } from '@/lib/plans'
 import { getUserPrices } from '@/lib/db/prices-db'
-import { listReferenceDocsForStyle } from '@/lib/db/reference-docs-db'
 import {
   getTaskOrderRefById,
-  listTaskOrderRefsLight,
 } from '@/lib/db/task-order-refs-db'
 import { insertGeneratedDoc } from '@/lib/db/generated-docs-db'
 import { insertGenerationRun } from '@/lib/db/generation-runs-db'
@@ -63,7 +60,6 @@ export type GeneratePipelineBody = {
   generationMode?: 'normal' | 'taskOrderBase'
   taskOrderBaseId?: string
   documentTarget?: 'estimate' | 'program' | 'timetable' | 'planning' | 'scenario' | 'cuesheet' | 'emceeScript'
-  styleMode?: 'userStyle' | 'aiTemplate'
   existingDoc?: unknown
   scenarioRefIds?: string[]
   cuesheetSampleIds?: string[]
@@ -170,7 +166,6 @@ export async function executeGeneratePipeline(
 
   const generationMode = body.generationMode ?? 'normal'
   const documentTarget = body.documentTarget ?? 'estimate'
-  const styleMode = body.styleMode ?? 'userStyle'
   const existingDoc = body.existingDoc as QuoteDoc | undefined
   const taskOrderBaseId = (body.taskOrderBaseId || '').trim() || undefined
 
@@ -178,21 +173,18 @@ export async function executeGeneratePipeline(
 
   const contextStartedAt = Date.now()
   const needPrices = documentTarget === 'estimate'
-  const needReferences = styleMode === 'userStyle'
   const taskOrderRefsPromise =
     generationMode === 'taskOrderBase' && taskOrderBaseId
       ? getTaskOrderRefById(userId, taskOrderBaseId).then((r) => (r ? [r] : []))
       : Promise.resolve([])
 
-  const refLimit = referenceStyleDocLimitForPlan(plan)
-  const [prices, settings, references, taskOrderRefs, scenarioRefs, cuesheetSampleContext, effectiveRaw] =
+  const [prices, settings, taskOrderRefs, scenarioRefs, cuesheetSampleContext, effectiveRaw] =
     await Promise.all([
       needPrices ? getUserPrices(userId) : Promise.resolve([]),
       (async () => {
         const p = await getDefaultCompanyProfile(userId)
         return p ? profileToCompanySettings(p) : DEFAULT_SETTINGS
       })(),
-      needReferences ? listReferenceDocsForStyle(userId, refLimit) : Promise.resolve([]),
       taskOrderRefsPromise,
       documentTarget === 'scenario' && scenarioRefIds.length
         ? listScenarioRefs(userId).then((list) => list.filter((r) => scenarioRefIds.includes(r.id)))
@@ -215,40 +207,7 @@ export async function executeGeneratePipeline(
   const realtimePolicy = applyRealtimeEnginePolicy(effectiveRaw)
   const effective = realtimePolicy.engine
 
-  const effectiveStyleMode: 'userStyle' | 'aiTemplate' =
-    styleMode === 'userStyle' && references.length > 0 ? 'userStyle' : 'aiTemplate'
-  const referencesForPrompt = effectiveStyleMode === 'userStyle' ? references : []
-
-  const pricesForPrompt: PriceCategory[] =
-    documentTarget === 'estimate' && effectiveStyleMode === 'userStyle'
-      ? (() => {
-          const base = structuredClone(prices) as PriceCategory[]
-          referencesForPrompt.forEach((r) => {
-            const baseName = (r.filename || '').replace(/\.[^.]+$/, '')
-            const extracted = (r.extractedPrices || []) as any[]
-            if (!Array.isArray(extracted) || extracted.length === 0) return
-            extracted.forEach((cat) => {
-              const categoryName = cat.category || '참고'
-              const newCat: PriceCategory = {
-                id: uid(),
-                name: `참고 - ${baseName} (${categoryName})`,
-                items:
-                  (cat.items || []).map((it: any) => ({
-                    id: uid(),
-                    name: String(it.name ?? ''),
-                    spec: String(it.spec ?? ''),
-                    unit: String(it.unit ?? '식'),
-                    price: Number.isFinite(it.price) ? Math.round(it.price) : 0,
-                    note: '',
-                    types: [],
-                  })) || [],
-              }
-              base.push(newCat)
-            })
-          })
-          return base
-        })()
-      : prices
+  const pricesForPrompt: PriceCategory[] = prices
 
   const filteredTaskOrderRefs =
     generationMode === 'taskOrderBase' && taskOrderBaseId
@@ -291,9 +250,7 @@ export async function executeGeneratePipeline(
     documentTarget: documentTarget,
     aiModeIsMock: isMockAi,
     mockBlockedInProduction,
-    requestStyleMode: styleMode,
-    effectiveStyleMode,
-    referenceFilenames: referencesForPrompt.map((r) => r.filename || r.id),
+    referenceFilenames: [],
     taskOrderRefsLoaded: filteredTaskOrderRefs.length,
     taskOrderBaseId: taskOrderBaseId || null,
     generationMode: generationMode,
@@ -345,13 +302,12 @@ export async function executeGeneratePipeline(
     programs: programsForPrompt,
     prices: pricesForPrompt,
     settings,
-    references: referencesForPrompt,
+    references: [],
     taskOrderRefs: filteredTaskOrderRefs,
     scenarioRefs,
     cuesheetSampleContext,
     engineQuality,
     documentTarget,
-    styleMode: effectiveStyleMode,
     existingDoc,
     userPlan: plan,
     hybridTemplateId: hybridTemplateIdForPolicy,
