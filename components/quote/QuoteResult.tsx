@@ -1190,6 +1190,29 @@ export function QuoteResult({
                     const rows = groupedByKind.get(kind)!
                     const isCollapsed = !!collapsedKinds[kind]
                     const subtotal = kindSubtotals.get(kind) ?? 0
+                    const isOptionalKind = kind === '선택1' || kind === '선택2'
+                    // 선택 항목은 0개면 섹션 헤더/소계 자체를 숨기고, 대신 "추가" 버튼만 노출.
+                    if (isOptionalKind && rows.length === 0 && isCollapsed) {
+                      return (
+                        <tr key={`${kind}-empty`}>
+                          <td colSpan={8} className={clsx(estCell, 'align-top')}>
+                            <div className="flex items-center justify-between gap-3">
+                              <span className="text-xs font-semibold text-slate-700">{kind}</span>
+                              <button
+                                type="button"
+                                className="rounded-lg border border-primary-200 bg-white px-2 py-1 text-xs font-semibold text-primary-700 hover:bg-primary-50"
+                                onClick={() => {
+                                  setCollapsedKinds((prev) => ({ ...prev, [kind]: false }))
+                                  setOpenPriceForKind(kind)
+                                }}
+                              >
+                                + {kind} 항목 추가
+                              </button>
+                            </div>
+                          </td>
+                        </tr>
+                      )
+                    }
                     return (
                       <Fragment key={kind}>
                         <tr key={kind + '-h'} className="quote-section-row bg-primary-50/60 border-y border-primary-100">
