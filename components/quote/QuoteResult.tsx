@@ -484,7 +484,7 @@ export function QuoteResult({
   // scenario는 현재 UI에서 편집하지 않습니다(향후 기본 견적 흐름에서 활용).
 
   return (
-    <div className={clsx('flex flex-col', !disableInternalScroll && 'h-full overflow-hidden')}>
+    <div className={clsx('flex min-w-0 flex-col', !disableInternalScroll && 'h-full overflow-hidden')}>
       <div
         className={clsx(
           'z-10 flex-shrink-0 border-b border-slate-200/80 bg-white/95 shadow-sm backdrop-blur',
@@ -692,7 +692,7 @@ export function QuoteResult({
         </div>
       )}
 
-      <div className={clsx('p-4 pb-20', !disableInternalScroll && 'flex-1 overflow-y-auto')}>
+      <div className={clsx('min-w-0 overflow-x-hidden p-4 pb-20', !disableInternalScroll && 'flex-1 overflow-y-auto')}>
         {tab === 'estimate' && (() => {
           const kindSubtotals = subtotalsByKind(doc)
 
@@ -713,7 +713,6 @@ export function QuoteResult({
             const showPeriodCol = hasPeriodDataInEstimate || excelPeriodColumnForced
             const subtotalLabelColSpan = 5 + (showPeriodCol ? 1 : 0)
             const excelFullColSpan = showPeriodCol ? 11 : 10
-            const tableMinW = showPeriodCol ? 'min-w-[1040px]' : 'min-w-[980px]'
             const supplierPairs: [string, string][] = [
               ['사업자번호', companySettings?.biz || '—'],
               ['상호명', companySettings?.name || '—'],
@@ -776,9 +775,6 @@ export function QuoteResult({
                 </div>
 
                 <div className="flex flex-wrap items-center gap-x-3 gap-y-1 text-[11px] text-slate-500">
-                  <p className="md:hidden" role="note">
-                    표가 넓습니다. 좌우로 스크롤해 전체 열을 확인하세요.
-                  </p>
                   {!hasPeriodDataInEstimate && !excelPeriodColumnForced ? (
                     <button
                       type="button"
@@ -790,11 +786,11 @@ export function QuoteResult({
                   ) : null}
                 </div>
                 <div
-                  className="overflow-x-auto rounded-sm border border-slate-400 shadow-sm"
+                  className="w-full min-w-0 overflow-x-hidden rounded-sm border border-slate-400 shadow-sm"
                   role="region"
                   aria-label="견적 품목 표"
                 >
-                  <table className={clsx('w-full border-collapse text-[11px]', tableMinW)}>
+                  <table className="w-full table-fixed border-collapse text-[11px]">
                     <thead>
                       <tr className="bg-[#1F3864] text-white">
                         <th
@@ -862,7 +858,7 @@ export function QuoteResult({
                                       value={it.name}
                                       onChange={(e) => updLine(ci, ii, 'name', e.target.value)}
                                       rows={estTextRows(it.name, 32, 8)}
-                                      className={clsx(excelLineTextareaCls, 'min-w-[100px]')}
+                                      className={clsx(excelLineTextareaCls, 'min-w-0 max-w-full')}
                                     />
                                   </td>
                                   <td className="border border-slate-300 p-0.5 align-top">
@@ -870,7 +866,7 @@ export function QuoteResult({
                                       value={it.spec || ''}
                                       onChange={(e) => updLine(ci, ii, 'spec', e.target.value)}
                                       rows={estTextRows(it.spec || '', 34, 12)}
-                                      className={clsx(excelLineTextareaCls, 'min-w-[120px]')}
+                                      className={clsx(excelLineTextareaCls, 'min-w-0 max-w-full')}
                                     />
                                   </td>
                                   <td className="border border-slate-300 p-0.5 text-right">
@@ -890,7 +886,7 @@ export function QuoteResult({
                                       value={it.unitPrice ?? 0}
                                       onChange={(e) => updLine(ci, ii, 'unitPrice', Math.max(0, +(e.target.value || 0)))}
                                       onBlur={() => snapUnitPriceOnBlur(ci, ii)}
-                                      className="w-[88px] border-0 bg-transparent px-1 py-0.5 text-right text-blue-700 tabular-nums outline-none focus:ring-1 focus:ring-primary-300"
+                                      className="w-full max-w-[5.5rem] border-0 bg-transparent px-1 py-0.5 text-right text-blue-700 tabular-nums outline-none focus:ring-1 focus:ring-primary-300"
                                     />
                                   </td>
                                   <td className="border border-slate-300 p-0.5 text-center">
@@ -919,7 +915,7 @@ export function QuoteResult({
                                       value={it.note || ''}
                                       onChange={(e) => updLine(ci, ii, 'note', e.target.value)}
                                       rows={estTextRows(it.note || '', 34, 12)}
-                                      className={clsx(excelLineTextareaCls, 'min-w-[72px]')}
+                                      className={clsx(excelLineTextareaCls, 'min-w-0 max-w-full')}
                                     />
                                   </td>
                                   <td className="border border-slate-300 p-0.5 text-center">
@@ -1062,7 +1058,7 @@ export function QuoteResult({
           return (
             <div
               className={clsx(
-                'quote-wrapper mx-auto space-y-5 pb-8',
+                'quote-wrapper mx-auto w-full min-w-0 space-y-5 pb-8',
                 compactEstimateEditor ? 'max-w-6xl px-1' : 'max-w-3xl',
               )}
               data-quote-template={templateId}
@@ -1147,10 +1143,10 @@ export function QuoteResult({
                   )}
                 </div>
               </div>
-              <div className="w-full overflow-x-auto">
+              <div className="w-full min-w-0 overflow-x-hidden">
               <table
                 className={clsx(
-                  'w-full min-w-[920px] border-collapse',
+                  'w-full table-fixed border-collapse',
                   compactEstimateEditor ? 'text-[13px]' : 'text-xs',
                 )}
               >
@@ -1189,13 +1185,13 @@ export function QuoteResult({
                 </caption>
                 <thead>
                   <tr className="bg-gray-50 border-b border-gray-100">
-                    <th className={clsx('text-left font-medium text-gray-400 whitespace-nowrap', estHeadRow)}>항목명</th>
-                    <th className={clsx('text-left font-medium text-gray-400 whitespace-nowrap', estHeadRow)}>규격/내용</th>
+                    <th className={clsx('text-left font-medium text-gray-400', estHeadRow)}>항목명</th>
+                    <th className={clsx('text-left font-medium text-gray-400', estHeadRow)}>규격/내용</th>
                     <th className={clsx('text-right font-medium text-gray-400 whitespace-nowrap', estHeadRow)}>수량</th>
                     <th className={clsx('text-left font-medium text-gray-400 whitespace-nowrap', estHeadRow)}>단위</th>
-                    <th className={clsx('text-right font-medium text-gray-400 whitespace-nowrap', estHeadRow)}>개당 단가</th>
+                    <th className={clsx('text-right font-medium text-gray-400', estHeadRow)}>개당 단가</th>
                     <th className={clsx('text-right font-medium text-gray-400 whitespace-nowrap', estHeadRow)}>합계</th>
-                    <th className={clsx('text-left font-medium text-gray-400 whitespace-nowrap', estHeadRow)}>비고</th>
+                    <th className={clsx('text-left font-medium text-gray-400', estHeadRow)}>비고</th>
                     <th className={clsx('text-left font-medium text-gray-400 whitespace-nowrap', estHeadRow)}>구분</th>
                   </tr>
                 </thead>
@@ -1234,7 +1230,7 @@ export function QuoteResult({
                               const rowTotal = effectiveLineTotalWon(it)
                               return (
                                 <tr key={`${ci}-${ii}`} className="border-b border-gray-50 hover:bg-gray-50/50 group">
-                                  <td className={clsx(estCell, 'min-w-[8rem]')}>
+                                  <td className={clsx(estCell, 'min-w-0')}>
                                     <textarea
                                       value={it.name}
                                       onChange={(e) => updLine(ci, ii, 'name', e.target.value)}
@@ -1242,7 +1238,7 @@ export function QuoteResult({
                                       className={estTextareaCls}
                                     />
                                   </td>
-                                  <td className={clsx(estCell, 'text-gray-400 min-w-[8rem]')}>
+                                  <td className={clsx(estCell, 'min-w-0 text-gray-400')}>
                                     <textarea
                                       value={it.spec || ''}
                                       onChange={(e) => updLine(ci, ii, 'spec', e.target.value)}
@@ -1287,7 +1283,7 @@ export function QuoteResult({
                                     />
                                   </td>
                                   <td className={clsx(estCell, 'text-right font-medium tabular-nums')}>{fmtKRW(rowTotal)}</td>
-                                  <td className={clsx(estCell, 'text-gray-400 min-w-[7rem]')}>
+                                  <td className={clsx(estCell, 'min-w-0 text-gray-400')}>
                                     <textarea
                                       value={it.note || ''}
                                       onChange={(e) => updLine(ci, ii, 'note', e.target.value)}
@@ -1500,8 +1496,8 @@ export function QuoteResult({
                     className="w-full bg-white border border-gray-200 rounded-lg p-2 text-xs resize-none"
                   />
                 </div>
-                <div className="overflow-x-auto">
-                  <table className="w-full text-xs border-collapse border border-gray-200">
+                <div className="w-full min-w-0 overflow-x-hidden">
+                  <table className="w-full table-fixed text-xs border-collapse border border-gray-200">
                     <thead>
                       <tr className="bg-gray-100">
                         {['구분', '내용', '성격', '시간', '대상/인원', '비고', ''].map(h => (
@@ -1513,10 +1509,10 @@ export function QuoteResult({
                       {doc.program.programRows.map((row, i) => (
                         <tr key={`pr-${i}-${row.content}`} className="border-b border-gray-100">
                           <td className="border border-gray-100 p-1">
-                            <input value={row.kind} onChange={e => patchDoc(base => { base.program.programRows[i].kind = e.target.value; return base })} className="w-full bg-white border border-gray-200 rounded px-1" />
+                            <input value={row.kind} onChange={e => patchDoc(base => { base.program.programRows[i].kind = e.target.value; return base })} className="w-full min-w-0 bg-white border border-gray-200 rounded px-1" />
                           </td>
                           <td className="border border-gray-100 p-1">
-                            <input value={row.content} onChange={e => patchDoc(base => { base.program.programRows[i].content = e.target.value; return base })} className="w-full min-w-[160px] bg-white border border-gray-200 rounded px-1" />
+                            <input value={row.content} onChange={e => patchDoc(base => { base.program.programRows[i].content = e.target.value; return base })} className="w-full min-w-0 bg-white border border-gray-200 rounded px-1" />
                           </td>
                           <td className="border border-gray-100 p-1">
                             <input value={row.tone} onChange={e => patchDoc(base => { base.program.programRows[i].tone = e.target.value; return base })} className="w-full bg-white border border-gray-200 rounded px-1" />
@@ -1558,8 +1554,8 @@ export function QuoteResult({
                 <div className="mt-3">
                   <div className="text-[10px] text-gray-500 font-semibold mb-2">큐시트 행</div>
                   {Array.isArray(d.program.cueRows) && d.program.cueRows.length > 0 ? (
-                    <div className="overflow-x-auto">
-                      <table className="w-full text-xs border-collapse border border-gray-200">
+                    <div className="w-full min-w-0 overflow-x-hidden">
+                      <table className="w-full table-fixed text-xs border-collapse border border-gray-200">
                         <thead>
                           <tr className="bg-gray-100">
                             {['시간', '순서', '내용', '담당', '준비', '스크립트', '특이사항', ''].map(h => (
@@ -1574,42 +1570,42 @@ export function QuoteResult({
                                 <input
                                   value={row.time}
                                   onChange={e => patchDoc(base => { base.program.cueRows[i].time = e.target.value; return base })}
-                                  className="w-20 font-mono tabular-nums bg-amber-50/50 rounded px-1"
+                                  className="w-full min-w-0 max-w-[5rem] font-mono tabular-nums bg-amber-50/50 rounded px-1"
                                   placeholder="19:00"
                                 />
                               </td>
                               <td className="border border-gray-100 p-1">
                                 <span className="inline-block w-10 text-center text-gray-500">{row.order || String(i + 1)}</span>
                               </td>
-                              <td className="border border-gray-100 p-1 min-w-[180px]">
+                              <td className="border border-gray-100 p-1 min-w-0">
                                 <input
                                   value={row.content}
                                   onChange={e => patchDoc(base => { base.program.cueRows[i].content = e.target.value; return base })}
                                   className="w-full bg-white border border-gray-200 rounded px-1"
                                 />
                               </td>
-                              <td className="border border-gray-100 p-1 min-w-[120px]">
+                              <td className="border border-gray-100 p-1 min-w-0">
                                 <input
                                   value={row.staff}
                                   onChange={e => patchDoc(base => { base.program.cueRows[i].staff = e.target.value; return base })}
-                                  className="w-full bg-white border border-gray-200 rounded px-1"
+                                  className="w-full min-w-0 bg-white border border-gray-200 rounded px-1"
                                 />
                               </td>
-                              <td className="border border-gray-100 p-1 min-w-[120px]">
+                              <td className="border border-gray-100 p-1 min-w-0">
                                 <input
                                   value={row.prep}
                                   onChange={e => patchDoc(base => { base.program.cueRows[i].prep = e.target.value; return base })}
-                                  className="w-full bg-white border border-gray-200 rounded px-1"
+                                  className="w-full min-w-0 bg-white border border-gray-200 rounded px-1"
                                 />
                               </td>
-                              <td className="border border-gray-100 p-1 min-w-[180px]">
+                              <td className="border border-gray-100 p-1 min-w-0">
                                 <input
                                   value={row.script}
                                   onChange={e => patchDoc(base => { base.program.cueRows[i].script = e.target.value; return base })}
-                                  className="w-full bg-white border border-gray-200 rounded px-1"
+                                  className="w-full min-w-0 bg-white border border-gray-200 rounded px-1"
                                 />
                               </td>
-                              <td className="border border-gray-100 p-1 min-w-[160px]">
+                              <td className="border border-gray-100 p-1 min-w-0">
                                 <input
                                   value={row.special}
                                   onChange={e => patchDoc(base => { base.program.cueRows[i].special = e.target.value; return base })}
@@ -1963,7 +1959,7 @@ export function QuoteResult({
                             <input
                               value={row.segment}
                               onChange={ev => updateLine(idx, { segment: ev.target.value })}
-                              className="flex-1 min-w-[120px] px-2 py-1 text-xs border border-gray-200 rounded"
+                              className="min-w-0 flex-1 px-2 py-1 text-xs border border-gray-200 rounded"
                               placeholder="구간명"
                               aria-label="구간명"
                             />
