@@ -102,7 +102,7 @@ function EstimateGeneratorContent() {
   const [endHHmm, setEndHHmm] = useState('')
   const [headcount, setHeadcount] = useState('')
   const [venue, setVenue] = useState('')
-  const [notes, setNotes] = useState('') // 행사내용(요청내용)
+  const [notes, setNotes] = useState('') // 추가 요청사항(선택)
   /** 업체 원문만 모드: 들은 내용 전체 */
   const [vendorBrief, setVendorBrief] = useState('')
   const [budget, setBudget] = useState('미정')
@@ -639,8 +639,7 @@ function EstimateGeneratorContent() {
       !!eventDate &&
       eventDuration.trim() &&
       headcount.trim() &&
-      venue.trim() &&
-      notes.trim()
+      venue.trim()
 
     if (sourceMode === 'fromEstimate') return !selectedEstimateId || !selectedHistoryDoc || !commonValid
     if (sourceMode === 'fromTaskOrder') return !selectedTaskOrderId || !selectedTaskOrder || !commonValid
@@ -660,7 +659,6 @@ function EstimateGeneratorContent() {
     eventDuration,
     headcount,
     venue,
-    notes,
     vendorBrief,
   ])
 
@@ -690,7 +688,6 @@ function EstimateGeneratorContent() {
     if (!eventDuration.trim()) return '행사 시간(소요/구간)을 입력해 주세요.'
     if (!venue.trim()) return '행사장소를 입력해 주세요.'
     if (!headcount.trim()) return '인원을 입력해 주세요.'
-    if (!notes.trim()) return '행사내용(요청내용)을 입력해 주세요.'
     return null
   }, [
     generateDisabled,
@@ -708,7 +705,6 @@ function EstimateGeneratorContent() {
     eventDuration,
     venue,
     headcount,
-    notes,
     vendorBrief,
   ])
 
@@ -842,12 +838,10 @@ function EstimateGeneratorContent() {
           inputMode="numeric"
         />
         <Textarea
-          label="행사내용(요청내용)"
-          showRequiredMark
-          required
+          label="추가 요청사항(선택)"
           value={notes}
           onChange={(e) => setNotes(e.target.value)}
-          placeholder="예) CEO 인사말, VIP 동선 고려, 발표 구조 등"
+          placeholder="필요할 때만 적어 주세요. 예) CEO 인사말, VIP 동선, 특수 장비 등"
           rows={4}
         />
       </div>
