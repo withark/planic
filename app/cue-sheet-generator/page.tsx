@@ -391,7 +391,6 @@ export default function CueSheetGeneratorPage() {
                   saving={saving}
                   companySettings={companySettings}
                   prices={prices}
-                  planType={me?.subscription?.planType ?? 'FREE'}
                   onChange={setDoc}
                   generatingTabs={generatingTabs}
                   generationProgressLabel={generationProgressLabel}

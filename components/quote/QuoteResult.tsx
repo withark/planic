@@ -7,7 +7,6 @@ import { KIND_ORDER, subtotalsByKind } from '@/lib/quoteGroup'
 import { calcTotals, effectiveLineTotalWon, fmtKRW, snapUnitPriceToThousandWon } from '@/lib/calc'
 import { Button } from '@/components/ui'
 import clsx from 'clsx'
-import type { PlanType } from '@/lib/plans'
 import type { QuoteTemplateId } from '@/lib/quoteTemplates'
 import type { ExcelExportView } from '@/lib/exportExcel'
 import { exportPlanningToWord } from '@/lib/exportWord'
@@ -52,7 +51,6 @@ interface Props {
   doc: QuoteDoc
   companySettings?: CompanySettings | null
   prices?: PriceCategory[]
-  planType?: PlanType
   onChange: (doc: QuoteDoc) => void
   /** 생성된 문서 id(저장을 위해 필요) */
   docId?: string
@@ -200,7 +198,6 @@ export function QuoteResult({
   doc,
   companySettings,
   prices = [],
-  planType = 'FREE',
   onChange,
   docId,
   onSaveDoc,
@@ -527,14 +524,6 @@ export function QuoteResult({
             </div>
           )}
           <div className="flex flex-wrap items-center gap-2">
-            {tab === 'estimate' && !excelSheetMode && (
-              <span className="flex items-center gap-1.5 rounded-xl border border-slate-200 bg-slate-50 px-2.5 py-1.5">
-                <span className="text-xs font-semibold text-slate-600">템플릿</span>
-                <span className="rounded-lg border border-slate-200 bg-white px-2.5 py-1.5 text-sm text-slate-700">
-                  고정 양식
-                </span>
-              </span>
-            )}
             {tab === 'estimate' && excelSheetMode && (
               <span className="flex items-center gap-1.5 rounded-xl border border-slate-200 bg-slate-50 px-2.5 py-1.5">
                 <span className="text-xs font-semibold text-slate-600">양식</span>
@@ -590,9 +579,6 @@ export function QuoteResult({
             >
               PDF 저장
             </Button>
-            {planType !== 'FREE' && (
-              <Button size="sm" variant="secondary" onClick={() => alert('이메일 공유 기능은 준비 중입니다.')}>이메일 공유</Button>
-            )}
           </div>
         </div>
         {!(compactEstimateEditor && tab === 'estimate') ? (

@@ -387,7 +387,6 @@ export default function PlanningGeneratorPage() {
                   saving={saving}
                   companySettings={companySettings}
                   prices={prices}
-                  planType={me?.subscription?.planType ?? 'FREE'}
                   onChange={setDoc}
                   generatingTabs={generatingTabs}
                   generationProgressLabel={generationProgressLabel}
