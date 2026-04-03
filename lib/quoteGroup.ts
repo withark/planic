@@ -9,6 +9,11 @@ function normKind(k: string | undefined): QuoteItemKind {
   return KIND_ORDER.includes(v as QuoteItemKind) ? (v as QuoteItemKind) : '필수'
 }
 
+/** 행의 kind 문자열을 인건비|필수|선택1|선택2 로 통일 */
+export function normalizeQuoteItemKind(k: string | undefined): QuoteItemKind {
+  return normKind(k)
+}
+
 /** 내보내기용: 구분별로 항목만 묶어서 반환 (기존 '선택' → '선택1') */
 export function groupQuoteItemsByKind(doc: QuoteDoc): Map<QuoteItemKind, QuoteLineItem[]> {
   const map = new Map<QuoteItemKind, QuoteLineItem[]>()

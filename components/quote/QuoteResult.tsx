@@ -3,7 +3,7 @@ import { Fragment, useState, useEffect, useRef, useMemo } from 'react'
 import Link from 'next/link'
 import type { QuoteDoc, CompanySettings, QuoteItemKind, PriceCategory, PriceItem, ProgramTableRow, TimelineRow } from '@/lib/types'
 import PlanningProposalView from '@/components/quote/PlanningProposalView'
-import { KIND_ORDER, subtotalsByKind } from '@/lib/quoteGroup'
+import { KIND_ORDER, normalizeQuoteItemKind, subtotalsByKind } from '@/lib/quoteGroup'
 import { calcTotals, effectiveLineTotalWon, fmtKRW, snapUnitPriceToThousandWon } from '@/lib/calc'
 import { Button } from '@/components/ui'
 import clsx from 'clsx'
@@ -224,14 +224,10 @@ export function QuoteResult({
 }: Props) {
   const initial = visibleTabs.includes(initialTab) ? initialTab : 'estimate'
   const [tab, setTab] = useState<DocTab>(initial)
-  const [openPriceForKind, setOpenPriceForKind] = useState<QuoteItemKind | null>(null)
+  const [openPriceForCategory, setOpenPriceForCategory] = useState<number | null>(null)
   const [timetableLayoutMode, setTimetableLayoutMode] = useState<'single' | 'split'>('single')
-  const [collapsedKinds, setCollapsedKinds] = useState<Record<QuoteItemKind, boolean>>({
-    인건비: false,
-    필수: false,
-    선택1: true,
-    선택2: true,
-  })
+  /** quoteItems 카테고리(단가표 구분명 등)별 접기 — true면 접힘 */
+  const [collapsedCategories, setCollapsedCategories] = useState<Record<number, boolean>>({})
   /** 엑셀형 견적: 기간 데이터가 없을 때도 사용자가 기간 열을 켤 수 있음 */
   const [excelPeriodColumnForced, setExcelPeriodColumnForced] = useState(false)
   const priceDropdownRef = useRef<HTMLDivElement>(null)
@@ -299,15 +295,15 @@ export function QuoteResult({
   }, [tab, doc, onGenerateTab, generatingTabs, disableAutoGenerate])
 
   useEffect(() => {
-    if (!openPriceForKind) return
+    if (openPriceForCategory == null) return
     function handleClickOutside(e: MouseEvent) {
       if (priceDropdownRef.current && !priceDropdownRef.current.contains(e.target as Node)) {
-        setOpenPriceForKind(null)
+        setOpenPriceForCategory(null)
       }
     }
     document.addEventListener('mousedown', handleClickOutside)
     return () => document.removeEventListener('mousedown', handleClickOutside)
-  }, [openPriceForKind])
+  }, [openPriceForCategory])
 
   const safePrices = Array.isArray(prices) ? prices : []
   const flatPriceItems = safePrices.flatMap(cat =>
@@ -415,32 +411,30 @@ export function QuoteResult({
     onChange(d2)
   }
 
-  function groupByKind(): Map<QuoteItemKind, { ci: number; ii: number; item: QuoteDoc['quoteItems'][0]['items'][0] }[]> {
-    const map = new Map<QuoteItemKind, { ci: number; ii: number; item: QuoteDoc['quoteItems'][0]['items'][0] }[]>()
-    KIND_ORDER.forEach(k => map.set(k, []))
-    doc.quoteItems.forEach((cat, ci) => {
-      cat.items.forEach((item, ii) => {
-        if (isExcludedSupplyLineItem(item)) return
-        const rawKind = item.kind as string | undefined
-        const k = rawKind || '필수'
-        const kind = KIND_ORDER.includes(k as QuoteItemKind) ? (k as QuoteItemKind) : '필수'
-        map.get(kind)!.push({ ci, ii, item })
-      })
-    })
-    return map
+  function categoryTitleForKind(kind: QuoteItemKind): string {
+    switch (kind) {
+      case '인건비':
+        return '인건비'
+      case '필수':
+        return '필수 품목'
+      case '선택1':
+        return '선택 품목'
+      case '선택2':
+        return '선택/예비'
+      default:
+        return '품목'
+    }
   }
 
+  /** 하단「+ ○○ 행」— 새 묶음(카테고리)으로 추가 */
   function addItemToKind(kind: QuoteItemKind) {
     const d2 = ensureProgramShape(structuredClone(doc))
     const newItem = { name: '새 항목', spec: '', qty: 1, unit: '식', unitPrice: 0, total: 0, note: '', period: '', kind }
-    const norm = (k: string | undefined) => (k === '선택' ? '선택1' : k) || '필수'
-    const catIdx = d2.quoteItems.findIndex(c => c.items.some(it => norm(it.kind) === kind))
-    if (catIdx >= 0) d2.quoteItems[catIdx].items.push(newItem)
-    else d2.quoteItems.push({ category: kind, items: [newItem] })
+    d2.quoteItems.push({ category: categoryTitleForKind(kind), items: [newItem] })
     onChange(d2)
   }
 
-  function addItemFromPrice(kind: QuoteItemKind, item: PriceItem) {
+  function addItemFromPriceToCategory(ci: number, item: PriceItem) {
     const d2 = ensureProgramShape(structuredClone(doc))
     const up = snapUnitPriceToThousandWon(Number(item.price ?? 0))
     const newItem = {
@@ -452,36 +446,38 @@ export function QuoteResult({
       total: effectiveLineTotalWon({ qty: 1, unitPrice: up }),
       note: item.note || '',
       period: '',
-      kind,
+      kind: '필수' as const,
     }
-    const norm = (k: string | undefined) => (k === '선택' ? '선택1' : k) || '필수'
-    const catIdx = d2.quoteItems.findIndex(c => c.items.some(it => norm(it.kind) === kind))
-    if (catIdx >= 0) d2.quoteItems[catIdx].items.push(newItem)
-    else d2.quoteItems.push({ category: kind, items: [newItem] })
+    if (!d2.quoteItems[ci]) return
+    d2.quoteItems[ci].items.push(newItem)
     onChange(d2)
-    setOpenPriceForKind(null)
+    setOpenPriceForCategory(null)
   }
 
-  function toggleKindCollapse(kind: QuoteItemKind) {
-    setCollapsedKinds(prev => ({ ...prev, [kind]: !prev[kind] }))
+  function toggleCategoryCollapse(ci: number) {
+    setCollapsedCategories((prev) => ({ ...prev, [ci]: !(prev[ci] ?? false) }))
   }
 
-  function setAllKindsCollapsed(collapsed: boolean) {
-    setCollapsedKinds({
-      인건비: collapsed,
-      필수: collapsed,
-      선택1: collapsed,
-      선택2: collapsed,
+  function setAllCategoriesCollapsed(collapsed: boolean) {
+    const next: Record<number, boolean> = {}
+    doc.quoteItems.forEach((_, ci) => {
+      next[ci] = collapsed
     })
+    setCollapsedCategories(next)
   }
 
-  function focusCoreKinds() {
-    setCollapsedKinds({
-      인건비: false,
-      필수: false,
-      선택1: true,
-      선택2: true,
+  /** 인건비·필수가 있는 묶음만 펼침, 나머지는 접기 */
+  function focusCoreCategories() {
+    const next: Record<number, boolean> = {}
+    doc.quoteItems.forEach((cat, ci) => {
+      const hasCore = (cat.items || []).some((it) => {
+        if (isExcludedSupplyLineItem(it)) return false
+        const nk = normalizeQuoteItemKind(it.kind as string | undefined)
+        return nk === '인건비' || nk === '필수'
+      })
+      next[ci] = !hasCore
     })
+    setCollapsedCategories(next)
   }
 
   const program = d.program
@@ -698,7 +694,6 @@ export function QuoteResult({
 
       <div className={clsx('p-4 pb-20', !disableInternalScroll && 'flex-1 overflow-y-auto')}>
         {tab === 'estimate' && (() => {
-          const groupedByKind = groupByKind()
           const kindSubtotals = subtotalsByKind(doc)
 
           /** 견적 편집: 긴 텍스트도 잘리지 않도록 textarea 행 수 추정 */
@@ -717,6 +712,7 @@ export function QuoteResult({
             const preCut = t.sub + t.exp + t.prof + t.vat
             const showPeriodCol = hasPeriodDataInEstimate || excelPeriodColumnForced
             const subtotalLabelColSpan = 5 + (showPeriodCol ? 1 : 0)
+            const excelFullColSpan = showPeriodCol ? 11 : 10
             const tableMinW = showPeriodCol ? 'min-w-[1040px]' : 'min-w-[980px]'
             const supplierPairs: [string, string][] = [
               ['사업자번호', companySettings?.biz || '—'],
@@ -831,28 +827,36 @@ export function QuoteResult({
                       </tr>
                     </thead>
                     <tbody>
-                      {KIND_ORDER.map((kind) => {
-                        const rows = groupedByKind.get(kind)!
+                      {doc.quoteItems.map((cat, ci) => {
+                        const rows = (cat.items || [])
+                          .map((item, ii) => ({ item, ii }))
+                          .filter(({ item }) => !isExcludedSupplyLineItem(item))
                         if (rows.length === 0) return null
                         const sub = rows.reduce((acc, { item: it }) => acc + effectiveLineTotalWon(it), 0)
-                        const rs = rows.length + 1
+                        const categoryTitle = (cat.category || '').trim() || `품목 ${ci + 1}`
                         return (
-                          <Fragment key={kind}>
-                            {rows.map(({ ci, ii, item: it }, idx) => {
+                          <Fragment key={`excel-cat-${ci}`}>
+                            <tr className="border-b border-slate-300 bg-slate-100">
+                              <td
+                                colSpan={excelFullColSpan}
+                                className="border border-slate-300 px-2 py-1.5 text-left text-[11px] font-bold text-slate-800"
+                              >
+                                {categoryTitle}
+                              </td>
+                            </tr>
+                            {rows.map(({ item: it, ii }) => {
                               const lineAmt = effectiveLineTotalWon(it)
+                              const nk = normalizeQuoteItemKind(it.kind as string | undefined)
                               return (
-                                <tr key={`${kind}-${ci}-${ii}`} className="border-b border-slate-200 bg-white hover:bg-slate-50/90">
-                                  {idx === 0 ? (
-                                    <td
-                                      rowSpan={rs}
-                                      className={clsx(
-                                        'sticky left-0 z-[1] w-[76px] border border-slate-300 px-1 py-1 align-middle text-center text-[10px] font-bold leading-tight shadow-[3px_0_6px_rgba(0,0,0,0.06)]',
-                                        excelKindSectionClass(kind),
-                                      )}
-                                    >
-                                      {EXCEL_KIND_LABELS[kind]}
-                                    </td>
-                                  ) : null}
+                                <tr key={`${ci}-${ii}`} className="border-b border-slate-200 bg-white hover:bg-slate-50/90">
+                                  <td
+                                    className={clsx(
+                                      'sticky left-0 z-[1] w-[76px] border border-slate-300 px-1 py-1 align-middle text-center text-[10px] font-bold leading-tight shadow-[3px_0_6px_rgba(0,0,0,0.06)]',
+                                      excelKindSectionClass(nk),
+                                    )}
+                                  >
+                                    {EXCEL_KIND_LABELS[nk]}
+                                  </td>
                                   <td className="border border-slate-300 p-0.5 align-top">
                                     <textarea
                                       value={it.name}
@@ -935,8 +939,9 @@ export function QuoteResult({
                               )
                             })}
                             <tr className="bg-slate-200 font-bold text-slate-900">
+                              <td className="border border-slate-300 bg-slate-100" aria-hidden />
                               <td colSpan={subtotalLabelColSpan} className="border border-slate-300 px-2 py-1.5 text-right">
-                                {EXCEL_KIND_LABELS[kind]} 소계
+                                {categoryTitle} 소계
                               </td>
                               <td className="border border-slate-300 text-center">—</td>
                               <td className="border border-slate-300 px-1 py-1.5 text-right tabular-nums">{fmtKRW(sub)}</td>
@@ -948,6 +953,29 @@ export function QuoteResult({
                     </tbody>
                   </table>
                 </div>
+
+                {(() => {
+                  const hasAny = KIND_ORDER.some((k) => (kindSubtotals.get(k) ?? 0) > 0)
+                  if (!hasAny) return null
+                  return (
+                    <div
+                      className="flex flex-wrap items-baseline gap-x-3 gap-y-1 rounded-md border border-slate-200 bg-slate-50 px-2.5 py-1.5 text-[10px] text-slate-700"
+                      role="note"
+                    >
+                      <span className="font-semibold text-slate-800">구분별 공급가</span>
+                      {KIND_ORDER.map((k) => {
+                        const v = kindSubtotals.get(k) ?? 0
+                        if (v === 0) return null
+                        return (
+                          <span key={k}>
+                            {EXCEL_KIND_LABELS[k]}{' '}
+                            <span className="tabular-nums font-medium">{fmtKRW(v)}원</span>
+                          </span>
+                        )
+                      })}
+                    </div>
+                  )
+                })()}
 
                 <div className="flex flex-wrap gap-2">
                   {KIND_ORDER.map((kind) => (
@@ -1137,21 +1165,21 @@ export function QuoteResult({
                     <div className="flex flex-wrap items-center gap-1.5">
                       <button
                         type="button"
-                        onClick={() => setAllKindsCollapsed(false)}
+                        onClick={() => setAllCategoriesCollapsed(false)}
                         className="rounded-lg border border-slate-200 bg-white px-2 py-1 text-[11px] font-semibold text-slate-700 hover:bg-slate-100"
                       >
                         전체 펼치기
                       </button>
                       <button
                         type="button"
-                        onClick={() => setAllKindsCollapsed(true)}
+                        onClick={() => setAllCategoriesCollapsed(true)}
                         className="rounded-lg border border-slate-200 bg-white px-2 py-1 text-[11px] font-semibold text-slate-700 hover:bg-slate-100"
                       >
                         전체 접기
                       </button>
                       <button
                         type="button"
-                        onClick={focusCoreKinds}
+                        onClick={focusCoreCategories}
                         className="rounded-lg border border-primary-200 bg-primary-50 px-2 py-1 text-[11px] font-semibold text-primary-700 hover:bg-primary-100"
                       >
                         필수 중심 보기
@@ -1168,67 +1196,48 @@ export function QuoteResult({
                     <th className={clsx('text-right font-medium text-gray-400 whitespace-nowrap', estHeadRow)}>개당 단가</th>
                     <th className={clsx('text-right font-medium text-gray-400 whitespace-nowrap', estHeadRow)}>합계</th>
                     <th className={clsx('text-left font-medium text-gray-400 whitespace-nowrap', estHeadRow)}>비고</th>
-                    <th className={clsx('text-left font-medium text-gray-400 whitespace-nowrap', estHeadRow)} />
+                    <th className={clsx('text-left font-medium text-gray-400 whitespace-nowrap', estHeadRow)}>구분</th>
                   </tr>
                 </thead>
                 <tbody>
-                  {KIND_ORDER.map(kind => {
-                    const rows = groupedByKind.get(kind)!
-                    const isCollapsed = !!collapsedKinds[kind]
-                    const subtotal = kindSubtotals.get(kind) ?? 0
-                    const isOptionalKind = kind === '선택1' || kind === '선택2'
-                    // 선택 항목은 0개면 섹션 헤더/소계 자체를 숨기고, 대신 "추가" 버튼만 노출.
-                    if (isOptionalKind && rows.length === 0 && isCollapsed) {
-                      return (
-                        <tr key={`${kind}-empty`}>
-                          <td colSpan={8} className={clsx(estCell, 'align-top')}>
-                            <div className="flex items-center justify-between gap-3">
-                              <span className="text-xs font-semibold text-slate-700">{kind}</span>
-                              <button
-                                type="button"
-                                className="rounded-lg border border-primary-200 bg-white px-2 py-1 text-xs font-semibold text-primary-700 hover:bg-primary-50"
-                                onClick={() => {
-                                  setCollapsedKinds((prev) => ({ ...prev, [kind]: false }))
-                                  setOpenPriceForKind(kind)
-                                }}
-                              >
-                                + {kind} 항목 추가
-                              </button>
-                            </div>
-                          </td>
-                        </tr>
-                      )
-                    }
+                  {doc.quoteItems.map((cat, ci) => {
+                    const rows = (cat.items || [])
+                      .map((item, ii) => ({ item, ii }))
+                      .filter(({ item }) => !isExcludedSupplyLineItem(item))
+                    if (rows.length === 0) return null
+                    const isCollapsed = collapsedCategories[ci] ?? false
+                    const catSubtotal = rows.reduce((acc, { item }) => acc + effectiveLineTotalWon(item), 0)
+                    const sectionTitle = (cat.category || '').trim() || `품목 ${ci + 1}`
                     return (
-                      <Fragment key={kind}>
-                        <tr key={kind + '-h'} className="quote-section-row bg-primary-50/60 border-y border-primary-100">
+                      <Fragment key={`est-cat-${ci}`}>
+                        <tr className="quote-section-row bg-primary-50/60 border-y border-primary-100">
                           <td colSpan={8} className={estHeadRow}>
                             <div className="flex items-center justify-between gap-2">
                               <button
                                 type="button"
-                                onClick={() => toggleKindCollapse(kind)}
-                                className="inline-flex items-center gap-2 text-primary-700 hover:text-primary-800"
+                                onClick={() => toggleCategoryCollapse(ci)}
+                                className="inline-flex min-w-0 flex-1 items-center gap-2 text-left text-primary-700 hover:text-primary-800"
                               >
                                 <span className="text-xs">{isCollapsed ? '▶' : '▼'}</span>
-                                <span className="font-semibold tracking-wide">{kind}</span>
+                                <span className="font-semibold tracking-wide">{sectionTitle}</span>
                                 <span className="rounded-full bg-white px-2 py-0.5 text-[10px] font-semibold text-primary-700">
                                   {rows.length}개 항목
                                 </span>
                               </button>
-                              <span className="text-xs font-semibold text-primary-800">소계 {fmtKRW(subtotal)}원</span>
+                              <span className="shrink-0 text-xs font-semibold text-primary-800">소계 {fmtKRW(catSubtotal)}원</span>
                             </div>
                           </td>
                         </tr>
                         {!isCollapsed ? (
                           <>
-                            {rows.map(({ ci, ii, item: it }) => {
+                            {rows.map(({ item: it, ii }) => {
                               const rowTotal = effectiveLineTotalWon(it)
                               return (
                                 <tr key={`${ci}-${ii}`} className="border-b border-gray-50 hover:bg-gray-50/50 group">
                                   <td className={clsx(estCell, 'min-w-[8rem]')}>
                                     <textarea
                                       value={it.name}
-                                      onChange={e => updLine(ci, ii, 'name', e.target.value)}
+                                      onChange={(e) => updLine(ci, ii, 'name', e.target.value)}
                                       rows={estTextRows(it.name, 32, 8)}
                                       className={estTextareaCls}
                                     />
@@ -1236,7 +1245,7 @@ export function QuoteResult({
                                   <td className={clsx(estCell, 'text-gray-400 min-w-[8rem]')}>
                                     <textarea
                                       value={it.spec || ''}
-                                      onChange={e => updLine(ci, ii, 'spec', e.target.value)}
+                                      onChange={(e) => updLine(ci, ii, 'spec', e.target.value)}
                                       rows={estTextRows(it.spec || '', 34, 12)}
                                       className={estTextareaCls}
                                     />
@@ -1246,7 +1255,7 @@ export function QuoteResult({
                                       type="number"
                                       min={1}
                                       value={it.qty ?? 1}
-                                      onChange={e => updLine(ci, ii, 'qty', +e.target.value || 1)}
+                                      onChange={(e) => updLine(ci, ii, 'qty', +e.target.value || 1)}
                                       className={clsx(
                                         'w-14 text-right bg-white border border-gray-100 rounded outline-none tabular-nums',
                                         compactEstimateEditor ? 'px-2 py-1 text-[13px]' : 'px-1.5 py-0.5',
@@ -1256,7 +1265,7 @@ export function QuoteResult({
                                   <td className={estCell}>
                                     <input
                                       value={it.unit || '식'}
-                                      onChange={e => updLine(ci, ii, 'unit', e.target.value)}
+                                      onChange={(e) => updLine(ci, ii, 'unit', e.target.value)}
                                       className={clsx(
                                         'w-12 bg-white border border-gray-100 rounded outline-none',
                                         compactEstimateEditor ? 'px-2 py-1 text-[13px]' : 'px-1.5 py-0.5',
@@ -1269,7 +1278,7 @@ export function QuoteResult({
                                       min={0}
                                       step={1000}
                                       value={it.unitPrice ?? 0}
-                                      onChange={e => updLine(ci, ii, 'unitPrice', +(e.target.value || 0))}
+                                      onChange={(e) => updLine(ci, ii, 'unitPrice', +(e.target.value || 0))}
                                       onBlur={() => snapUnitPriceOnBlur(ci, ii)}
                                       className={clsx(
                                         'w-24 text-right bg-white border border-gray-100 rounded outline-none tabular-nums',
@@ -1281,45 +1290,80 @@ export function QuoteResult({
                                   <td className={clsx(estCell, 'text-gray-400 min-w-[7rem]')}>
                                     <textarea
                                       value={it.note || ''}
-                                      onChange={e => updLine(ci, ii, 'note', e.target.value)}
+                                      onChange={(e) => updLine(ci, ii, 'note', e.target.value)}
                                       rows={estTextRows(it.note || '', 34, 12)}
                                       className={estTextareaCls}
                                     />
                                   </td>
                                   <td className={estCell}>
-                                    <span className="flex items-center gap-1">
-                                      <span className="opacity-0 group-hover:opacity-100 text-[10px] text-gray-500 whitespace-nowrap">
-                                        그룹 이동
-                                      </span>
+                                    <span className="flex flex-col items-stretch gap-1 sm:flex-row sm:items-center sm:gap-1">
                                       <select
-                                        title="이 항목을 다른 그룹으로 이동"
-                                        aria-label="이 항목을 다른 그룹으로 이동"
+                                        title="항목 구분(견적·PDF 소계용)"
+                                        aria-label="항목 구분"
                                         value={it.kind || '필수'}
-                                        onChange={e => updLine(ci, ii, 'kind', e.target.value)}
-                                        className="opacity-0 group-hover:opacity-100 text-[10px] bg-white border border-gray-200 rounded px-1 py-0.5 min-w-0"
+                                        onChange={(e) => updLine(ci, ii, 'kind', e.target.value)}
+                                        className="w-full max-w-[6rem] shrink-0 text-[10px] bg-white border border-gray-200 rounded px-1 py-0.5"
                                       >
-                                        {KIND_ORDER.map(k => <option key={k} value={k}>{k}</option>)}
+                                        {KIND_ORDER.map((k) => (
+                                          <option key={k} value={k}>
+                                            {k}
+                                          </option>
+                                        ))}
                                       </select>
-                                      <button type="button" onClick={() => { const d2 = ensureProgramShape(structuredClone(doc)); d2.quoteItems[ci].items.splice(ii, 1); onChange(d2) }} className="opacity-0 group-hover:opacity-100 text-red-400 text-xs">✕</button>
+                                      <button
+                                        type="button"
+                                        onClick={() => {
+                                          const d2 = ensureProgramShape(structuredClone(doc))
+                                          d2.quoteItems[ci].items.splice(ii, 1)
+                                          onChange(d2)
+                                        }}
+                                        className="text-red-400 text-xs hover:underline shrink-0"
+                                      >
+                                        삭제
+                                      </button>
                                     </span>
                                   </td>
                                 </tr>
                               )
                             })}
-                            <tr key={kind + '-a'}>
+                            <tr>
                               <td colSpan={8} className={clsx(estCell, 'align-top')}>
                                 <div className="flex flex-wrap items-center gap-2">
-                                  <button type="button" onClick={() => addItemToKind(kind)} className="text-xs text-primary-600 font-medium">+ 빈 항목</button>
+                                  <button
+                                    type="button"
+                                    onClick={() => addItemToCategory(ci)}
+                                    className="text-xs font-medium text-primary-600"
+                                  >
+                                    + 이 묶음에 빈 항목
+                                  </button>
                                   {flatPriceItems.length > 0 && (
-                                    <span ref={openPriceForKind === kind ? priceDropdownRef : undefined} className="relative inline-block">
-                                      <button type="button" onClick={() => setOpenPriceForKind(openPriceForKind === kind ? null : kind)} className="text-xs text-primary-600 font-medium border border-primary-200 rounded px-1.5 py-0.5">품목 선택</button>
-                                      {openPriceForKind === kind && (
-                                        <div className="absolute left-0 top-full mt-1 z-20 min-w-[300px] max-h-72 overflow-y-auto bg-white border border-gray-200 rounded-lg shadow-lg py-1">
-                                          {safePrices.map(cat => (
-                                            <div key={cat.id}>
-                                              <div className="px-2 py-1 text-[10px] font-semibold text-gray-400 bg-gray-50">{cat.name}</div>
-                                              {(cat.items || []).map(item => (
-                                                <button key={item.id} type="button" onClick={() => addItemFromPrice(kind, item)} className="w-full text-left px-2 py-1.5 hover:bg-primary-50 text-xs flex justify-between gap-2">
+                                    <span
+                                      ref={openPriceForCategory === ci ? priceDropdownRef : undefined}
+                                      className="relative inline-block"
+                                    >
+                                      <button
+                                        type="button"
+                                        onClick={() =>
+                                          setOpenPriceForCategory(openPriceForCategory === ci ? null : ci)
+                                        }
+                                        className="rounded border border-primary-200 px-1.5 py-0.5 text-xs font-medium text-primary-600"
+                                      >
+                                        품목 선택
+                                      </button>
+                                      {openPriceForCategory === ci && (
+                                        <div className="absolute left-0 top-full z-20 mt-1 max-h-72 min-w-[300px] overflow-y-auto rounded-lg border border-gray-200 bg-white py-1 shadow-lg">
+                                          {safePrices.map((pCat) => (
+                                            <div key={pCat.id}>
+                                              <div className="bg-gray-50 px-2 py-1 text-[10px] font-semibold text-gray-400">
+                                                {pCat.name}
+                                              </div>
+                                              {(pCat.items || []).map((item) => (
+                                                <button
+                                                  key={item.id}
+                                                  type="button"
+                                                  onClick={() => addItemFromPriceToCategory(ci, item)}
+                                                  className="flex w-full justify-between gap-2 px-2 py-1.5 text-left text-xs hover:bg-primary-50"
+                                                >
                                                   <span className="min-w-0 flex-1 break-words whitespace-normal">{item.name}</span>
                                                   <span className="flex-shrink-0 tabular-nums">{fmtKRW(item.price)}</span>
                                                 </button>
@@ -1337,13 +1381,17 @@ export function QuoteResult({
                         ) : (
                           <tr className="border-b border-gray-100 bg-gray-50/50">
                             <td colSpan={8} className="px-2 py-2 text-xs text-gray-500">
-                              접힌 상태입니다. 섹션명을 눌러 항목을 펼쳐서 편집하세요.
+                              접힌 상태입니다. 묶음 제목을 눌러 펼치세요.
                             </td>
                           </tr>
                         )}
-                        <tr key={kind + '-s'} className="bg-gray-50/80 border-b border-gray-100">
-                          <td colSpan={5} className={clsx(estCell, 'text-right text-gray-500 font-medium')}>소계</td>
-                          <td className={clsx(estCell, 'text-right font-semibold tabular-nums text-gray-700')}>{fmtKRW(subtotal)}</td>
+                        <tr className="border-b border-gray-100 bg-gray-50/80">
+                          <td colSpan={5} className={clsx(estCell, 'text-right font-medium text-gray-500')}>
+                            {sectionTitle} 소계
+                          </td>
+                          <td className={clsx(estCell, 'text-right font-semibold tabular-nums text-gray-700')}>
+                            {fmtKRW(catSubtotal)}
+                          </td>
                           <td colSpan={2} />
                         </tr>
                       </Fragment>
@@ -1352,6 +1400,28 @@ export function QuoteResult({
                 </tbody>
               </table>
               </div>
+              {(() => {
+                const hasAny = KIND_ORDER.some((k) => (kindSubtotals.get(k) ?? 0) > 0)
+                if (!hasAny) return null
+                return (
+                  <div
+                    className="mt-2 flex flex-wrap items-baseline gap-x-3 gap-y-1 rounded-lg border border-slate-200 bg-slate-50/90 px-3 py-2 text-[11px] text-slate-700"
+                    role="note"
+                  >
+                    <span className="font-semibold text-slate-800">구분별 공급가(참고)</span>
+                    {KIND_ORDER.map((k) => {
+                      const v = kindSubtotals.get(k) ?? 0
+                      if (v === 0) return null
+                      return (
+                        <span key={k}>
+                          <span className="text-slate-500">{EXCEL_KIND_LABELS[k]}</span>{' '}
+                          <span className="tabular-nums font-medium">{fmtKRW(v)}원</span>
+                        </span>
+                      )
+                    })}
+                  </div>
+                )
+              })()}
               <div className="border-t border-gray-200 pt-3 space-y-2 max-w-xs ml-auto">
                 {budgetConstraint?.budgetCeilingKRW != null && !budgetConstraint.budgetFit && (
                   <div className="border border-amber-200 bg-amber-50 rounded-xl p-3 text-[11px] text-amber-900">
