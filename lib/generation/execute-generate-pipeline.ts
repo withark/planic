@@ -210,9 +210,8 @@ export async function executeGeneratePipeline(
   const pricesForPrompt: PriceCategory[] = prices
   const priceItemCount = prices.reduce((count, category) => count + (Array.isArray(category.items) ? category.items.length : 0), 0)
 
-  // 견적서는 사용자 단가표를 단일 기준으로 강제한다.
-  // 단가표가 비어 있으면 AI 기본 템플릿으로 폴백하지 않고 명확히 실패시켜,
-  // "단가표를 반영했는데도 안 된다"는 혼선을 제거한다.
+  // 견적서: 단가표가 있으면 동일 품목명은 단가표 단가로 고정하고, 단가표에 없는 AI 품목은 시장가로 유지한다.
+  // 단가표가 비어 있으면 생성하지 않고 실패(단가표 먼저 등록).
   if (documentTarget === 'estimate' && priceItemCount === 0) {
     throw new GeneratePipelineError(
       400,

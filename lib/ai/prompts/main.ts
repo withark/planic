@@ -266,8 +266,8 @@ export function getOutputSchema(target: GenerateInput['documentTarget'], categor
     return `
 [출력 규칙 — 견적서]
 - markdown·설명 없이 완전한 단일 JSON 객체만 출력. { 로 시작 } 로 끝.
-- quoteItems: 카테고리 3개 이상, 각 items 2개 이상.
-- unitPrice·qty는 절대 0 불가. spec에 산출 근거 필수 (예: "MC 1명×6시간").
+- quoteItems: 카테고리 3개 이상, 각 items 2개 이상. 단가표에 없는 요구 품목도 빠지지 않게 포함합니다.
+- unitPrice·qty는 절대 0 불가. 단가표에 없는 품목은 시장가 조사 전제로 책정. spec에 산출 근거 필수 (예: "MC 1명×6시간", "서울권 중규모 PA 1식 시장가").
 - notes: 포함범위·제외조건·결제조건 구체적으로.
 - program.timeline: 최소 5행, time은 HH:mm.
 - program.programRows: 최소 4행.
@@ -587,7 +587,11 @@ function buildPriceContext(input: GenerateInput): string {
     ))
     .slice(0, 40)
   if (!lines.length) return ''
-  return `\n=== 사용자 단가표 (우선 반영) ===\n${lines.join('\n')}\n`
+  return `\n=== 사용자 단가표 (동일·유사 품목명이 있으면 해당 단가·단위 적용) ===
+${lines.join('\n')}
+- 단가표에 있는 품목과 이름이 맞거나 유사하면 그 단가(원)를 그대로 씁니다.
+- 단가표에 없는 품목·서비스는 반드시 quoteItems에 포함하되, 대한민국 행사·이벤트 업계의 일반적인 시장가 범위를 조사해 unitPrice를 정합니다(0원·무료 불가). spec 또는 note에 시장가 산출 근거(규모·시간·대관료 수준 등)를 한 줄 이상 적습니다.
+`
 }
 
 function buildTimelineContext(input: GenerateInput): string {
@@ -646,7 +650,7 @@ function buildVendorBriefModeBlock(input: GenerateInput): string {
 === 모드: 업체 원문(프롬프트) 기반 견적 ===
 - 아래「업체에서 전달받은 내용」원문을 최우선 근거로 사용합니다.
 - 원문에서 행사명, 수신처(업체명·담당·연락처), 일정·장소·인원, 품목·수량·단가·조건을 찾아 JSON(eventName, clientName, clientManager, clientTel, eventDate, venue, headcount, quoteItems, notes 등)에 반영하세요.
-- 원문에 금액이 없거나 불명확하면 사용자 단가표 항목과 수량·규모를 조합해 합리적으로 채우고, spec·note에 산출 근거를 적으세요.
+- 원문에 금액이 없거나 불명확하면 단가표에 맞는 품목은 단가표 단가를 쓰고, 없는 품목은 시장가 조사로 채우며 spec·note에 산출 근거를 적으세요.
 - 원문과 모순되지 않게 작성하세요.
 
 === 업체에서 전달받은 내용(원문) ===
@@ -718,6 +722,7 @@ export function buildDocumentExcellenceGuide(target: GenerateInput['documentTarg
 [문서 완성도 기준 — 견적서]
 - 항목명은 구매/정산 담당자가 바로 이해할 수준으로 구체적으로 작성합니다.
 - 금액만 나열하지 말고, spec과 note에 왜 필요한지와 산출 근거를 남깁니다.
+- 사용자 단가표에 없는 품목은 시장가(대한민국 행사 업계 일반 수준)를 전제로 단가를 정하고, 그 전제를 spec/note에 드러냅니다.
 - notes와 paymentTerms는 실제 계약 전 공유 문서처럼 명확하게 씁니다.`
     case 'program':
       return `
@@ -844,6 +849,11 @@ export function buildGeneratePrompt(input: GenerateInput): string {
       : target === 'emceeScript'
         ? '5. emceeScript.lines[].script는 현장에서 그대로 읽을 구어체 멘트로 작성.'
         : '5. content는 구체적 진행 내용 (예: "명랑운동회 1부 — 비전탑 세우기·도전99초").',
+    ...(target === 'estimate' && (input.prices?.length ?? 0) > 0
+      ? [
+          '5+. 사용자 단가표에 없는 품목도 요청에 필요하면 반드시 넣고, 대한민국 행사 업계 시장가 범위로 unitPrice를 정합니다.',
+        ]
+      : []),
     input.generationMode === 'vendorBrief' && target === 'estimate'
       ? '6. 업체 원문에 언급된 품목·조건·금액(단가/수량)을 반드시 반영하고, requirements 지시도 따릅니다.'
       : '6. requirements에 언급된 내용 반드시 반영.',

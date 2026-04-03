@@ -549,7 +549,9 @@ function EstimateGeneratorContent() {
       setDoc(data.doc)
       setGeneratedDocId(data.id)
       if (data.doc.quoteTemplate === 'fixed-v2' && priceItemCount > 0) {
-        showToast(`단가표 ${priceItemCount}개 항목을 반영했습니다. (메뉴「단가표」에서 확인)`)
+        showToast(
+          `단가표 ${priceItemCount}개 품목 기준으로 맞췄고, 없는 항목은 시장가로 채웠습니다. (「단가표」에서 확인)`,
+        )
       } else {
         showToast('견적서 생성 완료!')
       }

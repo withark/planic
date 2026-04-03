@@ -396,18 +396,28 @@ function buildStageBrief(input: GenerateInput): StageBrief {
     sourcePriority: vendorBrief
       ? [
           '업체 원문(briefNotes, 프롬프트 상단 블록)',
-          '사용자 단가표(prices)',
+          '사용자 단가표(이름 매칭 시 해당 단가)',
+          '단가표에 없는 품목 — 시장가(행사 업계 일반 수준)로 책정',
           'requirements 지시문',
           '선택된 참조 문서(taskOrder 등)',
           '기존 문서(existingDoc)',
           '일반 도메인 상식(최후 보완)',
         ]
-      : [
-          '사용자 직접 입력(requirements/brief)',
-          '선택된 참조 문서(taskOrder/scenario/cuesheet/reference)',
-          '기존 문서(existingDoc)',
-          '일반 도메인 상식(최후 보완)',
-        ],
+      : target === 'estimate' && (input.prices?.length ?? 0) > 0
+        ? [
+            '사용자 직접 입력(requirements/brief)',
+            '사용자 단가표(동일·유사 품목명의 단가·단위)',
+            '단가표에 없는 요청 품목 — 시장가 조사로 unitPrice·spec 작성',
+            '선택된 참조 문서(taskOrder/scenario/cuesheet/reference)',
+            '기존 문서(existingDoc)',
+            '일반 도메인 상식(최후 보완)',
+          ]
+        : [
+            '사용자 직접 입력(requirements/brief)',
+            '선택된 참조 문서(taskOrder/scenario/cuesheet/reference)',
+            '기존 문서(existingDoc)',
+            '일반 도메인 상식(최후 보완)',
+          ],
     budgetConstraint: input.budget?.trim() || '예산 미정(불일치 시 조정안 명시)',
     documentConstraints: documentConstraintsByTarget[target] || documentConstraintsByTarget.estimate,
   }
