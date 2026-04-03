@@ -39,7 +39,7 @@ export async function POST(req: NextRequest) {
       return errorResponse(
         400,
         'PRICE_IMPORT_EMPTY',
-        '견적서에서 단가 항목을 찾지 못했습니다. 헤더(항목/내용/단가) 형식을 확인해 주세요.',
+        '견적서에서 단가 항목을 찾지 못했습니다. 항목/단가가 들어있는 시트를 확인해 주세요.',
       )
     }
 

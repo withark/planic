@@ -6,6 +6,17 @@ type ParsedTable = {
   importedItems: number
 }
 
+const STOP_TOKENS = /(부분합계|합계금액|총합계|일반관리비|이익|부가세|선금|잔금|유의사항|합계)/i
+
+const HEADER_ALIASES = {
+  category: ['항목', '구분', '카테고리', '분류', '대분류', '중분류'],
+  name: ['내용', '품명', '항목명', '내역', '품목', '세부내역', '세부항목', '항목내용'],
+  spec: ['규격', '사양', '규격내용'],
+  unit: ['단위', 'unit'],
+  price: ['단가', '금액', '공급가', '공급가액', '단위금액', 'unitprice'],
+  note: ['비고', '메모', '참고'],
+}
+
 function normalizeHeaderCell(input: unknown): string {
   return String(input ?? '')
     .replace(/\s+/g, '')
@@ -19,6 +30,14 @@ function toNumber(input: unknown): number {
   const normalized = text.replace(/[^\d.-]/g, '')
   const n = Number(normalized)
   return Number.isFinite(n) ? n : 0
+}
+
+function isNumericLike(input: unknown): boolean {
+  if (typeof input === 'number') return Number.isFinite(input)
+  const text = String(input ?? '').trim()
+  if (!text) return false
+  if (!/[0-9]/.test(text)) return false
+  return Number.isFinite(toNumber(text))
 }
 
 function toText(input: unknown): string {
@@ -40,9 +59,8 @@ function toText(input: unknown): string {
   return String(input).trim()
 }
 
-function shouldStopByCategory(category: string): boolean {
-  const k = category.replace(/\s+/g, '')
-  return /(부분합계|합계금액|일반관리비|이익|부가세|선금|잔금|유의사항)/.test(k)
+function shouldStopRow(...values: string[]): boolean {
+  return STOP_TOKENS.test(values.join(' ').replace(/\s+/g, ''))
 }
 
 function shouldSkipRow(category: string, name: string): boolean {
@@ -62,11 +80,7 @@ function inferUnit(name: string): string {
   return '식'
 }
 
-function pushItem(
-  map: Map<string, PriceItem[]>,
-  category: string,
-  item: PriceItem,
-) {
+function pushItem(map: Map<string, PriceItem[]>, category: string, item: PriceItem) {
   const key = category || '기타'
   const list = map.get(key)
   if (!list) {
@@ -76,62 +90,43 @@ function pushItem(
   list.push(item)
 }
 
-export async function parseEstimateWorkbookToPricesFromBuffer(buffer: ArrayBuffer | Uint8Array): Promise<ParsedTable> {
-  const ExcelJS = await import('exceljs')
-  const workbook = new ExcelJS.Workbook()
-  await workbook.xlsx.load(buffer as any)
-  const ws = workbook.worksheets[0]
-  if (!ws) return { categories: [], importedItems: 0 }
+function findHeaderColumn(headers: string[], aliases: string[]): number {
+  return headers.findIndex((h) => aliases.some((alias) => h.includes(alias)))
+}
 
-  let headerRow = -1
-  let idxCategory = -1
-  let idxName = -1
-  let idxUnitPrice = -1
-  let idxNote = -1
-
-  for (let r = 1; r <= Math.min(ws.rowCount, 60); r += 1) {
-    const row = ws.getRow(r)
-    const headers: string[] = []
-    for (let c = 1; c <= ws.columnCount; c += 1) headers.push(normalizeHeaderCell(toText(row.getCell(c).value)))
-
-    const cCategory = headers.findIndex((h) => h === '항목')
-    const cName = headers.findIndex((h) => h === '내용' || h === '내용')
-    const cPrice = headers.findIndex((h) => h === '단가')
-    const cNote = headers.findIndex((h) => h === '비고')
-
-    if (cCategory >= 0 && cName >= 0 && cPrice >= 0) {
-      headerRow = r
-      idxCategory = cCategory + 1
-      idxName = cName + 1
-      idxUnitPrice = cPrice + 1
-      idxNote = cNote >= 0 ? cNote + 1 : -1
-      break
-    }
-  }
-
-  if (headerRow < 0) return { categories: [], importedItems: 0 }
-
+function parseWithHeader(
+  ws: any,
+  headerRow: number,
+  indices: { category: number; name: number; spec: number; unit: number; price: number; note: number },
+): ParsedTable {
   const itemsByCategory = new Map<string, PriceItem[]>()
   let importedItems = 0
+  let prevCategory = ''
 
   for (let r = headerRow + 1; r <= ws.rowCount; r += 1) {
     const row = ws.getRow(r)
-    const category = toText(row.getCell(idxCategory).value)
-    const name = toText(row.getCell(idxName).value)
-    const unitPrice = Math.max(0, Math.round(toNumber(row.getCell(idxUnitPrice).value)))
-    const note = idxNote > 0 ? toText(row.getCell(idxNote).value) : ''
+    const categoryRaw = indices.category > 0 ? toText(row.getCell(indices.category).value) : ''
+    const nameRaw = indices.name > 0 ? toText(row.getCell(indices.name).value) : ''
+    const specRaw = indices.spec > 0 ? toText(row.getCell(indices.spec).value) : ''
+    const unitRaw = indices.unit > 0 ? toText(row.getCell(indices.unit).value) : ''
+    const noteRaw = indices.note > 0 ? toText(row.getCell(indices.note).value) : ''
+    const priceRaw = indices.price > 0 ? row.getCell(indices.price).value : ''
+    const unitPrice = Math.max(0, Math.round(toNumber(priceRaw)))
 
-    if (shouldStopByCategory(category)) break
+    if (shouldStopRow(categoryRaw, nameRaw, specRaw, noteRaw)) break
+    const category = categoryRaw || prevCategory
+    const name = nameRaw || specRaw
     if (shouldSkipRow(category, name)) continue
     if (!name.trim()) continue
 
-    pushItem(itemsByCategory, category, {
+    prevCategory = category || prevCategory
+    pushItem(itemsByCategory, category || '기타', {
       id: uid(),
       name,
-      spec: '',
-      unit: inferUnit(name),
+      spec: specRaw && specRaw !== name ? specRaw : '',
+      unit: unitRaw || inferUnit(name),
       price: unitPrice,
-      note,
+      note: noteRaw,
       types: [],
     })
     importedItems += 1
@@ -142,6 +137,128 @@ export async function parseEstimateWorkbookToPricesFromBuffer(buffer: ArrayBuffe
     name,
     items,
   }))
-
   return { categories, importedItems }
 }
+
+function parseHeuristic(ws: any): ParsedTable {
+  const itemsByCategory = new Map<string, PriceItem[]>()
+  let importedItems = 0
+  let prevCategory = ''
+  let emptyRun = 0
+
+  const maxCol = Math.min(Math.max(ws.columnCount || 8, 8), 16)
+  for (let r = 1; r <= ws.rowCount; r += 1) {
+    const row = ws.getRow(r)
+    const cells = Array.from({ length: maxCol }, (_, i) => toText(row.getCell(i + 1).value))
+    const rawVals = Array.from({ length: maxCol }, (_, i) => row.getCell(i + 1).value)
+    const joined = cells.join(' ').trim()
+
+    if (!joined) {
+      emptyRun += 1
+      if (emptyRun >= 20 && importedItems > 0) break
+      continue
+    }
+    emptyRun = 0
+
+    if (shouldStopRow(joined) && importedItems > 0) break
+
+    let priceCol = -1
+    for (let c = maxCol - 1; c >= 0; c -= 1) {
+      if (isNumericLike(rawVals[c]) && toNumber(rawVals[c]) >= 0) {
+        priceCol = c
+        break
+      }
+    }
+    if (priceCol < 1) continue
+
+    let nameCol = -1
+    for (let c = priceCol - 1; c >= 0; c -= 1) {
+      const t = cells[c]
+      if (!t) continue
+      if (isNumericLike(rawVals[c])) continue
+      if (t.length < 2) continue
+      nameCol = c
+      break
+    }
+    if (nameCol < 0) continue
+
+    const categoryCol = cells.findIndex((v, c) => c < nameCol && !!v && !isNumericLike(rawVals[c]))
+    const categoryRaw = categoryCol >= 0 ? cells[categoryCol] : ''
+    const nameRaw = cells[nameCol]
+    const specRaw = nameCol + 1 < priceCol ? cells[nameCol + 1] : ''
+    const unitRaw = nameCol + 1 < priceCol && /(식|명|개|회|팀|세트|동|대|건)/.test(cells[nameCol + 1]) ? cells[nameCol + 1] : ''
+    const noteRaw = priceCol + 1 < maxCol ? cells[priceCol + 1] : ''
+    const price = Math.max(0, Math.round(toNumber(rawVals[priceCol])))
+
+    const category = categoryRaw || prevCategory
+    if (shouldSkipRow(category, nameRaw)) continue
+    if (!nameRaw.trim()) continue
+    if (STOP_TOKENS.test(nameRaw) || STOP_TOKENS.test(category)) continue
+
+    prevCategory = category || prevCategory
+    pushItem(itemsByCategory, category || '기타', {
+      id: uid(),
+      name: nameRaw,
+      spec: specRaw,
+      unit: unitRaw || inferUnit(nameRaw),
+      price,
+      note: noteRaw,
+      types: [],
+    })
+    importedItems += 1
+  }
+
+  const categories: PriceCategory[] = Array.from(itemsByCategory.entries()).map(([name, items]) => ({
+    id: uid(),
+    name,
+    items,
+  }))
+  return { categories, importedItems }
+}
+
+export async function parseEstimateWorkbookToPricesFromBuffer(buffer: ArrayBuffer | Uint8Array): Promise<ParsedTable> {
+  const ExcelJS = await import('exceljs')
+  const workbook = new ExcelJS.Workbook()
+  await workbook.xlsx.load(buffer as any)
+  const ws = workbook.worksheets[0]
+  if (!ws) return { categories: [], importedItems: 0 }
+
+  let headerRow = -1
+  let indices = { category: -1, name: -1, spec: -1, unit: -1, price: -1, note: -1 }
+
+  for (let r = 1; r <= Math.min(ws.rowCount, 80); r += 1) {
+    const row = ws.getRow(r)
+    const headers: string[] = []
+    for (let c = 1; c <= Math.min(Math.max(ws.columnCount, 8), 20); c += 1) {
+      headers.push(normalizeHeaderCell(toText(row.getCell(c).value)))
+    }
+
+    const category = findHeaderColumn(headers, HEADER_ALIASES.category)
+    const name = findHeaderColumn(headers, HEADER_ALIASES.name)
+    const spec = findHeaderColumn(headers, HEADER_ALIASES.spec)
+    const unit = findHeaderColumn(headers, HEADER_ALIASES.unit)
+    const price = findHeaderColumn(headers, HEADER_ALIASES.price)
+    const note = findHeaderColumn(headers, HEADER_ALIASES.note)
+
+    if (price >= 0 && (name >= 0 || category >= 0)) {
+      headerRow = r
+      indices = {
+        category: category >= 0 ? category + 1 : 1,
+        name: name >= 0 ? name + 1 : (category >= 0 ? category + 1 : 2),
+        spec: spec >= 0 ? spec + 1 : -1,
+        unit: unit >= 0 ? unit + 1 : -1,
+        price: price + 1,
+        note: note >= 0 ? note + 1 : -1,
+      }
+      break
+    }
+  }
+
+  if (headerRow > 0) {
+    const parsed = parseWithHeader(ws, headerRow, indices)
+    if (parsed.importedItems > 0) return parsed
+  }
+
+  return parseHeuristic(ws)
+}
+
