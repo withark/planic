@@ -500,7 +500,7 @@ async function buildQuoteSheet(
     [profitRow, `기업이윤 (${profitRate}%)`, undefined],
     [vatRow, '부가세 (10%)', undefined],
     [subtotalVatRow, '소계(VAT포함)', SUMMARY_YELLOW_BG],
-    [cutRow, '만원 단위 절사', undefined],
+    [cutRow, '천원 단위 절사', undefined],
     [finalRow, '총액(VAT포함)', SUMMARY_ORANGE_BG],
   ]
 
@@ -533,7 +533,7 @@ async function buildQuoteSheet(
   ws.getCell(profitRow, 11).value = { formula: `ROUND((K${partialRow}+K${mgmtRow})*${profitRate}/100,0)` }
   ws.getCell(vatRow, 11).value = { formula: `ROUND((K${partialRow}+K${mgmtRow}+K${profitRow})*0.1,0)` }
   ws.getCell(subtotalVatRow, 11).value = { formula: `K${partialRow}+K${mgmtRow}+K${profitRow}+K${vatRow}` }
-  ws.getCell(cutRow, 11).value = { formula: `MOD(K${subtotalVatRow},10000)` }
+  ws.getCell(cutRow, 11).value = { formula: `MOD(K${subtotalVatRow},1000)` }
   ws.getCell(finalRow, 11).value = { formula: `K${subtotalVatRow}-K${cutRow}` }
 
   ws.getCell(topAmountRow, 5).value = { formula: `K${finalRow}` }

@@ -683,7 +683,7 @@ function buildHtml(doc: QuoteDoc, company?: CompanySettings | null): string {
         [`제경비(${doc.expenseRate}%)`,fmtKRW(T.exp)+'원'],
         [`이윤(${doc.profitRate}%)`,fmtKRW(T.prof)+'원'],
         ['부가세(10%)',fmtKRW(T.vat)+'원'],
-        ['절사 (공제)',`-${fmtKRW(doc.cutAmount)}원`],
+        ['절사 (공제)',`-${fmtKRW(T.cut)}원`],
       ].map(([l,v])=>`
       <div style="display:flex;justify-content:space-between;padding:4px 6px;color:#475569;font-size:12px"><span>${l}</span><span style="font-variant-numeric:tabular-nums">${v}</span></div>
       `).join('')}

@@ -955,7 +955,7 @@ export function QuoteResult({
                     <span className="tabular-nums">{fmtKRW(preCut)}원</span>
                   </div>
                   <div className="grid grid-cols-[1fr_auto] border-b border-slate-200 px-3 py-1.5 text-slate-600">
-                    <span>만원 단위 절사</span>
+                    <span>천원 단위 절사</span>
                     <span className="tabular-nums">-{fmtKRW(t.cut)}원</span>
                   </div>
                   <div className="grid grid-cols-[1fr_auto] bg-[#FCE4D6] px-3 py-2 text-sm font-bold text-red-700">
@@ -1269,7 +1269,7 @@ export function QuoteResult({
                 )}
                 {[
                   ['소계', fmtKRW(totals.sub)], [`제경비 (${doc.expenseRate}%)`, fmtKRW(totals.exp)], [`이윤 (${doc.profitRate}%)`, fmtKRW(totals.prof)],
-                  ['부가세 (10%)', fmtKRW(totals.vat)], ['절사', `-${fmtKRW(doc.cutAmount)}`],
+                  ['부가세 (10%)', fmtKRW(totals.vat)], ['절사', `-${fmtKRW(totals.cut)}`],
                 ].map(([l, v]) => (
                   <div key={l} className="flex justify-between text-xs text-gray-500"><span>{l}</span><span>{v}원</span></div>
                 ))}

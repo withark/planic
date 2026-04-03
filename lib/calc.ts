@@ -21,8 +21,13 @@ export function calcTotals(doc: QuoteDoc): QuoteTotals {
   const exp  = Math.round(sub * (doc.expenseRate || 0) / 100)
   const prof = Math.round((sub + exp) * (doc.profitRate || 0) / 100)
   const vat  = Math.round((sub + exp + prof) * 0.1)
-  const cut  = Math.round(doc.cutAmount || 0)
-  const grand = sub + exp + prof + vat - cut
+  const pre = sub + exp + prof + vat
+  const docCut = Math.round(doc.cutAmount || 0)
+  const net = pre - docCut
+  // 총액(VAT포함)은 항상 천 원 단위(…000원)로 맞춤(내림). 엑셀 절사 행과 동일 규칙.
+  const grand =
+    net >= 0 ? Math.floor(net / 1000) * 1000 : Math.ceil(net / 1000) * 1000
+  const cut = pre - grand
   return { sub, exp, prof, vat, cut, grand }
 }
 

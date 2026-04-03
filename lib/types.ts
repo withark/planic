@@ -175,6 +175,7 @@ export interface QuoteDoc {
   quoteItems: QuoteCategory[]
   expenseRate: number
   profitRate: number
+  /** 추가 절사(원). 총액은 VAT포함 소계에서 이 값을 뺀 뒤 천 원 단위로 내림해 맞춤 */
   cutAmount: number
   notes: string
   paymentTerms: string
