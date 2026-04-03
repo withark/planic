@@ -149,10 +149,26 @@ function EstimateGeneratorContent() {
 
   const modes: WizardMode[] = useMemo(
     () => [
-      { id: 'fromTopic', title: '주제만 입력' },
-      { id: 'fromPrompt', title: '업체 원문만' },
-      { id: 'fromTaskOrder', title: '과업지시서 기준' },
-      { id: 'fromEstimate', title: '저장된 견적서 기준' },
+      {
+        id: 'fromTopic',
+        title: '주제만 입력',
+        desc: '수신처·행사 정보를 채우면 단가표와 맞춰 견적을 만듭니다.',
+      },
+      {
+        id: 'fromPrompt',
+        title: '업체 원문만',
+        desc: '들은 내용·메모를 그대로 붙여 넣어 견적 형식으로 정리합니다.',
+      },
+      {
+        id: 'fromTaskOrder',
+        title: '과업지시서 기준',
+        desc: '업로드한 과업지시서 요지를 반영해 견적을 구성합니다.',
+      },
+      {
+        id: 'fromEstimate',
+        title: '저장된 견적서 기준',
+        desc: '이전에 저장한 견적을 불러와 수정·재발행합니다.',
+      },
     ],
     [],
   )

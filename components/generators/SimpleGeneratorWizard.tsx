@@ -296,7 +296,7 @@ export default function SimpleGeneratorWizard({
               <div className="flex flex-wrap items-center justify-end gap-2">{step1HeaderExtra}</div>
             ) : null}
           </div>
-          <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 xl:grid-cols-4">
+          <div className="flex flex-col gap-2" role="radiogroup" aria-label="생성 방식">
             {modes.map((m) => {
               const active = m.id === modeId
               const locked = !!m.disabled
@@ -304,6 +304,8 @@ export default function SimpleGeneratorWizard({
                 <button
                   key={m.id}
                   type="button"
+                  role="radio"
+                  aria-checked={active}
                   aria-disabled={locked}
                   onClick={() => {
                     if (locked) {
@@ -313,37 +315,50 @@ export default function SimpleGeneratorWizard({
                     onModeChange(m.id)
                   }}
                   className={clsx(
-                    'rounded-2xl border p-4 text-left shadow-sm transition-all',
+                    'flex w-full items-center justify-between gap-3 rounded-xl border px-4 py-3.5 text-left transition-colors',
+                    'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary-500 focus-visible:ring-offset-2',
                     locked &&
-                      'cursor-not-allowed border-slate-200 bg-slate-50/90 opacity-75 hover:border-slate-200 hover:bg-slate-50/90 hover:shadow-sm',
+                      'cursor-not-allowed border-slate-200 bg-slate-50/80 opacity-80 hover:bg-slate-50/80',
                     !locked &&
                       (active
-                        ? 'border-primary-400 bg-primary-50/90 ring-2 ring-primary-500/35 shadow-md'
-                        : 'border-slate-200 bg-white hover:border-primary-200 hover:bg-slate-50 hover:shadow'),
+                        ? 'border-primary-400 bg-primary-50/90 ring-1 ring-primary-500/25'
+                        : 'border-slate-200 bg-white hover:border-slate-300 hover:bg-slate-50/90'),
                   )}
                 >
-                  <div className="flex items-start justify-between gap-3">
-                    <div className="flex min-w-0 items-center gap-1.5 text-[15px] font-semibold text-slate-900">
-                      <span className="min-w-0">{m.title}</span>
+                  <div className="min-w-0 flex-1">
+                    <div className="flex flex-wrap items-center gap-2">
+                      <span className="text-[15px] font-semibold text-slate-900">{m.title}</span>
                       {locked ? (
-                        <span className="shrink-0 rounded border border-slate-200 bg-white px-1 py-px text-[10px] font-semibold text-slate-500" aria-hidden>
+                        <span
+                          className="shrink-0 rounded-md border border-slate-200 bg-white px-1.5 py-0.5 text-[10px] font-semibold text-slate-500"
+                          aria-hidden
+                        >
                           플랜
                         </span>
                       ) : null}
                     </div>
-                    <span
-                      className={clsx(
-                        'mt-0.5 flex h-5 w-5 shrink-0 items-center justify-center rounded-full border-2 transition-colors',
-                        locked && 'border-slate-300 bg-slate-100',
-                        !locked && active && 'border-primary-600 bg-primary-600',
-                        !locked && !active && 'border-slate-300 bg-white',
-                      )}
-                      aria-hidden="true"
-                    >
-                      {!locked && active ? <span className="h-1.5 w-1.5 rounded-full bg-white" /> : null}
-                    </span>
+                    {m.desc ? (
+                      <p
+                        className={clsx(
+                          'mt-1 text-sm leading-snug',
+                          active ? 'text-slate-600' : 'text-slate-500',
+                        )}
+                      >
+                        {m.desc}
+                      </p>
+                    ) : null}
                   </div>
-                  {m.desc ? <div className={clsx('mt-2 text-sm leading-5', active ? 'text-slate-600' : 'text-slate-500')}>{m.desc}</div> : null}
+                  <span
+                    className={clsx(
+                      'flex h-5 w-5 shrink-0 items-center justify-center rounded-full border-2 transition-colors',
+                      locked && 'border-slate-300 bg-slate-100',
+                      !locked && active && 'border-primary-600 bg-primary-600',
+                      !locked && !active && 'border-slate-300 bg-white',
+                    )}
+                    aria-hidden="true"
+                  >
+                    {!locked && active ? <span className="h-1.5 w-1.5 rounded-full bg-white" /> : null}
+                  </span>
                 </button>
               )
             })}
