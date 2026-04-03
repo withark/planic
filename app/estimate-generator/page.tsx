@@ -79,7 +79,6 @@ function EstimateGeneratorContent() {
   const [prices, setPrices] = useState<PriceCategory[]>([])
 
   const [sourceMode, setSourceMode] = useState<SourceMode>('fromTopic')
-  const [showAdvancedModes, setShowAdvancedModes] = useState(false)
 
   const [historyList, setHistoryList] = useState<HistoryRecord[]>([])
   const [selectedEstimateId, setSelectedEstimateId] = useState<string | null>(null)
@@ -172,25 +171,17 @@ function EstimateGeneratorContent() {
     ],
     [],
   )
-  const isAdvancedModeAvailable = useMemo(() => isPaidPlan(me?.subscription?.planType ?? 'FREE'), [me?.subscription?.planType])
+  /** 무료: 주제·업체 원문만 사용 가능 / 유료: 과업지시서·저장 견적 포함 전체 */
   const modesForWizard = useMemo(() => {
-    if (!isAdvancedModeAvailable) {
-      if (showAdvancedModes || (sourceMode !== 'fromTopic' && sourceMode !== 'fromPrompt')) {
-        return modes.map((m) => ({
-          ...m,
-          disabled: m.id !== 'fromTopic' && m.id !== 'fromPrompt',
-        }))
-      }
-      return [
-        { ...modes[0], disabled: false },
-        { ...modes[1], disabled: false },
-      ]
-    }
-    if (showAdvancedModes || sourceMode !== 'fromTopic') {
-      return modes.map((m) => ({ ...m, disabled: false }))
-    }
-    return [{ ...modes[0], disabled: false }]
-  }, [modes, isAdvancedModeAvailable, showAdvancedModes, sourceMode])
+    const paid = isPaidPlan(me?.subscription?.planType ?? 'FREE')
+    return modes.map((m) => ({
+      ...m,
+      disabled:
+        paid
+          ? false
+          : m.id === 'fromTaskOrder' || m.id === 'fromEstimate',
+    }))
+  }, [modes, me?.subscription?.planType])
 
   useEffect(() => {
     apiFetch<MeLite>('/api/me').then(setMe).catch(() => {})
@@ -391,14 +382,12 @@ function EstimateGeneratorContent() {
   }, [sourceMode, selectedTaskOrderParsed, selectedTaskOrder, topic, clientName, venue, notes, headcount, eventDuration, eventDate])
 
   useEffect(() => {
-    if (isAdvancedModeAvailable) return
-    if (sourceMode !== 'fromTopic' && sourceMode !== 'fromPrompt') {
+    if (!me) return
+    const paid = isPaidPlan(me.subscription.planType)
+    if (!paid && (sourceMode === 'fromTaskOrder' || sourceMode === 'fromEstimate')) {
       setSourceMode('fromTopic')
     }
-    if (showAdvancedModes) {
-      setShowAdvancedModes(false)
-    }
-  }, [isAdvancedModeAvailable, showAdvancedModes, sourceMode])
+  }, [me, sourceMode])
 
   const requestBodyForEstimate = useCallback(() => {
     const eventDateIso = eventDate
@@ -882,23 +871,6 @@ function EstimateGeneratorContent() {
             preStepContent={null}
             modes={modesForWizard}
             modeId={sourceMode}
-            step1HeaderExtra={
-              isAdvancedModeAvailable ? (
-                <button
-                  type="button"
-                  onClick={() => {
-                    const next = !showAdvancedModes
-                    setShowAdvancedModes(next)
-                    if (!next && sourceMode !== 'fromTopic' && sourceMode !== 'fromPrompt') {
-                      setSourceMode('fromTopic')
-                    }
-                  }}
-                  className="rounded-lg border border-primary-300 bg-primary-50/80 px-2.5 py-1 text-xs font-semibold text-primary-900 hover:bg-primary-100"
-                >
-                  {showAdvancedModes ? '닫기' : '고급'}
-                </button>
-              ) : null
-            }
             onBlockedModeClick={() => showToast('베이직 이상 플랜에서 사용할 수 있어요.')}
             onModeChange={(id) => {
               const next = id as SourceMode
