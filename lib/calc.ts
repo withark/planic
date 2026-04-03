@@ -1,4 +1,5 @@
 import type { QuoteDoc, QuoteCategory } from './types'
+import { isExcludedSupplyLineItem } from '@/lib/quote/supply-line-filter'
 
 export interface QuoteTotals {
   sub: number
@@ -14,7 +15,7 @@ export function calcTotals(doc: QuoteDoc): QuoteTotals {
   ;(doc.quoteItems || []).forEach(cat =>
     (cat.items || []).forEach(it => {
       it.total = Math.round((it.qty || 1) * (it.unitPrice || 0))
-      sub += it.total
+      if (!isExcludedSupplyLineItem(it)) sub += it.total
     })
   )
   const exp  = Math.round(sub * (doc.expenseRate || 0) / 100)
@@ -26,7 +27,9 @@ export function calcTotals(doc: QuoteDoc): QuoteTotals {
 }
 
 export function fmtKRW(n: number): string {
-  return Math.round(n || 0).toLocaleString('ko-KR')
+  const x = Number(n)
+  if (!Number.isFinite(x)) return '0'
+  return Math.round(x).toLocaleString('ko-KR')
 }
 
 export function uid(): string {

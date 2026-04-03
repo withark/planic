@@ -1,4 +1,4 @@
-import type { QuoteDoc, CompanySettings } from '@/lib/types'
+import type { QuoteDoc, CompanySettings, QuoteItemKind } from '@/lib/types'
 import { calcTotals, fmtKRW, getQuoteDateForFilename } from '@/lib/calc'
 import { KIND_ORDER, groupQuoteItemsByKind, subtotalsByKind } from '@/lib/quoteGroup'
 import { getQuoteTemplate } from '@/lib/quoteTemplates'
@@ -33,6 +33,42 @@ function escapeHtml(s: string): string {
     .replace(/</g, '&lt;')
     .replace(/>/g, '&gt;')
     .replace(/"/g, '&quot;')
+}
+
+/** PDF에 줄 항목이 없으면 선택1·선택2 구역(헤더·소계)은 생략 */
+function includeEstimatePdfSection(kind: QuoteItemKind, itemCount: number): boolean {
+  if (kind === '선택1' || kind === '선택2') return itemCount > 0
+  return true
+}
+
+/** 견적 표 각 tr 하단까지의 세로 위치(px, 컨테이너 기준). html2canvas 직전에 측정한다. */
+function collectEstimateRowBottomsPx(container: HTMLElement): number[] {
+  const table = container.querySelector('[data-pdf-estimate-table]')
+  if (!table) return []
+  const ch = container.scrollHeight
+  if (ch <= 0) return []
+
+  const crect = container.getBoundingClientRect()
+  const bottomsPx: number[] = []
+  table.querySelectorAll('tr').forEach((tr) => {
+    const r = tr.getBoundingClientRect()
+    const bottom = r.bottom - crect.top
+    if (Number.isFinite(bottom) && bottom > 0) bottomsPx.push(bottom)
+  })
+  const unique = [...new Set(bottomsPx)].sort((a, b) => a - b)
+  return unique.filter((b) => b <= ch)
+}
+
+function sliceCanvasToDataUrl(canvas: HTMLCanvasElement, y0Px: number, y1Px: number): string {
+  const h = Math.max(1, Math.round(y1Px - y0Px))
+  const w = canvas.width
+  const slice = document.createElement('canvas')
+  slice.width = w
+  slice.height = h
+  const ctx = slice.getContext('2d')
+  if (!ctx) return canvas.toDataURL('image/png')
+  ctx.drawImage(canvas, 0, y0Px, w, h, 0, 0, w, h)
+  return slice.toDataURL('image/png')
 }
 
 // html2canvas + jsPDF를 동적 import (클라이언트 전용)
@@ -77,6 +113,16 @@ export async function exportToPdf(
   document.body.appendChild(container)
 
   try {
+    let rowBottomsPx: number[] = []
+    let layoutHeightPx = 1
+    if (isEstimatePdf) {
+      await new Promise<void>((resolve) => {
+        requestAnimationFrame(() => requestAnimationFrame(() => resolve()))
+      })
+      rowBottomsPx = collectEstimateRowBottomsPx(container)
+      layoutHeightPx = Math.max(1, container.scrollHeight)
+    }
+
     const canvas = await html2canvas(container, {
       scale: isEstimatePdf ? 2.75 : 2,
       useCORS: true,
@@ -88,13 +134,45 @@ export async function exportToPdf(
     const pdf = new jsPDF({ orientation: 'portrait', unit: 'mm', format: 'a4' })
     const pageW = pdf.internal.pageSize.getWidth()
     const pageH = pdf.internal.pageSize.getHeight()
-    const imgH  = (canvas.height * pageW) / canvas.width
+    const imgH = (canvas.height * pageW) / canvas.width
 
-    let yPos = 0
-    while (yPos < imgH) {
-      if (yPos > 0) pdf.addPage()
-      pdf.addImage(imgData, 'PNG', 0, -yPos, pageW, imgH)
-      yPos += pageH
+    const EPS = 0.08
+    const useRowAlignedPages =
+      isEstimatePdf && rowBottomsPx.length > 0 && layoutHeightPx > 0 && imgH > 0
+
+    if (useRowAlignedPages) {
+      const breaksMm = [
+        ...new Set([
+          ...rowBottomsPx.map((px) => Math.min((px / layoutHeightPx) * imgH, imgH)),
+          imgH,
+        ]),
+      ].sort((a, b) => a - b)
+
+      let yPos = 0
+      let pageIndex = 0
+      while (yPos < imgH - EPS) {
+        const target = yPos + pageH
+        const candidates = breaksMm.filter((b) => b > yPos + EPS && b <= target + EPS)
+        let nextY = candidates.length > 0 ? Math.max(...candidates) : Math.min(target, imgH)
+        if (nextY <= yPos + EPS) nextY = Math.min(yPos + pageH, imgH)
+
+        const y0Px = Math.floor((yPos / imgH) * canvas.height)
+        const y1Px = Math.ceil((nextY / imgH) * canvas.height)
+        const sliceH = nextY - yPos
+        const sliceUrl = sliceCanvasToDataUrl(canvas, y0Px, y1Px)
+
+        if (pageIndex > 0) pdf.addPage()
+        pdf.addImage(sliceUrl, 'PNG', 0, 0, pageW, sliceH)
+        yPos = nextY
+        pageIndex += 1
+      }
+    } else {
+      let yPos = 0
+      while (yPos < imgH) {
+        if (yPos > 0) pdf.addPage()
+        pdf.addImage(imgData, 'PNG', 0, -yPos, pageW, imgH)
+        yPos += pageH
+      }
     }
 
     pdf.save(pdfFilename(doc, kind))
@@ -502,26 +580,36 @@ function buildHtml(doc: QuoteDoc, company?: CompanySettings | null): string {
   const byKind = groupQuoteItemsByKind(doc)
   const subByKind = subtotalsByKind(doc)
   const tableCellBorder = tpl.pdf.tableStyle === 'bordered' ? 'border:1px solid #ddd;' : ''
-  const rows = KIND_ORDER.map(kind => `
+  const rows = KIND_ORDER.filter((kind) =>
+    includeEstimatePdfSection(kind, (byKind.get(kind) || []).length),
+  )
+    .map(
+      (kind) => `
     <tr style="background:${sectionBg};border-top:2px solid ${accentBorder}">
       <td colspan="7" style="padding:9px 10px;font-size:12px;font-weight:700;color:${sectionText};letter-spacing:.03em;${tableCellBorder}">${kind}</td>
     </tr>
-    ${(byKind.get(kind) || []).map(it => `
+    ${(byKind.get(kind) || [])
+      .map(
+        (it) => `
     <tr style="border-bottom:1px solid #e2e8f0">
-      <td style="padding:8px 10px;font-size:12px;font-weight:500;color:#0f172a;line-height:1.45;${tableCellBorder}">${it.name}</td>
-      <td style="padding:8px 10px;color:#475569;font-size:11px;line-height:1.45;${tableCellBorder}">${it.spec||''}</td>
-      <td style="padding:8px 10px;text-align:right;font-size:12px;color:#334155;${tableCellBorder}">${it.qty}</td>
-      <td style="padding:8px 10px;font-size:12px;color:#334155;${tableCellBorder}">${it.unit||'식'}</td>
-      <td style="padding:8px 10px;text-align:right;font-size:11px;color:#334155;${tableCellBorder}">${fmtKRW(it.unitPrice)}</td>
-      <td style="padding:8px 10px;text-align:right;font-size:12px;font-weight:600;color:#0f172a;${tableCellBorder}">${fmtKRW(it.total)}</td>
-      <td style="padding:8px 10px;color:#64748b;font-size:11px;line-height:1.4;${tableCellBorder}">${it.note||''}</td>
-    </tr>`).join('')}
+      <td style="padding:8px 10px;font-size:12px;font-weight:500;color:#0f172a;line-height:1.45;word-wrap:break-word;${tableCellBorder}">${it.name}</td>
+      <td style="padding:8px 10px;color:#475569;font-size:11px;line-height:1.45;word-wrap:break-word;${tableCellBorder}">${it.spec || ''}</td>
+      <td style="padding:8px 10px;text-align:right;font-size:12px;color:#334155;font-variant-numeric:tabular-nums;${tableCellBorder}">${it.qty}</td>
+      <td style="padding:8px 10px;font-size:12px;color:#334155;${tableCellBorder}">${it.unit || '식'}</td>
+      <td style="padding:8px 10px;text-align:right;font-size:11px;color:#334155;font-variant-numeric:tabular-nums;${tableCellBorder}">${fmtKRW(it.unitPrice)}</td>
+      <td style="padding:8px 10px;text-align:right;font-size:12px;font-weight:600;color:#0f172a;font-variant-numeric:tabular-nums;${tableCellBorder}">${fmtKRW(it.total)}</td>
+      <td style="padding:8px 10px;color:#64748b;font-size:11px;line-height:1.4;word-wrap:break-word;${tableCellBorder}">${it.note || ''}</td>
+    </tr>`,
+      )
+      .join('')}
     <tr style="background:#f1f5f9;border-bottom:1px solid #cbd5e1">
       <td colspan="5" style="padding:7px 10px;text-align:right;font-size:12px;font-weight:700;color:#475569;${tableCellBorder}">소계</td>
-      <td style="padding:7px 10px;text-align:right;font-size:12px;font-weight:700;color:#0f172a;${tableCellBorder}">${fmtKRW(subByKind.get(kind) ?? 0)}</td>
+      <td style="padding:7px 10px;text-align:right;font-size:12px;font-weight:700;color:#0f172a;font-variant-numeric:tabular-nums;${tableCellBorder}">${fmtKRW(subByKind.get(kind) ?? 0)}</td>
       <td style="padding:7px 10px;${tableCellBorder}"></td>
     </tr>
-  `).join('')
+  `,
+    )
+    .join('')
 
   const quotePart = `
   <div style="border-bottom:3px solid ${accentBorder};padding-bottom:14px;margin-bottom:18px;display:flex;justify-content:space-between;align-items:flex-end;gap:16px">
@@ -563,7 +651,7 @@ function buildHtml(doc: QuoteDoc, company?: CompanySettings | null): string {
     </div>
   </div>
 
-  <table style="width:100%;border-collapse:collapse;margin-bottom:12px;table-layout:fixed">
+  <table data-pdf-estimate-table="1" style="width:100%;border-collapse:collapse;margin-bottom:12px;table-layout:fixed">
     <colgroup>
       <col style="width:16%" /><col style="width:22%" /><col style="width:7%" /><col style="width:7%" />
       <col style="width:11%" /><col style="width:12%" /><col style="width:25%" />
