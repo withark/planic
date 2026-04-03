@@ -617,6 +617,6 @@ function buildHtml(doc: QuoteDoc, company?: CompanySettings | null): string {
     </div>
   </div>`
 
-  const programPart = buildProgramHtml(doc)
-  return wrapFrame(quotePart + programPart, tpl)
+  // 견적서 PDF는 견적 본문만 포함한다. 프로그램/큐시트는 별도 생성·PDF 종류(program/cuesheet)로보낸다.
+  return wrapFrame(quotePart, tpl)
 }
