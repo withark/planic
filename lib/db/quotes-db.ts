@@ -1,7 +1,7 @@
 import { getDb, hasDatabase, initDb } from './client'
 import type { HistoryRecord } from '../types'
 import type { QuoteDoc } from '@/lib/types'
-import { calcTotals } from '@/lib/calc'
+import { calcTotals, normalizeQuoteUnitPricesToThousand } from '@/lib/calc'
 import { readDataJson, writeDataJson } from '@/lib/db/file-persistence'
 
 function fileNameForUser(userId: string) {
@@ -96,6 +96,7 @@ export async function quotesDbUpdateById(input: {
     const idx = list.findIndex((r) => r.id === input.id)
     if (idx < 0) return
     const existing = list[idx]
+    normalizeQuoteUnitPricesToThousand(input.doc)
     const totals = calcTotals(input.doc)
     list[idx] = {
       ...existing,
@@ -118,6 +119,7 @@ export async function quotesDbUpdateById(input: {
   await initDb()
   const sql = getDb()
   const now = new Date().toISOString()
+  normalizeQuoteUnitPricesToThousand(input.doc)
   const totals = calcTotals(input.doc)
 
   const nextPayload: HistoryRecord = {

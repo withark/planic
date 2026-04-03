@@ -15,6 +15,7 @@ import { exportToExcel } from '@/lib/exportExcel'
 import { exportToPdf } from '@/lib/exportPdf'
 import { isPaidPlan, type PlanType } from '@/lib/plans'
 import { isExcludedSupplyLineItem } from '@/lib/quote/supply-line-filter'
+import { normalizeQuoteUnitPricesToThousand } from '@/lib/calc'
 
 type MeLite = {
   user?: { id?: string | null; email?: string | null } | null
@@ -362,6 +363,7 @@ function EstimateGeneratorContent() {
   const handleSaveDoc = useCallback(
     async (nextDoc: QuoteDoc) => {
       if (!generatedDocId) return
+      normalizeQuoteUnitPricesToThousand(nextDoc)
       setSaving(true)
       try {
         await apiFetch(`/api/generated-docs/${generatedDocId}`, {

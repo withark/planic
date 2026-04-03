@@ -4,7 +4,7 @@ import Link from 'next/link'
 import type { QuoteDoc, CompanySettings, QuoteItemKind, PriceCategory, PriceItem, ProgramTableRow, TimelineRow } from '@/lib/types'
 import PlanningProposalView from '@/components/quote/PlanningProposalView'
 import { KIND_ORDER, subtotalsByKind } from '@/lib/quoteGroup'
-import { calcTotals, fmtKRW } from '@/lib/calc'
+import { calcTotals, effectiveLineTotalWon, fmtKRW, snapUnitPriceToThousandWon } from '@/lib/calc'
 import { Button } from '@/components/ui'
 import clsx from 'clsx'
 import type { PlanType } from '@/lib/plans'
@@ -362,11 +362,25 @@ export function QuoteResult({
     const d2 = ensureProgramShape(structuredClone(doc))
     const line = d2.quoteItems[ci].items[ii] as unknown as Record<string, string | number>
     line[k] = v
-    if (k === 'qty' || k === 'unitPrice') {
-      const qty = Math.max(0, Math.round(Number(line.qty ?? 1)))
-      const unitPrice = Math.max(0, Math.round(Number(line.unitPrice ?? 0)))
-      line.total = qty * unitPrice
+    if (k === 'qty') {
+      line.qty = Math.max(1, Math.round(Number(line.qty ?? 1)))
     }
+    if (k === 'unitPrice') {
+      line.unitPrice = Math.max(0, Math.round(Number(line.unitPrice ?? 0)))
+    }
+    line.total = effectiveLineTotalWon({
+      qty: Number(line.qty ?? 1),
+      unitPrice: Number(line.unitPrice ?? 0),
+    })
+    onChange(d2)
+  }
+
+  /** 단가 입력 후 포커스 해제 시 천 원 단위로 저장(표시 단가·합계 일치) */
+  function snapUnitPriceOnBlur(ci: number, ii: number) {
+    const d2 = ensureProgramShape(structuredClone(doc))
+    const line = d2.quoteItems[ci].items[ii]
+    line.unitPrice = snapUnitPriceToThousandWon(Number(line.unitPrice ?? 0))
+    line.total = effectiveLineTotalWon(line)
     onChange(d2)
   }
 
@@ -421,13 +435,14 @@ export function QuoteResult({
 
   function addItemFromPrice(kind: QuoteItemKind, item: PriceItem) {
     const d2 = ensureProgramShape(structuredClone(doc))
+    const up = snapUnitPriceToThousandWon(Number(item.price ?? 0))
     const newItem = {
       name: item.name,
       spec: item.spec || '',
       qty: 1,
       unit: item.unit || '식',
-      unitPrice: item.price,
-      total: item.price,
+      unitPrice: up,
+      total: effectiveLineTotalWon({ qty: 1, unitPrice: up }),
       note: item.note || '',
       period: '',
       kind,
@@ -809,12 +824,12 @@ export function QuoteResult({
                       {KIND_ORDER.map((kind) => {
                         const rows = groupedByKind.get(kind)!
                         if (rows.length === 0) return null
-                        const sub = rows.reduce((acc, { item: it }) => acc + Math.round((it.qty || 1) * (it.unitPrice || 0)), 0)
+                        const sub = rows.reduce((acc, { item: it }) => acc + effectiveLineTotalWon(it), 0)
                         const rs = rows.length + 1
                         return (
                           <Fragment key={kind}>
                             {rows.map(({ ci, ii, item: it }, idx) => {
-                              const lineAmt = Math.round((it.qty || 1) * (it.unitPrice || 0))
+                              const lineAmt = effectiveLineTotalWon(it)
                               return (
                                 <tr key={`${kind}-${ci}-${ii}`} className="border-b border-slate-200 bg-white hover:bg-slate-50/90">
                                   {idx === 0 ? (
@@ -855,9 +870,10 @@ export function QuoteResult({
                                     <input
                                       type="number"
                                       min={0}
-                                      step={100}
+                                      step={1000}
                                       value={it.unitPrice ?? 0}
                                       onChange={(e) => updLine(ci, ii, 'unitPrice', Math.max(0, +(e.target.value || 0)))}
+                                      onBlur={() => snapUnitPriceOnBlur(ci, ii)}
                                       className="w-[88px] border-0 bg-transparent px-1 py-0.5 text-right text-blue-700 tabular-nums outline-none focus:ring-1 focus:ring-primary-300"
                                     />
                                   </td>
@@ -1131,7 +1147,7 @@ export function QuoteResult({
                         {!isCollapsed ? (
                           <>
                             {rows.map(({ ci, ii, item: it }) => {
-                              const rowTotal = Math.round((it.qty || 1) * (it.unitPrice || 0))
+                              const rowTotal = effectiveLineTotalWon(it)
                               return (
                                 <tr key={`${ci}-${ii}`} className="border-b border-gray-50 hover:bg-gray-50/50 group">
                                   <td className="px-2 py-1.5">
@@ -1168,9 +1184,10 @@ export function QuoteResult({
                                     <input
                                       type="number"
                                       min={0}
-                                      step={100}
+                                      step={1000}
                                       value={it.unitPrice ?? 0}
                                       onChange={e => updLine(ci, ii, 'unitPrice', +(e.target.value || 0))}
+                                      onBlur={() => snapUnitPriceOnBlur(ci, ii)}
                                       className="w-24 text-right bg-white border border-gray-100 rounded px-1.5 py-0.5 outline-none tabular-nums"
                                     />
                                   </td>

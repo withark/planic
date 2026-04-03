@@ -1,5 +1,6 @@
 import type { PriceCategory, QuoteDoc, QuoteLineItem, QuoteItemKind } from '@/lib/types'
 import { isExcludedSupplyLineItem } from '@/lib/quote/supply-line-filter'
+import { snapUnitPriceToThousandWon } from '@/lib/calc'
 
 const TEMPLATE_NOTES = [
   '1. 본 견적서는 행사 규모 및 요구사항에 따라 변동될 수 있으며, 유효기간은 견적일로부터 30일입니다.',
@@ -55,7 +56,9 @@ export function applyFixedEstimateTemplateV2(doc: QuoteDoc, prices: PriceCategor
           .map((item) => {
           const matchedGenerated = findMatchingItem(item.name, generatedItems)
           const qty = Math.max(0, Math.round(matchedGenerated?.qty || 1))
-          const unitPrice = Number.isFinite(item.price) ? Math.max(0, Math.round(item.price)) : 0
+          const unitPrice = Number.isFinite(item.price)
+            ? snapUnitPriceToThousandWon(Math.max(0, Math.round(item.price)))
+            : 0
           const unit = (item.unit || matchedGenerated?.unit || '식').trim() || '식'
           const spec = (item.spec || matchedGenerated?.spec || '').trim()
           const note = (item.note || matchedGenerated?.note || '').trim()

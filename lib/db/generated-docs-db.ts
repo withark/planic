@@ -1,5 +1,5 @@
 import { getDb, hasDatabase, initDb } from './client'
-import { calcTotals } from '@/lib/calc'
+import { calcTotals, normalizeQuoteUnitPricesToThousand } from '@/lib/calc'
 import type { QuoteDoc } from '@/lib/types'
 import { uid } from '@/lib/calc'
 import { readDataJson, writeDataJson } from '@/lib/db/file-persistence'
@@ -44,6 +44,7 @@ export async function insertGeneratedDoc(input: {
   docType: GeneratedDocType
   doc: QuoteDoc
 }): Promise<string> {
+  normalizeQuoteUnitPricesToThousand(input.doc)
   if (!hasDatabase()) {
     const id = input.id ?? uid()
     const now = new Date().toISOString()
@@ -131,6 +132,7 @@ export async function updateGeneratedDocById(input: {
   id: string
   doc: QuoteDoc
 }): Promise<void> {
+  normalizeQuoteUnitPricesToThousand(input.doc)
   if (!hasDatabase()) {
     const list = readDataJson<FileGeneratedDocRow[]>(fileNameForUser(input.userId), [])
     const idx = list.findIndex((d) => d.id === input.id)

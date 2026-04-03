@@ -1,5 +1,6 @@
 import type { QuoteDoc, QuoteItemKind, QuoteLineItem } from '@/lib/types'
 import { isExcludedSupplyLineItem } from '@/lib/quote/supply-line-filter'
+import { effectiveLineTotalWon } from '@/lib/calc'
 
 export const KIND_ORDER: QuoteItemKind[] = ['인건비', '필수', '선택1', '선택2']
 
@@ -28,7 +29,7 @@ export function subtotalsByKind(doc: QuoteDoc): Map<QuoteItemKind, number> {
   const out = new Map<QuoteItemKind, number>()
   KIND_ORDER.forEach(kind => {
     const items = byKind.get(kind) || []
-    const sum = items.reduce((acc, it) => acc + Math.round((it.qty || 1) * (it.unitPrice || 0)), 0)
+    const sum = items.reduce((acc, it) => acc + effectiveLineTotalWon(it), 0)
     out.set(kind, sum)
   })
   return out

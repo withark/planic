@@ -1,5 +1,5 @@
 import type { QuoteDoc, CompanySettings, QuoteItemKind } from '@/lib/types'
-import { calcTotals, fmtKRW, getQuoteDateForFilename } from '@/lib/calc'
+import { calcTotals, fmtKRW, getQuoteDateForFilename, normalizeQuoteUnitPricesToThousand } from '@/lib/calc'
 import { KIND_ORDER, groupQuoteItemsByKind, subtotalsByKind } from '@/lib/quoteGroup'
 import { getQuoteTemplate } from '@/lib/quoteTemplates'
 import type { PdfExportDocumentKind } from '@/lib/pdf-export-kind'
@@ -579,6 +579,7 @@ function buildProgramHtml(doc: QuoteDoc): string {
 }
 
 function buildHtml(doc: QuoteDoc, company?: CompanySettings | null): string {
+  normalizeQuoteUnitPricesToThousand(doc)
   const T  = calcTotals(doc)
   const sn = company?.name || doc.eventName + ' 기획'
   const tpl = getQuoteTemplate(doc.quoteTemplate as import('@/lib/quoteTemplates').QuoteTemplateId)

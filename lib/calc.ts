@@ -1,5 +1,28 @@
-import type { QuoteDoc, QuoteCategory } from './types'
+import type { QuoteDoc, QuoteLineItem } from './types'
 import { isExcludedSupplyLineItem } from '@/lib/quote/supply-line-filter'
+
+/** 견적 품목 단가를 천 원 단위로 반올림(원). 음수·비유효는 0으로. */
+export function snapUnitPriceToThousandWon(unitPrice: number): number {
+  const x = Math.max(0, Math.round(Number(unitPrice) || 0))
+  return Math.round(x / 1000) * 1000
+}
+
+/** 저장·표시·합계용: 스냅된 단가 기준 행 금액 */
+export function effectiveLineTotalWon(it: Pick<QuoteLineItem, 'qty' | 'unitPrice'>): number {
+  const qRaw = Math.round(Number(it.qty || 1))
+  const q = Number.isFinite(qRaw) && qRaw > 0 ? qRaw : 1
+  return Math.round(q * snapUnitPriceToThousandWon(it.unitPrice ?? 0))
+}
+
+/** 문서 내 모든 품목의 unitPrice·total을 천 원 단가 규칙에 맞게 맞춤(제자리 수정). */
+export function normalizeQuoteUnitPricesToThousand(doc: QuoteDoc): void {
+  ;(doc.quoteItems || []).forEach((cat) =>
+    (cat.items || []).forEach((it) => {
+      it.unitPrice = snapUnitPriceToThousandWon(it.unitPrice ?? 0)
+      it.total = effectiveLineTotalWon(it)
+    }),
+  )
+}
 
 export interface QuoteTotals {
   sub: number
@@ -14,7 +37,7 @@ export function calcTotals(doc: QuoteDoc): QuoteTotals {
   let sub = 0
   ;(doc.quoteItems || []).forEach(cat =>
     (cat.items || []).forEach(it => {
-      it.total = Math.round((it.qty || 1) * (it.unitPrice || 0))
+      it.total = effectiveLineTotalWon(it)
       if (!isExcludedSupplyLineItem(it)) sub += it.total
     })
   )

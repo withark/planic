@@ -3,7 +3,7 @@ import { useState, useRef, Fragment } from 'react'
 import { Btn, Card } from '@/components/ui'
 import type { QuoteDoc, QuoteItemKind } from '@/lib/types'
 import { normalizeQuoteDoc } from '@/lib/ai/parsers'
-import { calcTotals, fmtKRW } from '@/lib/calc'
+import { calcTotals, effectiveLineTotalWon, fmtKRW, snapUnitPriceToThousandWon } from '@/lib/calc'
 import { KIND_ORDER, subtotalsByKind } from '@/lib/quoteGroup'
 
 interface Props {
@@ -18,7 +18,11 @@ export default function QuoteView({ doc, onChange, companyName }: Props) {
 
   function updateItem(ci: number, ii: number, key: string, val: string | number) {
     const updated = structuredClone(doc)
-    ;(updated.quoteItems[ci].items[ii] as any)[key] = val
+    const line = updated.quoteItems[ci].items[ii] as QuoteDoc['quoteItems'][0]['items'][0]
+    ;(line as unknown as Record<string, unknown>)[key] = val
+    if (key === 'qty' || key === 'unitPrice') {
+      line.total = effectiveLineTotalWon(line)
+    }
     onChange(updated)
   }
   function deleteItem(ci: number, ii: number) {
@@ -141,7 +145,7 @@ export default function QuoteView({ doc, onChange, companyName }: Props) {
                             <td className="px-2.5 py-1.5"><input className="w-full bg-transparent focus:outline-none text-gray-500" value={it.spec} onChange={e => updateItem(ci,ii,'spec',e.target.value)} /></td>
                             <td className="px-2.5 py-1.5 text-right"><input className="w-10 text-right bg-transparent focus:outline-none" value={it.qty} onChange={e => updateItem(ci,ii,'qty',+e.target.value)} /></td>
                             <td className="px-2.5 py-1.5"><input className="w-8 bg-transparent focus:outline-none" value={it.unit} onChange={e => updateItem(ci,ii,'unit',e.target.value)} /></td>
-                            <td className="px-2.5 py-1.5 text-right"><input className="w-24 text-right bg-transparent focus:outline-none tabular-nums" value={fmtKRW(it.unitPrice)} onChange={e => updateItem(ci,ii,'unitPrice',+e.target.value.replace(/,/g,''))} /></td>
+                            <td className="px-2.5 py-1.5 text-right"><input className="w-24 text-right bg-transparent focus:outline-none tabular-nums" value={fmtKRW(it.unitPrice)} onChange={e => updateItem(ci,ii,'unitPrice',+e.target.value.replace(/,/g,''))} onBlur={() => updateItem(ci, ii, 'unitPrice', snapUnitPriceToThousandWon(Number(it.unitPrice ?? 0)))} /></td>
                             <td className="px-2.5 py-1.5 text-right font-medium tabular-nums">{fmtKRW(it.total)}</td>
                             <td className="px-2.5 py-1.5"><input className="w-full bg-transparent focus:outline-none text-gray-400" value={it.note} onChange={e => updateItem(ci,ii,'note',e.target.value)} /></td>
                             <td className="px-2 py-1.5"><button type="button" onClick={() => deleteItem(ci,ii)} className="opacity-0 group-hover:opacity-100 text-red-400 hover:text-red-600 text-xs">✕</button></td>

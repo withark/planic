@@ -1,5 +1,5 @@
 import { generateQuoteWithMeta, type GenerateInput } from '@/lib/ai'
-import { calcTotals, uid } from '@/lib/calc'
+import { calcTotals, normalizeQuoteUnitPricesToThousand, uid } from '@/lib/calc'
 import { getDefaultCompanyProfile, profileToCompanySettings } from '@/lib/db/company-profiles-db'
 import { DEFAULT_SETTINGS } from '@/lib/defaults'
 import { quotesDbAppend } from '@/lib/db/quotes-db'
@@ -366,6 +366,7 @@ export async function executeGeneratePipeline(
     doc = applyFixedEstimateTemplateV2(doc, prices)
     budgetConstraint = enforceBudgetHardConstraint(doc, body.budget || '')
     doc.budgetConstraint = budgetConstraint
+    normalizeQuoteUnitPricesToThousand(doc)
   }
 
   const totals = calcTotals(doc)

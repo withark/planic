@@ -1,6 +1,6 @@
 import type ExcelJS from 'exceljs'
 import type { QuoteDoc, CompanySettings } from '@/lib/types'
-import { calcTotals, getQuoteDateForFilename } from '@/lib/calc'
+import { calcTotals, getQuoteDateForFilename, normalizeQuoteUnitPricesToThousand } from '@/lib/calc'
 import { KIND_ORDER, groupQuoteItemsByKind } from '@/lib/quoteGroup'
 
 export type ExcelExportView =
@@ -234,6 +234,7 @@ async function buildQuoteSheet(
   doc: QuoteDoc,
   company?: CompanySettings | null,
 ) {
+  normalizeQuoteUnitPricesToThousand(doc)
   const ws = workbook.addWorksheet('견적서')
   ws.columns = [
     { width: 10 },
