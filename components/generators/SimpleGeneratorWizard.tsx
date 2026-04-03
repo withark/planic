@@ -16,6 +16,8 @@ export type WizardMode = {
   id: string
   title: string
   desc?: string
+  /** true면 선택 불가(플랜 등) — 클릭 시 onBlockedModeClick 호출 */
+  disabled?: boolean
 }
 
 function getScrollParent(el: HTMLElement | null): HTMLElement | null {
@@ -45,6 +47,10 @@ export default function SimpleGeneratorWizard({
   preStepContent,
   /** 1단계「기준 선택」제목 줄 오른쪽에 붙는 보조 UI(예: 고급 생성 방식 토글) */
   step1HeaderExtra,
+  /** 잠긴 모드 카드 클릭 시(무료 플랜 등) */
+  onBlockedModeClick,
+  /** 상단 보라색 태그줄「바로 전달 가능한 문서 생성」 */
+  showHeaderEyebrow = true,
   showValidationBanner = true,
   step2ActionLabel = '생성 단계로 이동',
 }: {
@@ -62,6 +68,8 @@ export default function SimpleGeneratorWizard({
   validationMessage?: string | null
   preStepContent?: ReactNode
   step1HeaderExtra?: ReactNode
+  onBlockedModeClick?: (modeId: string) => void
+  showHeaderEyebrow?: boolean
   showValidationBanner?: boolean
   step2ActionLabel?: string
 }) {
@@ -214,8 +222,12 @@ export default function SimpleGeneratorWizard({
     <div ref={rootRef} className="rounded-[28px] border border-slate-200 bg-white p-5 shadow-card sm:p-7">
       <div className="flex flex-wrap items-start justify-between gap-4">
         <div className="max-w-3xl">
-          <div className="text-xs font-semibold tracking-wide text-primary-700">바로 전달 가능한 문서 생성</div>
-          <div className="mt-2 text-xl font-semibold tracking-tight text-slate-900 sm:text-[28px]">{title}</div>
+          {showHeaderEyebrow ? (
+            <div className="text-xs font-semibold tracking-wide text-primary-700">바로 전달 가능한 문서 생성</div>
+          ) : null}
+          <div className={clsx('text-xl font-semibold tracking-tight text-slate-900 sm:text-[28px]', showHeaderEyebrow && 'mt-2')}>
+            {title}
+          </div>
           {subtitle ? <div className="mt-2 text-[15px] leading-7 text-slate-600 sm:text-base">{subtitle}</div> : null}
         </div>
       </div>
@@ -276,28 +288,48 @@ export default function SimpleGeneratorWizard({
           <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 xl:grid-cols-4">
             {modes.map((m) => {
               const active = m.id === modeId
+              const locked = !!m.disabled
               return (
                 <button
                   key={m.id}
                   type="button"
-                  onClick={() => onModeChange(m.id)}
+                  aria-disabled={locked}
+                  onClick={() => {
+                    if (locked) {
+                      onBlockedModeClick?.(m.id)
+                      return
+                    }
+                    onModeChange(m.id)
+                  }}
                   className={clsx(
                     'rounded-2xl border p-4 text-left shadow-sm transition-all',
-                    active
-                      ? 'border-primary-400 bg-primary-50/90 ring-2 ring-primary-500/35 shadow-md'
-                      : 'border-slate-200 bg-white hover:border-primary-200 hover:bg-slate-50 hover:shadow',
+                    locked &&
+                      'cursor-not-allowed border-slate-200 bg-slate-50/90 opacity-75 hover:border-slate-200 hover:bg-slate-50/90 hover:shadow-sm',
+                    !locked &&
+                      (active
+                        ? 'border-primary-400 bg-primary-50/90 ring-2 ring-primary-500/35 shadow-md'
+                        : 'border-slate-200 bg-white hover:border-primary-200 hover:bg-slate-50 hover:shadow'),
                   )}
                 >
                   <div className="flex items-start justify-between gap-3">
-                    <div className="text-[15px] font-semibold text-slate-900">{m.title}</div>
+                    <div className="flex min-w-0 items-center gap-1.5 text-[15px] font-semibold text-slate-900">
+                      <span className="min-w-0">{m.title}</span>
+                      {locked ? (
+                        <span className="shrink-0 rounded border border-slate-200 bg-white px-1 py-px text-[10px] font-semibold text-slate-500" aria-hidden>
+                          플랜
+                        </span>
+                      ) : null}
+                    </div>
                     <span
                       className={clsx(
                         'mt-0.5 flex h-5 w-5 shrink-0 items-center justify-center rounded-full border-2 transition-colors',
-                        active ? 'border-primary-600 bg-primary-600' : 'border-slate-300 bg-white',
+                        locked && 'border-slate-300 bg-slate-100',
+                        !locked && active && 'border-primary-600 bg-primary-600',
+                        !locked && !active && 'border-slate-300 bg-white',
                       )}
                       aria-hidden="true"
                     >
-                      {active ? <span className="h-1.5 w-1.5 rounded-full bg-white" /> : null}
+                      {!locked && active ? <span className="h-1.5 w-1.5 rounded-full bg-white" /> : null}
                     </span>
                   </div>
                   {m.desc ? <div className={clsx('mt-2 text-sm leading-5', active ? 'text-slate-600' : 'text-slate-500')}>{m.desc}</div> : null}

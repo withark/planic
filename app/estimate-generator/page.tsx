@@ -138,20 +138,25 @@ function EstimateGeneratorContent() {
 
   const modes: WizardMode[] = useMemo(
     () => [
-      { id: 'fromTopic', title: '주제만 입력', desc: '행사 주제와 예산 범위만으로 빠르게 견적서를 생성합니다.' },
-      { id: 'fromTaskOrder', title: '과업지시서 기준', desc: '요구사항 문서를 바탕으로 바로 견적서를 생성합니다.' },
-      { id: 'fromEstimate', title: '저장된 견적서 기준', desc: '기존 문서를 토대로 비슷한 유형의 견적을 재작성합니다.' },
+      { id: 'fromTopic', title: '주제만 입력' },
+      { id: 'fromTaskOrder', title: '과업지시서 기준' },
+      { id: 'fromEstimate', title: '저장된 견적서 기준' },
     ],
     [],
   )
   const isAdvancedModeAvailable = useMemo(() => isPaidPlan(me?.subscription?.planType ?? 'FREE'), [me?.subscription?.planType])
-  const planFeatureHint = isAdvancedModeAvailable
-    ? '현재 플랜: 기본 + 고급 방식 사용 가능'
-    : '현재 플랜: 기본 방식만 사용 가능 (고급 방식은 베이직 이상)'
   const modesForWizard = useMemo(() => {
-    if (isAdvancedModeAvailable && (showAdvancedModes || sourceMode !== 'fromTopic')) return modes
-    return [modes[0]]
-  }, [modes, showAdvancedModes, sourceMode, isAdvancedModeAvailable])
+    if (!isAdvancedModeAvailable) {
+      return modes.map((m) => ({
+        ...m,
+        disabled: m.id !== 'fromTopic',
+      }))
+    }
+    if (showAdvancedModes || sourceMode !== 'fromTopic') {
+      return modes.map((m) => ({ ...m, disabled: false }))
+    }
+    return [{ ...modes[0], disabled: false }]
+  }, [modes, isAdvancedModeAvailable, showAdvancedModes, sourceMode])
 
   useEffect(() => {
     apiFetch<MeLite>('/api/me').then(setMe).catch(() => {})
@@ -569,40 +574,18 @@ function EstimateGeneratorContent() {
     <div className="flex h-screen overflow-hidden bg-gray-50/50">
       <GNB />
       <div className="flex min-h-0 flex-1 flex-col overflow-hidden">
-        <header className="flex flex-shrink-0 flex-wrap items-center justify-between gap-3 border-b border-slate-200 bg-white/95 px-4 py-3 sm:px-6">
-          <div className="min-w-0">
-            <h1 className="text-lg font-semibold tracking-tight text-slate-900 sm:text-xl">견적서 생성</h1>
-            <p className="mt-0.5 hidden text-sm text-slate-600 sm:block">주제·예산 입력 후 생성하거나, 저장된 견적을 불러와 수정할 수 있습니다.</p>
-          </div>
-          <div className="flex flex-wrap items-center gap-2">
-            {isAdvancedModeAvailable ? (
-              <button
-                type="button"
-                onClick={() => {
-                  const next = !showAdvancedModes
-                  setShowAdvancedModes(next)
-                  if (!next && sourceMode !== 'fromTopic') {
-                    setSourceMode('fromTopic')
-                  }
-                }}
-                className="rounded-lg border border-slate-200 bg-white px-2.5 py-1.5 text-xs font-semibold text-slate-700 hover:bg-slate-50 sm:text-sm"
-              >
-                {showAdvancedModes ? '고급 숨기기' : '고급'}
-              </button>
-            ) : null}
-            {me?.subscription?.planType === 'FREE' && (
-              <span className="rounded-lg border border-amber-200 bg-amber-50 px-2 py-1 text-xs font-semibold text-amber-700">무료</span>
-            )}
-          </div>
+        <header className="flex flex-shrink-0 flex-wrap items-center border-b border-slate-200 bg-white/95 px-4 py-3 sm:px-6">
+          <h1 className="text-lg font-semibold tracking-tight text-slate-900 sm:text-xl">견적서 생성</h1>
         </header>
 
         <div className="flex min-h-0 flex-1 flex-col lg:flex-row">
           <div className="min-h-0 min-w-0 flex-1 overflow-y-auto border-slate-200 lg:max-w-[min(100%,520px)] lg:flex-none lg:border-r lg:bg-white">
             <div id="estimate-wizard-top" className="p-4 sm:p-6">
-              <p className="mb-4 text-xs text-slate-500">{planFeatureHint}</p>
               {me ? (
-                <p className="mb-4 text-xs text-slate-500">
-                  이번 달: {me.usage.quoteGeneratedCount}/{me.limits.monthlyQuoteGenerateLimit}
+                <p className="mb-3 text-[11px] text-slate-500 tabular-nums">
+                  {me.subscription.planType}
+                  {' · '}
+                  {me.usage.quoteGeneratedCount}/{me.limits.monthlyQuoteGenerateLimit}
                   {me.subscription.planType === 'PREMIUM'
                     ? ` · 프리미엄 ${me.usage.premiumGeneratedCount}/${me.limits.monthlyPremiumGenerationLimit}`
                     : ''}
@@ -611,10 +594,28 @@ function EstimateGeneratorContent() {
             <section className="min-w-0">
               <SimpleGeneratorWizard
             title="견적서 생성하기"
-            subtitle="필수 정보만 입력하고 바로 생성하세요."
+            showHeaderEyebrow={false}
             preStepContent={null}
             modes={modesForWizard}
             modeId={sourceMode}
+            step1HeaderExtra={
+              isAdvancedModeAvailable ? (
+                <button
+                  type="button"
+                  onClick={() => {
+                    const next = !showAdvancedModes
+                    setShowAdvancedModes(next)
+                    if (!next && sourceMode !== 'fromTopic') {
+                      setSourceMode('fromTopic')
+                    }
+                  }}
+                  className="rounded-lg border border-primary-300 bg-primary-50/80 px-2.5 py-1 text-xs font-semibold text-primary-900 hover:bg-primary-100"
+                >
+                  {showAdvancedModes ? '닫기' : '고급'}
+                </button>
+              ) : null
+            }
+            onBlockedModeClick={() => showToast('베이직 이상 플랜에서 사용할 수 있어요.')}
             onModeChange={(id) => {
               const next = id as SourceMode
               setSourceMode(next)
