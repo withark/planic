@@ -101,6 +101,8 @@ function EstimateGeneratorContent() {
   const [generatedDocId, setGeneratedDocId] = useState<string | null>(null)
   const [generating, setGenerating] = useState(false)
   const [generationProgressLabel, setGenerationProgressLabel] = useState<string | null>(null)
+  /** 생성 스트림 단계 로그(우측 채팅형 진행 UI) */
+  const [generationStageLog, setGenerationStageLog] = useState<string[]>([])
   const [saving, setSaving] = useState(false)
   const generatingTabs = useMemo(() => ({ estimate: generating }), [generating])
 
@@ -350,10 +352,14 @@ function EstimateGeneratorContent() {
     }
 
     setGenerating(true)
+    setGenerationStageLog(['요청을 서버로 보내는 중…'])
     setGenerationProgressLabel('입력 확인 중')
     try {
       const data = await apiGenerateStream(body, {
-        onStage: ({ label }) => setGenerationProgressLabel(label),
+        onStage: ({ label }) => {
+          setGenerationProgressLabel(label)
+          setGenerationStageLog((prev) => (prev[prev.length - 1] === label ? prev : [...prev, label]))
+        },
       })
       setDoc(data.doc)
       setGeneratedDocId(data.id)
@@ -367,6 +373,7 @@ function EstimateGeneratorContent() {
     } finally {
       setGenerating(false)
       setGenerationProgressLabel(null)
+      setGenerationStageLog([])
     }
   }, [requestBodyForEstimate, showToast, sourceMode, priceItemCount])
 
@@ -542,10 +549,10 @@ function EstimateGeneratorContent() {
             />
           </div>
           <Textarea
-            label="추가 메모(선택)"
+            label="추가 요청 · 프롬프트(선택)"
             value={notes}
             onChange={(e) => setNotes(e.target.value)}
-            placeholder="예) VIP 동선 고려, 발표 시간/세션 구조 등"
+            placeholder="예) 트러스·현수막 제외, VIP 동선, 발표 구조 등 — 단가표 품목과 맞는 말로 쓰면 반영됩니다."
             rows={3}
           />
         </div>
@@ -770,6 +777,63 @@ function EstimateGeneratorContent() {
                         }
                       }}
                     />
+                  </div>
+                </div>
+              ) : generating ? (
+                <div className="flex h-full min-h-[320px] flex-col gap-4">
+                  <div>
+                    <h2 className="text-sm font-semibold text-slate-800">견적 생성 진행</h2>
+                    <p className="mt-1 text-xs text-slate-500">
+                      단계가 순서대로 쌓이며, 완료되면 오른쪽에 견적서가 열립니다.
+                    </p>
+                  </div>
+                  <div className="flex min-h-0 flex-1 flex-col gap-2.5 overflow-y-auto rounded-2xl border border-primary-100/80 bg-gradient-to-b from-white to-primary-50/40 p-4 shadow-inner">
+                    <div className="flex gap-2">
+                      <div className="mt-0.5 flex h-8 w-8 flex-shrink-0 items-center justify-center rounded-full bg-primary-600 text-xs font-bold text-white">
+                        P
+                      </div>
+                      <div className="min-w-0 flex-1 rounded-2xl rounded-tl-sm border border-slate-200 bg-white px-3.5 py-2.5 text-sm leading-relaxed text-slate-800 shadow-sm">
+                        <span className="font-semibold text-primary-800">Planic</span>
+                        <span className="text-slate-600"> — 입력하신 주제·예산·단가표를 바탕으로 견적을 구성하고 있어요.</span>
+                      </div>
+                    </div>
+                    {notes.trim() ? (
+                      <div className="ml-8 flex gap-2">
+                        <div className="mt-0.5 flex h-8 w-8 flex-shrink-0 items-center justify-center rounded-full border border-slate-200 bg-slate-100 text-[10px] font-bold text-slate-600">
+                          나
+                        </div>
+                        <div className="min-w-0 flex-1 rounded-2xl rounded-tl-sm border border-emerald-100 bg-emerald-50/80 px-3.5 py-2.5 text-sm text-slate-800 shadow-sm">
+                          <p className="text-[11px] font-semibold uppercase tracking-wide text-emerald-800">프롬프트(추가 요청)</p>
+                          <p className="mt-1 whitespace-pre-wrap break-words">{notes.trim()}</p>
+                        </div>
+                      </div>
+                    ) : null}
+                    {generationStageLog.map((line, i) => {
+                      const isLast = i === generationStageLog.length - 1
+                      return (
+                        <div key={`${line}-${i}`} className="flex gap-2">
+                          <div className="mt-0.5 flex h-8 w-8 flex-shrink-0 items-center justify-center rounded-full bg-primary-600 text-xs font-bold text-white">
+                            P
+                          </div>
+                          <div
+                            className={`min-w-0 flex-1 rounded-2xl rounded-tl-sm px-3.5 py-2.5 text-sm text-slate-800 shadow-sm ${
+                              isLast
+                                ? 'border border-dashed border-primary-200 bg-primary-50/70 font-medium text-primary-950'
+                                : 'border border-slate-200 bg-white'
+                            }`}
+                          >
+                            <span className="text-slate-400">{i + 1}.</span> {line}
+                            {isLast ? (
+                              <span className="ml-1.5 inline-flex gap-0.5 align-middle" aria-hidden>
+                                <span className="inline-block h-1.5 w-1.5 animate-bounce rounded-full bg-primary-500 [animation-delay:-0.2s]" />
+                                <span className="inline-block h-1.5 w-1.5 animate-bounce rounded-full bg-primary-500 [animation-delay:-0.1s]" />
+                                <span className="inline-block h-1.5 w-1.5 animate-bounce rounded-full bg-primary-500" />
+                              </span>
+                            ) : null}
+                          </div>
+                        </div>
+                      )
+                    })}
                   </div>
                 </div>
               ) : (

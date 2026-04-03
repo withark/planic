@@ -363,7 +363,8 @@ export async function executeGeneratePipeline(
   ;(doc as QuoteDoc).quoteTemplate = normalizeTemplateForPlan(plan, (doc as QuoteDoc).quoteTemplate as any)
 
   if (documentTarget === 'estimate') {
-    doc = applyFixedEstimateTemplateV2(doc, prices)
+    const userPromptText = [body.requirements, body.briefNotes].filter(Boolean).join('\n').trim()
+    doc = applyFixedEstimateTemplateV2(doc, prices, { userPromptText })
     budgetConstraint = enforceBudgetHardConstraint(doc, body.budget || '')
     doc.budgetConstraint = budgetConstraint
     normalizeQuoteUnitPricesToThousand(doc)

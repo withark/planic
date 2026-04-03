@@ -1,6 +1,10 @@
 import type { PriceCategory, QuoteDoc, QuoteLineItem, QuoteItemKind } from '@/lib/types'
 import { isExcludedSupplyLineItem } from '@/lib/quote/supply-line-filter'
 import { snapUnitPriceToThousandWon } from '@/lib/calc'
+import {
+  extractLineItemExclusionKeywords,
+  lineItemMatchesExclusionKeyword,
+} from '@/lib/estimate/user-memo-exclusions'
 
 const TEMPLATE_NOTES = [
   '1. 본 견적서는 행사 규모 및 요구사항에 따라 변동될 수 있으며, 유효기간은 견적일로부터 30일입니다.',
@@ -42,9 +46,20 @@ function inferItemKind(categoryName: string, itemName: string): QuoteItemKind {
   return '필수'
 }
 
-export function applyFixedEstimateTemplateV2(doc: QuoteDoc, prices: PriceCategory[] = []): QuoteDoc {
+export type FixedEstimateApplyOptions = {
+  /** requirements·briefNotes·추가 메모를 합친 문자열 — 품목 제외 키워드 추출 */
+  userPromptText?: string
+}
+
+export function applyFixedEstimateTemplateV2(
+  doc: QuoteDoc,
+  prices: PriceCategory[] = [],
+  options?: FixedEstimateApplyOptions,
+): QuoteDoc {
   const generatedItems = (doc.quoteItems || []).flatMap((category) => category.items || [])
   const hasUserPriceTemplate = (prices || []).some((category) => (category.items || []).length > 0)
+  const exclusionKeywords = extractLineItemExclusionKeywords(options?.userPromptText)
+  const droppedByMemo: string[] = []
 
   if (hasUserPriceTemplate) {
     const quoteItems = (prices || [])
@@ -53,6 +68,14 @@ export function applyFixedEstimateTemplateV2(doc: QuoteDoc, prices: PriceCategor
         category: category.name || '기타',
         items: (category.items || [])
           .filter((item) => !isExcludedSupplyLineItem({ name: item.name }))
+          .filter((item) => {
+            if (!exclusionKeywords.length) return true
+            if (lineItemMatchesExclusionKeyword(item.name, exclusionKeywords)) {
+              droppedByMemo.push(item.name)
+              return false
+            }
+            return true
+          })
           .map((item) => {
           const matchedGenerated = findMatchingItem(item.name, generatedItems)
           const qty = Math.max(0, Math.round(matchedGenerated?.qty || 1))
@@ -75,6 +98,12 @@ export function applyFixedEstimateTemplateV2(doc: QuoteDoc, prices: PriceCategor
           }
         }),
       }))
+      .filter((cat) => (cat.items?.length ?? 0) > 0)
+
+    const memoNote =
+      droppedByMemo.length > 0
+        ? `\n\n[요청 반영] 추가 메모(프롬프트)에 따라 아래 항목은 견적에서 제외했습니다: ${[...new Set(droppedByMemo)].join(', ')}`
+        : ''
 
     return {
       ...doc,
@@ -83,7 +112,7 @@ export function applyFixedEstimateTemplateV2(doc: QuoteDoc, prices: PriceCategor
       profitRate: 7,
       validDays: 30,
       paymentTerms: TEMPLATE_PAYMENT_TERMS,
-      notes: TEMPLATE_NOTES,
+      notes: `${TEMPLATE_NOTES}${memoNote}`,
       quoteTemplate: 'fixed-v2',
     }
   }
