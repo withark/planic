@@ -826,6 +826,21 @@ function EstimateGeneratorContent() {
           placeholder="예) 80"
           inputMode="numeric"
         />
+        <div>
+          <label className="mb-1.5 block text-sm font-medium text-slate-800">예산 범위</label>
+          <p className="mb-1.5 text-xs text-slate-500">AI가 총액·항목 구성을 맞출 때 참고합니다.</p>
+          <select
+            value={budget}
+            onChange={(e) => setBudget(e.target.value)}
+            className="w-full rounded-xl border border-slate-200 bg-white px-3.5 py-3 text-[15px] text-slate-900 shadow-sm focus:outline-none focus:border-primary-400 focus:ring-4 focus:ring-primary-100/70"
+          >
+            {ESTIMATE_BUDGET_OPTIONS.map((o) => (
+              <option key={o.value} value={o.value}>
+                {o.label}
+              </option>
+            ))}
+          </select>
+        </div>
         <Textarea
           label="추가 요청사항(선택)"
           value={notes}
