@@ -4,6 +4,7 @@
   "private": true,
   "scripts": {
     "dev": "next dev",
+    "typecheck": "node -e \"try{require('fs').rmSync('.next',{recursive:true})}catch(e){}\" && tsc --noEmit",
     "prebuild": "node scripts/check-auth-env.mjs",
     "build": "next build",
     "start": "next start",
