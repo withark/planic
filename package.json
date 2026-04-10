@@ -17,7 +17,9 @@
     "test:db-fallback": "tsx scripts/test-db-fallback.ts",
     "test:e2e": "playwright test",
     "test:pdf-kind": "tsx scripts/test-pdf-export-kind.ts",
-    "verify:release": "npm run typecheck && npm run build && npm run test:db-fallback && npm run test:admin-auth-security && npm run test:pdf-kind && npm audit --audit-level=high --omit=dev"
+    "verify:release": "npm run typecheck && npm run build && npm run test:db-fallback && npm run test:admin-auth-security && npm run test:pdf-kind && npm audit --audit-level=high --omit=dev",
+    "check:merge-risk": "node scripts/report-merge-risk.mjs",
+    "check:merge-risk:wip": "node scripts/report-merge-risk.mjs origin/wip/cursor-desktop-stash"
   },
   "dependencies": {
     "@anthropic-ai/sdk": "^0.24.0",
