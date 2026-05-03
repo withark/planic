@@ -1,0 +1,190 @@
+.page {
+  margin: 0 auto;
+  max-width: 1200px;
+  padding: 40px 20px 64px;
+}
+
+.header {
+  align-items: flex-start;
+  display: flex;
+  gap: 16px;
+  justify-content: space-between;
+  margin-bottom: 24px;
+}
+
+.headerCopy {
+  display: flex;
+  flex: 1;
+  flex-direction: column;
+  gap: 14px;
+}
+
+.title {
+  color: #161616;
+  font-size: 2rem;
+  font-weight: 800;
+  letter-spacing: -0.03em;
+  margin: 0;
+}
+
+.metaBadges {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+}
+
+.metaBadge {
+  background: #f4f5f7;
+  border: 1px solid #e0e4ea;
+  border-radius: 999px;
+  color: #334155;
+  display: inline-flex;
+  font-size: 0.92rem;
+  font-weight: 600;
+  padding: 8px 14px;
+}
+
+.printButton {
+  background: #161616;
+  border: 0;
+  border-radius: 12px;
+  color: #ffffff;
+  cursor: pointer;
+  font-size: 0.95rem;
+  font-weight: 700;
+  padding: 12px 18px;
+  white-space: nowrap;
+}
+
+.tableWrapper {
+  overflow-x: auto;
+  width: 100%;
+}
+
+.table {
+  border-collapse: collapse;
+  min-width: 980px;
+  table-layout: fixed;
+  width: 100%;
+}
+
+.table th,
+.table td {
+  border: 1px solid #e5e7eb;
+  color: #1f2937;
+  font-size: 0.95rem;
+  padding: 12px 14px;
+  text-align: left;
+  vertical-align: top;
+}
+
+.table thead th {
+  background: #f8fafc;
+  font-weight: 700;
+}
+
+.sectionRow td {
+  background: #f1f5f9;
+}
+
+.sectionCell {
+  color: #111827;
+  font-size: 0.96rem;
+  font-weight: 800;
+}
+
+.dataRow {
+  background: #ffffff;
+}
+
+.timeCell {
+  font-weight: 700;
+  white-space: nowrap;
+}
+
+.programCell {
+  font-weight: 600;
+}
+
+.detailCell {
+  line-height: 1.6;
+  white-space: pre-line;
+}
+
+.typeBadge {
+  border-radius: 999px;
+  display: inline-flex;
+  font-size: 0.82rem;
+  font-weight: 700;
+  line-height: 1;
+  padding: 7px 10px;
+  white-space: nowrap;
+}
+
+.typeIndividual {
+  background: #eeedfe;
+  color: #3c3489;
+}
+
+.typeTeam {
+  background: #e1f5ee;
+  color: #085041;
+}
+
+.typeAll {
+  background: #faeeda;
+  color: #633806;
+}
+
+.typeOps {
+  background: #f1efe8;
+  color: #5f5e5a;
+}
+
+.noPrint {
+  display: inline-flex;
+}
+
+@media (max-width: 768px) {
+  .page {
+    padding: 28px 16px 40px;
+  }
+
+  .header {
+    flex-direction: column;
+  }
+
+  .title {
+    font-size: 1.7rem;
+  }
+
+  .printButton {
+    width: 100%;
+  }
+}
+
+@media print {
+  .noPrint {
+    display: none !important;
+  }
+
+  .page {
+    max-width: none;
+    padding: 0;
+  }
+
+  .tableWrapper,
+  .table {
+    width: 100%;
+  }
+
+  .sectionRow td,
+  .table thead th {
+    -webkit-print-color-adjust: exact;
+    print-color-adjust: exact;
+  }
+
+  .table tr {
+    page-break-inside: avoid;
+  }
+}

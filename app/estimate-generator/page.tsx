@@ -18,6 +18,8 @@ import { exportToPdf } from '@/lib/exportPdf'
 import { isPaidPlan, type PlanType } from '@/lib/plans'
 import { isExcludedSupplyLineItem } from '@/lib/quote/supply-line-filter'
 import { calcTotals, normalizeQuoteUnitPricesToThousand } from '@/lib/calc'
+import { saveAs } from 'file-saver'
+import { generateProposal } from '@/src/lib/generateProposal'
 
 type MeLite = {
   user?: { id?: string | null; email?: string | null } | null
@@ -117,6 +119,7 @@ function EstimateGeneratorContent() {
   /** 생성 스트림 단계 로그(우측 채팅형 진행 UI) */
   const [generationStageLog, setGenerationStageLog] = useState<string[]>([])
   const [saving, setSaving] = useState(false)
+  const [proposalGenerating, setProposalGenerating] = useState(false)
   const generatingTabs = useMemo(() => ({ estimate: generating }), [generating])
 
   const userDraftStorageKey = useMemo(() => {
@@ -611,6 +614,62 @@ function EstimateGeneratorContent() {
     [generatedDocId, showToast],
   )
 
+  const handleProposalDownload = useCallback(async () => {
+    const proposalSource = doc ?? selectedHistoryDoc
+    if (!proposalSource) {
+      showToast('제안서로 내보낼 문서 정보가 없습니다.')
+      return
+    }
+
+    setProposalGenerating(true)
+    try {
+      const requestBody = requestBodyForEstimate()
+      const requirementsText =
+        sourceMode === 'fromPrompt'
+          ? vendorBrief.trim()
+          : notes.trim()
+      const followUpText = notes.trim()
+      const noteText = proposalSource.notes?.trim() || ''
+
+      const blob = await generateProposal({
+        clientName: proposalSource.clientName || clientName.trim(),
+        contact: proposalSource.clientTel || clientTel.trim(),
+        eventName: proposalSource.eventName || topic.trim(),
+        eventDate: proposalSource.eventDate || (requestBody?.eventDate ?? ''),
+        eventPlace: proposalSource.venue || venue.trim(),
+        headcount: proposalSource.headcount || headcount.trim(),
+        budget: requestBody?.budget || budget,
+        eventType: proposalSource.eventType || eventType.trim(),
+        requirements: requirementsText,
+        followUp: followUpText,
+        notes: noteText,
+      })
+
+      const filename = `제안서_${(proposalSource.clientName || clientName || '고객').trim()}_${(proposalSource.eventDate || requestBody?.eventDate || '미정').trim()}.docx`
+      saveAs(blob, filename)
+      showToast('제안서 다운로드를 시작했습니다.')
+    } catch (e) {
+      showToast(toUserMessage(e, '제안서 생성에 실패했습니다.'))
+    } finally {
+      setProposalGenerating(false)
+    }
+  }, [
+    budget,
+    clientName,
+    clientTel,
+    doc,
+    eventType,
+    headcount,
+    notes,
+    requestBodyForEstimate,
+    selectedHistoryDoc,
+    showToast,
+    sourceMode,
+    topic,
+    vendorBrief,
+    venue,
+  ])
+
   const handleLoadSavedEstimate = useCallback(() => {
     const id = loadPickerId.trim()
     if (!id) {
@@ -1057,6 +1116,14 @@ function EstimateGeneratorContent() {
                         </span>
                       </div>
                       <div className="ml-auto flex flex-wrap items-center gap-2">
+                        <button
+                          type="button"
+                          onClick={() => void handleProposalDownload()}
+                          disabled={proposalGenerating}
+                          className="rounded-lg border border-slate-300 bg-slate-100 px-3 py-1.5 text-xs font-semibold text-slate-700 hover:bg-slate-200 disabled:opacity-60 sm:text-sm"
+                        >
+                          {proposalGenerating ? '생성 중...' : '제안서 생성'}
+                        </button>
                         <button
                           type="button"
                           onClick={() => void handleSaveDoc(doc)}
