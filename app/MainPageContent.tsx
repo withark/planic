@@ -44,39 +44,28 @@ const featureCards = [
 
 const templateCards = [
   {
-    label: '견적서',
-    description: '행사 예산·항목·금액 기준을 빠르게 정리해야 할 때',
+    label: '제안서',
+    description: '행사 개요·프로그램·견적을 포함한 완성형 제안서',
     Icon: LandingIconDocCurrency,
-  },
-  {
-    label: '기획안',
-    description: '행사 목적과 구성 흐름을 문서로 정리해야 할 때',
-    Icon: LandingIconDocLightbulb,
-  },
-  {
-    label: '프로그램 제안서',
-    description: '세션·순서 중심의 프로그램 구성을 제안해야 할 때',
-    Icon: LandingIconSlides,
-  },
-  {
-    label: '시나리오',
-    description: '시간 흐름과 진행 멘트까지 포함한 실행안이 필요할 때',
-    Icon: LandingIconClapper,
-  },
-  {
-    label: '사회자 멘트',
-    description: 'MC가 현장에서 읽을 구간별 대본이 필요할 때',
-    Icon: LandingIconMic,
+    href: '/create/proposal',
   },
   {
     label: '큐시트',
     description: '현장 운영 순서와 역할 분담을 시간축으로 맞출 때',
     Icon: LandingIconTimeline,
+    href: '/create/cuesheet',
+  },
+  {
+    label: '사회자 멘트',
+    description: 'MC가 현장에서 읽을 구간별 대본이 필요할 때',
+    Icon: LandingIconMic,
+    href: '/create/emcee',
   },
   {
     label: '과업지시서 요약',
     description: '긴 요구사항 문서에서 핵심만 빠르게 추려야 할 때',
     Icon: LandingIconClipboard,
+    href: '/create/task-summary',
   },
 ]
 
@@ -226,7 +215,7 @@ function QuoteMarkIcon({ className }: { className?: string }) {
 
 export async function MainPageContent() {
   const session = await getServerSession(authOptions)
-  const initialStartHref = buildStartHref({ isAuthenticated: !!session, targetPath: '/dashboard' })
+  const initialStartHref = buildStartHref({ isAuthenticated: !!session, targetPath: '/create/proposal' })
   const loginHref = session ? '/dashboard' : '/auth'
   const loginLabel = session ? '대시보드' : '로그인'
 
@@ -348,20 +337,24 @@ export async function MainPageContent() {
               유형만 고르면 그에 맞는 완성본 레이아웃·항목으로 바로 생성합니다.
             </p>
           </div>
-          <div className="mt-10 grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+          <div className="mt-10 grid gap-4 sm:grid-cols-2 lg:grid-cols-2">
             {templateCards.map((template) => {
               const TIcon = template.Icon
               return (
-                <article
+                <Link
                   key={template.label}
-                  className="rounded-2xl border border-slate-200/90 bg-white p-6 shadow-sm transition-all hover:-translate-y-0.5 hover:border-primary-200 hover:shadow-lg hover:shadow-primary-500/10"
+                  href={template.href}
+                  className="group rounded-2xl border border-slate-200/90 bg-white p-6 shadow-sm transition-all hover:-translate-y-0.5 hover:border-primary-200 hover:shadow-lg hover:shadow-primary-500/10"
                 >
                   <div className="mb-4 inline-flex h-11 w-11 items-center justify-center rounded-xl bg-primary-50 text-primary-600 ring-1 ring-primary-100">
                     <TIcon className="h-5 w-5" />
                   </div>
                   <h3 className="text-base font-semibold text-slate-900">{template.label}</h3>
                   <p className="mt-2 text-sm leading-relaxed text-slate-600">{template.description}</p>
-                </article>
+                  <p className="mt-3 text-xs font-semibold text-primary-600 opacity-0 transition-opacity group-hover:opacity-100">
+                    생성하기 →
+                  </p>
+                </Link>
               )
             })}
           </div>
