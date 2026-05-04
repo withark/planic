@@ -29,16 +29,15 @@ function ArrowIntoIcon({ className }: { className?: string }) {
   )
 }
 
-const QUICK_START_DOC_HREFS = ['/estimate-generator', '/planning-generator', '/cue-sheet-generator'] as const
+const QUICK_START_DOC_HREFS = [
+  '/create/proposal',
+  '/create/cuesheet',
+  '/create/emcee',
+  '/create/task-summary',
+] as const
 
 const DOC_TYPE_BY_HREF: Record<string, AppDocumentType> = {
-  '/estimate-generator': 'estimate',
-  '/planning-generator': 'planning',
-  '/program-proposal-generator': 'program',
-  '/scenario-generator': 'scenario',
-  '/cue-sheet-generator': 'cuesheet',
-  '/task-order-summary': 'taskOrderSummary',
-  '/emcee-script-generator': 'emceeScript',
+  // 새 /create/* 라우트는 플랜 잠금 없이 모두 접근 가능
 }
 
 export function CreateDocumentsHubBody() {
