@@ -8,6 +8,7 @@ import { EVENT_TYPE_GROUPS } from '@/lib/estimate/event-types'
 import { apiFetch, ApiError } from '@/lib/api/client'
 import { toUserMessage } from '@/lib/errors/toUserMessage'
 import { buildAuthHref } from '@/lib/auth-redirect'
+import { exportProposal } from '@/lib/exportProposal'
 
 /** 전화번호 숫자만 추출 후 자동 하이픈 포맷 (한국 형식) */
 function formatPhoneDisplay(value: string): string {
@@ -141,9 +142,10 @@ export default function InputForm({
   taskOrderBaseId,
   taskOrderSummary,
 }: Props) {
-  const [loading, setLoading]   = useState(false)
-  const [error, setError]       = useState('')
-  const [statusMsg, setStatusMsg] = useState('')
+  const [loading, setLoading]         = useState(false)
+  const [proposalLoading, setProposalLoading] = useState(false)
+  const [error, setError]             = useState('')
+  const [statusMsg, setStatusMsg]     = useState('')
 
   const [clientName,    setClientName]    = useState('')
   const [clientManager, setClientManager] = useState('')
@@ -326,6 +328,48 @@ export default function InputForm({
     }
   }
 
+  async function handleExportProposal() {
+    setProposalLoading(true)
+    setError('')
+    try {
+      const headcount =
+        headMin && headMax ? `${Number(headMin).toLocaleString()}명~${Number(headMax).toLocaleString()}명` :
+        headMin            ? `${Number(headMin).toLocaleString()}명 이상` :
+        headMax            ? `${Number(headMax).toLocaleString()}명 이하` :
+        '미정'
+
+      const budgetLabel =
+        budgetPreset === 'custom'
+          ? (budgetCustom.trim() || '미정')
+          : budgetPreset === '소'
+            ? '소규모(300만원 이하)'
+            : budgetPreset === '대'
+              ? '대규모(1000만원 이상)'
+              : budgetPreset === '미정'
+                ? '미정'
+                : '중규모(300~1000만원)'
+
+      await exportProposal({
+        clientName:   clientName  || '',
+        contact:      clientTel   || '',
+        eventName:    eventName   || '',
+        eventDate:    formatKorDate(eventDate),
+        eventPlace:   venue       || '',
+        headcount,
+        budget:       budgetLabel,
+        eventType:    eventType   || '',
+        requirements,
+        followUp:     '',
+        notes:        '',
+      })
+    } catch (e) {
+      setError('제안서 생성에 실패했습니다. 다시 시도해주세요.')
+      console.error(e)
+    } finally {
+      setProposalLoading(false)
+    }
+  }
+
   return (
     <form onSubmit={handleSubmit} className="flex min-h-0 flex-1 flex-col gap-3 overflow-y-auto overflow-x-hidden p-4 min-w-0">
       <SectionLabel>행사 기본 정보</SectionLabel>
@@ -465,10 +509,19 @@ export default function InputForm({
         <p className="text-xs text-red-500 bg-red-50 px-2.5 py-2 rounded-lg">{error}</p>
       )}
 
+      <button
+        type="button"
+        onClick={handleExportProposal}
+        disabled={proposalLoading || loading}
+        className="w-full justify-center py-2.5 text-sm mt-1 rounded-lg font-medium bg-slate-700 hover:bg-slate-600 disabled:opacity-50 disabled:cursor-not-allowed text-white transition-colors"
+      >
+        {proposalLoading ? '생성 중...' : '제안서 생성 (Word)'}
+      </button>
+
       <Btn
         type="submit"
         variant="primary"
-        disabled={loading}
+        disabled={loading || proposalLoading}
         className="w-full justify-center py-2.5 text-sm mt-1"
       >
         {loading ? <Spinner label={statusMsg} /> : '플래닉으로 견적서 생성하기'}
