@@ -1,10 +1,11 @@
-import type { QuoteDoc } from '@/lib/types'
+import type { EmceeContent } from '@/lib/types/doc-content'
 import {
   AlignmentType,
   BorderStyle,
   Document,
   Footer,
   Header,
+  PageNumber,
   Packer,
   Paragraph,
   ShadingType,
@@ -16,141 +17,257 @@ import {
 } from 'docx'
 import { saveAs } from 'file-saver'
 
-const NAVY = '1C2B4A'
-const LIGHT_BLUE = 'E8EEF7'
-const GRAY = 'F5F5F5'
-const FONT = '맑은 고딕'
-const TEXT = '333333'
+const NAVY  = '1C2B4A'
+const GRAY  = 'F5F5F5'
+const FONT  = '맑은 고딕'
+const TEXT  = '333333'
+const LIGHT = 'E8EEF7'
+const BLUE  = '2E4E8A'
 
-function safeStr(v: unknown): string {
-  return String(v ?? '').trim()
+function s(v: unknown): string { return String(v ?? '').trim() }
+
+function todayKor(): string {
+  const d = new Date()
+  return `${d.getFullYear()}년 ${d.getMonth() + 1}월 ${d.getDate()}일`
 }
 
-function cellPara(text: string, opts?: { bold?: boolean; white?: boolean; size?: number; wrap?: boolean }): Paragraph {
-  return new Paragraph({
-    children: [
-      new TextRun({
-        text: safeStr(text),
-        font: FONT,
-        size: opts?.size ?? 18,
-        color: opts?.white ? 'FFFFFF' : TEXT,
-        bold: opts?.bold,
-      }),
-    ],
-  })
+function gap(n = 100): Paragraph {
+  return new Paragraph({ text: '', spacing: { after: n } })
 }
 
-// 컬럼 너비: 순서(4) / 시간(7) / 구간(12) / 멘트(52) / 큐(13) / 비고(12)
-const COL_WIDTHS = [4, 7, 12, 52, 13, 12]
+// 열 너비: 순서(5) / 시간(7) / 구간(14) / 멘트(52) / 큐(13) / 비고(9)
+const COL_W = [5, 7, 14, 52, 13, 9]
+const COL_HEADERS = ['순서', '시간', '구간', '멘트 (사회자 대본)', '큐 / 지시', '비고']
 
-function makeHeaderRow(cols: string[]): TableRow {
-  return new TableRow({
+function scriptTable(segments: EmceeContent['segments']): Table {
+  const hdr = new TableRow({
     tableHeader: true,
-    children: cols.map((col, i) =>
+    children: COL_HEADERS.map((col, i) =>
       new TableCell({
-        width: { size: COL_WIDTHS[i], type: WidthType.PERCENTAGE },
+        width: { size: COL_W[i], type: WidthType.PERCENTAGE },
         shading: { type: ShadingType.SOLID, color: NAVY, fill: NAVY },
-        children: [cellPara(col, { bold: true, white: true })],
-        margins: { top: 80, bottom: 80, left: 100, right: 100 },
-      }),
-    ),
-  })
-}
-
-function makeScriptRow(cells: string[], shade: boolean): TableRow {
-  return new TableRow({
-    children: cells.map((c, i) =>
-      new TableCell({
-        width: { size: COL_WIDTHS[i], type: WidthType.PERCENTAGE },
-        shading: shade ? { type: ShadingType.SOLID, color: GRAY, fill: GRAY } : undefined,
         children: [
           new Paragraph({
-            children: [new TextRun({ text: safeStr(c), font: FONT, size: 17, color: TEXT })],
+            children: [new TextRun({ text: col, font: FONT, bold: true, size: 17, color: 'FFFFFF' })],
+            alignment: AlignmentType.CENTER,
           }),
         ],
-        margins: { top: 80, bottom: 80, left: 100, right: 100 },
+        margins: { top: 80, bottom: 80, left: 80, right: 80 },
+      }),
+    ),
+  })
+
+  const dataRows = segments.map((seg, i) => {
+    const shade = i % 2 === 0 ? GRAY : undefined
+    return new TableRow({
+      children: [
+        // 순서
+        new TableCell({
+          width: { size: COL_W[0], type: WidthType.PERCENTAGE },
+          shading: shade ? { type: ShadingType.SOLID, color: shade, fill: shade } : undefined,
+          children: [
+            new Paragraph({
+              children: [new TextRun({ text: String(seg.sequence), font: FONT, size: 17, color: TEXT, bold: true })],
+              alignment: AlignmentType.CENTER,
+            }),
+          ],
+          margins: { top: 70, bottom: 70, left: 60, right: 60 },
+        }),
+        // 시간
+        new TableCell({
+          width: { size: COL_W[1], type: WidthType.PERCENTAGE },
+          shading: shade ? { type: ShadingType.SOLID, color: shade, fill: shade } : undefined,
+          children: [
+            new Paragraph({
+              children: [new TextRun({ text: s(seg.time ?? ''), font: FONT, size: 17, color: TEXT })],
+              alignment: AlignmentType.CENTER,
+            }),
+          ],
+          margins: { top: 70, bottom: 70, left: 60, right: 60 },
+        }),
+        // 구간
+        new TableCell({
+          width: { size: COL_W[2], type: WidthType.PERCENTAGE },
+          shading: { type: ShadingType.SOLID, color: LIGHT, fill: LIGHT },
+          children: [
+            new Paragraph({
+              children: [new TextRun({ text: s(seg.stage), font: FONT, size: 17, color: NAVY, bold: true })],
+              alignment: AlignmentType.CENTER,
+            }),
+          ],
+          margins: { top: 70, bottom: 70, left: 80, right: 80 },
+        }),
+        // 멘트 — 긴 텍스트, 줄바꿈 지원
+        new TableCell({
+          width: { size: COL_W[3], type: WidthType.PERCENTAGE },
+          shading: shade ? { type: ShadingType.SOLID, color: shade, fill: shade } : undefined,
+          children: s(seg.script)
+            .split('\n')
+            .filter(Boolean)
+            .map((line) =>
+              new Paragraph({
+                children: [new TextRun({ text: line, font: FONT, size: 18, color: TEXT })],
+                spacing: { after: 60 },
+              }),
+            ),
+          margins: { top: 80, bottom: 80, left: 120, right: 100 },
+        }),
+        // 큐
+        new TableCell({
+          width: { size: COL_W[4], type: WidthType.PERCENTAGE },
+          shading: { type: ShadingType.SOLID, color: 'FFF8E1', fill: 'FFF8E1' },
+          children: [
+            new Paragraph({
+              children: [new TextRun({ text: s(seg.cue ?? ''), font: FONT, size: 16, color: '7B5800' })],
+            }),
+          ],
+          margins: { top: 70, bottom: 70, left: 80, right: 80 },
+        }),
+        // 비고
+        new TableCell({
+          width: { size: COL_W[5], type: WidthType.PERCENTAGE },
+          shading: shade ? { type: ShadingType.SOLID, color: shade, fill: shade } : undefined,
+          children: [
+            new Paragraph({
+              children: [new TextRun({ text: s(seg.notes ?? ''), font: FONT, size: 15, color: '888888' })],
+            }),
+          ],
+          margins: { top: 70, bottom: 70, left: 80, right: 80 },
+        }),
+      ],
+    })
+  })
+
+  return new Table({ width: { size: 100, type: WidthType.PERCENTAGE }, rows: [hdr, ...dataRows] })
+}
+
+function infoTable(content: EmceeContent): Table {
+  const rows: [string, string][] = [
+    ['행  사  명', s(content.eventName)],
+    ['행  사  일', s(content.eventDate)],
+    ['대  본  톤', s(content.tone)],
+    ['작  성  일', todayKor()],
+  ]
+  return new Table({
+    width: { size: 100, type: WidthType.PERCENTAGE },
+    rows: rows.map(([label, value], i) =>
+      new TableRow({
+        children: [
+          new TableCell({
+            width: { size: 18, type: WidthType.PERCENTAGE },
+            shading: { type: ShadingType.SOLID, color: LIGHT, fill: LIGHT },
+            children: [
+              new Paragraph({
+                children: [new TextRun({ text: label, font: FONT, bold: true, size: 17, color: NAVY })],
+                alignment: AlignmentType.CENTER,
+              }),
+            ],
+            margins: { top: 80, bottom: 80, left: 100, right: 100 },
+          }),
+          new TableCell({
+            width: { size: 32, type: WidthType.PERCENTAGE },
+            shading: i % 2 === 1 ? { type: ShadingType.SOLID, color: 'F0F4FB', fill: 'F0F4FB' } : undefined,
+            children: [
+              new Paragraph({
+                children: [new TextRun({ text: s(value) || '–', font: FONT, size: 17, color: TEXT })],
+              }),
+            ],
+            margins: { top: 80, bottom: 80, left: 120, right: 100 },
+          }),
+        ],
       }),
     ),
   })
 }
 
-function summaryBox(text: string): Paragraph {
-  return new Paragraph({
-    children: [new TextRun({ text: safeStr(text), font: FONT, size: 19, color: NAVY, bold: true })],
-    shading: { type: ShadingType.SOLID, color: LIGHT_BLUE, fill: LIGHT_BLUE },
-    spacing: { before: 120, after: 120 },
-    border: {
-      top: { style: BorderStyle.SINGLE, size: 6, color: NAVY },
-      bottom: { style: BorderStyle.SINGLE, size: 6, color: NAVY },
-      left: { style: BorderStyle.SINGLE, size: 6, color: NAVY },
-      right: { style: BorderStyle.SINGLE, size: 6, color: NAVY },
-    },
-  })
-}
-
-function guideBox(text: string): Paragraph {
-  return new Paragraph({
-    children: [new TextRun({ text: `📌 MC 지침: ${safeStr(text)}`, font: FONT, size: 17, color: '555555' })],
-    shading: { type: ShadingType.SOLID, color: 'FFF8E7', fill: 'FFF8E7' },
-    spacing: { before: 80, after: 200 },
-  })
-}
-
-export async function exportEmceeDocx(doc: QuoteDoc): Promise<void> {
-  const emcee = doc.emceeScript
-  const scriptLines = emcee?.lines ?? []
-  const summaryTop = safeStr(emcee?.summaryTop ?? `${doc.eventName || '행사'} 사회자 멘트`)
-  const hostGuidelines = safeStr(emcee?.hostGuidelines ?? '')
-
-  const COLS = ['순서', '시간', '구간', '멘트', '큐', '비고']
-  const tableRows: TableRow[] = [makeHeaderRow(COLS)]
-
-  if (scriptLines.length > 0) {
-    scriptLines.forEach((line, i) => {
-      tableRows.push(
-        makeScriptRow(
-          [
-            safeStr(line.order),
-            safeStr(line.time),
-            safeStr(line.segment),
-            safeStr(line.script),
-            safeStr(line.notes),
-            '',
-          ],
-          i % 2 === 0,
-        ),
-      )
-    })
-  } else {
-    const defaults = [
-      ['1', '09:30', '오프닝', '안녕하세요! 오늘 행사의 사회를 맡은 ___ 입니다. 먼저 행사장에 찾아주신 여러분께 진심으로 감사드립니다.', '음악 페이드아웃', ''],
-      ['2', '09:35', '소개', '오늘 이 자리를 마련해 주신 ___에 대해 소개드리겠습니다. (소개 멘트)', '조명 변경', ''],
-      ['3', '09:40', '개회 선언', '그럼, 지금부터 (행사명)을 시작하겠습니다!', '기립 유도', ''],
-      ['4', '09:45', '메인 순서 진행', '다음 순서는 ___입니다. (세부 멘트)', '슬라이드 준비', ''],
-      ['5', '10:30', '휴식 안내', '잠시 10분간 휴식 시간을 갖겠습니다. 참가자분들은 자유롭게 이동해 주시기 바랍니다.', '음악 BGM', ''],
-      ['6', '11:30', '마무리', '오늘 함께해 주신 모든 분들께 감사드리며, 이것으로 (행사명) 행사를 마치겠습니다. 감사합니다!', '클로징 음악', ''],
-    ]
-    defaults.forEach((row, i) => tableRows.push(makeScriptRow(row, i % 2 === 0)))
-  }
-
-  const scriptTable = new Table({
-    width: { size: 100, type: WidthType.PERCENTAGE },
-    rows: tableRows,
-  })
-
+export async function exportEmceeDocx(content: EmceeContent): Promise<void> {
   const children: Array<Paragraph | Table> = []
 
-  children.push(summaryBox(summaryTop))
-  if (hostGuidelines) children.push(guideBox(hostGuidelines))
-  children.push(scriptTable)
+  // 타이틀
+  children.push(
+    new Paragraph({
+      children: [new TextRun({ text: '사 회 자 진 행 대 본', font: FONT, bold: true, size: 44, color: NAVY })],
+      alignment: AlignmentType.CENTER,
+      spacing: { before: 240, after: 100 },
+    }),
+    new Paragraph({
+      children: [new TextRun({ text: s(content.eventName), font: FONT, size: 28, color: BLUE, bold: true })],
+      alignment: AlignmentType.CENTER,
+      spacing: { after: 60 },
+    }),
+    new Paragraph({
+      children: [
+        new TextRun({
+          text: `${s(content.eventDate) || '날짜 미정'}  |  톤: ${s(content.tone)}  |  작성일: ${todayKor()}`,
+          font: FONT, size: 17, color: '888888',
+        }),
+      ],
+      alignment: AlignmentType.CENTER,
+      spacing: { after: 60 },
+    }),
+    new Paragraph({
+      text: '',
+      border: { bottom: { style: BorderStyle.SINGLE, size: 4, color: 'CCCCCC' } },
+      spacing: { before: 60, after: 120 },
+    }),
+  )
 
-  const docx = new Document({
+  // 기본 정보 테이블
+  children.push(infoTable(content))
+  children.push(gap(120))
+
+  // 안내문
+  children.push(
+    new Paragraph({
+      children: [
+        new TextRun({ text: '※ 본 대본은 실제 진행 흐름에 맞게 수정·보완하여 사용하시기 바랍니다.', font: FONT, size: 16, color: '888888', italics: true }),
+      ],
+      spacing: { before: 0, after: 100 },
+    }),
+    new Paragraph({
+      children: [
+        new TextRun({ text: `※ 큐(CUE) 란은 음향·조명·영상 담당자에게 전달되는 신호입니다. 색상은 참고용입니다.`, font: FONT, size: 16, color: '888888', italics: true }),
+      ],
+      spacing: { after: 120 },
+    }),
+  )
+
+  // 메인 스크립트 테이블
+  children.push(
+    new Paragraph({
+      children: [new TextRun({ text: '■ 진행 대본', font: FONT, bold: true, size: 20, color: NAVY })],
+      spacing: { before: 80, after: 80 },
+    }),
+    scriptTable(content.segments ?? []),
+  )
+
+  // 특이사항
+  if (content.notes?.length) {
+    children.push(gap(140))
+    children.push(
+      new Paragraph({
+        children: [new TextRun({ text: '■ 진행 유의사항', font: FONT, bold: true, size: 20, color: NAVY })],
+        spacing: { before: 80, after: 60 },
+      }),
+    )
+    content.notes.forEach((note) =>
+      children.push(
+        new Paragraph({
+          children: [new TextRun({ text: `※ ${note}`, font: FONT, size: 17, color: '555555' })],
+          spacing: { after: 60 },
+        }),
+      ),
+    )
+  }
+
+  // 문서 조립 (A4 세로)
+  const doc = new Document({
     sections: [
       {
         properties: {
           page: {
             size: { width: 11906, height: 16838 },
-            margin: { top: 900, bottom: 900, left: 1000, right: 1000 },
+            margin: { top: 1000, bottom: 1000, left: 1000, right: 1000 },
           },
         },
         headers: {
@@ -158,21 +275,10 @@ export async function exportEmceeDocx(doc: QuoteDoc): Promise<void> {
             children: [
               new Paragraph({
                 children: [
-                  new TextRun({
-                    text: `사회자 멘트  ·  ${safeStr(doc.eventName || '행사')}`,
-                    font: FONT,
-                    color: NAVY,
-                    bold: true,
-                    size: 20,
-                  }),
-                  new TextRun({
-                    text: `    ${safeStr(doc.eventDate || '')}`,
-                    font: FONT,
-                    color: '888888',
-                    size: 16,
-                  }),
+                  new TextRun({ text: `위드아크(WITH ARK)  |  ${s(content.eventName)} 사회자 대본  (${s(content.tone)})`, font: FONT, size: 16, color: '999999' }),
                 ],
-                alignment: AlignmentType.LEFT,
+                alignment: AlignmentType.RIGHT,
+                border: { bottom: { style: BorderStyle.SINGLE, size: 4, color: 'CCCCCC' } },
               }),
             ],
           }),
@@ -182,9 +288,13 @@ export async function exportEmceeDocx(doc: QuoteDoc): Promise<void> {
             children: [
               new Paragraph({
                 children: [
-                  new TextRun({ text: '위드아크(WITH ARK) · MC 대본', font: FONT, color: 'AAAAAA', size: 14 }),
+                  new TextRun({
+                    children: [PageNumber.CURRENT, ' / ', PageNumber.TOTAL_PAGES],
+                    font: FONT, size: 16, color: '999999',
+                  }),
                 ],
-                alignment: AlignmentType.RIGHT,
+                alignment: AlignmentType.CENTER,
+                border: { top: { style: BorderStyle.SINGLE, size: 4, color: 'CCCCCC' } },
               }),
             ],
           }),
@@ -194,8 +304,8 @@ export async function exportEmceeDocx(doc: QuoteDoc): Promise<void> {
     ],
   })
 
-  const blob = await Packer.toBlob(docx)
-  const eventName = safeStr(doc.eventName || '행사').replace(/\s/g, '_')
-  const eventDate = safeStr(doc.eventDate || '미정').replace(/\./g, '-')
-  saveAs(blob, `사회자멘트_${eventName}_${eventDate}.docx`)
+  const blob = await Packer.toBlob(doc)
+  const name = s(content.eventName || '행사').replace(/\s/g, '_')
+  const date = s(content.eventDate || '미정').replace(/[\s.년월일]/g, '-').replace(/-+/g, '-').replace(/-$/, '')
+  saveAs(blob, `사회자대본_${name}_${date}.docx`)
 }

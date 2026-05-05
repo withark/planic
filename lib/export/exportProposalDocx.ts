@@ -1,13 +1,11 @@
-import type { QuoteDoc } from '@/lib/types'
+import type { ProposalContent } from '@/lib/types/doc-content'
 import {
   AlignmentType,
   BorderStyle,
   Document,
   Footer,
   Header,
-  HeadingLevel,
   PageNumber,
-  PageOrientation,
   Packer,
   Paragraph,
   ShadingType,
@@ -19,120 +17,108 @@ import {
 } from 'docx'
 import { saveAs } from 'file-saver'
 
-const NAVY = '1C2B4A'
-const MID_BLUE = '2E4E8A'
+// ── 색상 ──────────────────────────────────────────────────────────
+const NAVY       = '1C2B4A'
+const MID_BLUE   = '2E4E8A'
 const LIGHT_BLUE = 'E8EEF7'
-const GRAY = 'F5F5F5'
-const TEXT = '333333'
-const FONT = '맑은 고딕'
+const ACCENT     = 'D6E4F7'
+const GRAY       = 'F5F5F5'
+const TEXT       = '333333'
+const FONT       = '맑은 고딕'
 
-function safeStr(v: unknown): string {
-  return String(v ?? '').trim()
+function s(v: unknown): string { return String(v ?? '').trim() }
+
+function todayKor(): string {
+  const d = new Date()
+  return `${d.getFullYear()}년 ${d.getMonth() + 1}월 ${d.getDate()}일`
 }
 
-function navyPara(text: string): Paragraph {
+// ── 단락 헬퍼 ────────────────────────────────────────────────────
+function secH(text: string, pageBreak = false): Paragraph {
   return new Paragraph({
-    children: [new TextRun({ text: safeStr(text), font: FONT, color: NAVY, bold: true, size: 22 })],
-    spacing: { before: 200, after: 80 },
-    shading: { type: ShadingType.SOLID, color: LIGHT_BLUE, fill: LIGHT_BLUE },
+    children: [new TextRun({ text, font: FONT, bold: true, size: 30, color: NAVY })],
+    spacing: { before: pageBreak ? 0 : 280, after: 140 },
+    border: { bottom: { style: BorderStyle.SINGLE, size: 8, color: NAVY } },
+    pageBreakBefore: pageBreak,
   })
 }
 
-function sectionHeading(num: string, title: string): Paragraph {
+function subH(text: string): Paragraph {
   return new Paragraph({
-    children: [
-      new TextRun({ text: `${num}. ${title}`, font: FONT, color: NAVY, bold: true, size: 24 }),
-    ],
-    spacing: { before: 320, after: 120 },
-    border: { bottom: { style: BorderStyle.SINGLE, size: 6, color: MID_BLUE } },
+    children: [new TextRun({ text: `▶ ${text}`, font: FONT, bold: true, size: 22, color: MID_BLUE })],
+    spacing: { before: 160, after: 80 },
   })
 }
 
-function bodyPara(text: string, opts?: { bold?: boolean; size?: number }): Paragraph {
+function bodyP(
+  text: string,
+  opts?: { color?: string; size?: number; italic?: boolean; bold?: boolean; center?: boolean },
+): Paragraph {
   return new Paragraph({
     children: [
       new TextRun({
-        text: safeStr(text),
+        text,
         font: FONT,
-        color: TEXT,
-        bold: opts?.bold,
         size: opts?.size ?? 20,
+        color: opts?.color ?? TEXT,
+        italics: opts?.italic,
+        bold: opts?.bold,
       }),
     ],
+    alignment: opts?.center ? AlignmentType.CENTER : undefined,
     spacing: { after: 80 },
   })
 }
 
-function bulletPara(text: string): Paragraph {
+function bulletP(text: string, level = 0): Paragraph {
   return new Paragraph({
-    children: [new TextRun({ text: safeStr(text), font: FONT, color: TEXT, size: 20 })],
-    bullet: { level: 0 },
+    children: [new TextRun({ text, font: FONT, size: 20, color: TEXT })],
+    bullet: { level },
     spacing: { after: 60 },
   })
 }
 
-function makeRow(cells: Array<{ text: string; header?: boolean; shade?: string }>): TableRow {
-  return new TableRow({
-    children: cells.map(
-      (c) =>
-        new TableCell({
-          children: [
-            new Paragraph({
-              children: [
-                new TextRun({
-                  text: safeStr(c.text),
-                  font: FONT,
-                  bold: c.header,
-                  color: c.header ? 'FFFFFF' : TEXT,
-                  size: 18,
-                }),
-              ],
-            }),
-          ],
-          shading: c.header
-            ? { type: ShadingType.SOLID, color: NAVY, fill: NAVY }
-            : c.shade
-              ? { type: ShadingType.SOLID, color: c.shade, fill: c.shade }
-              : undefined,
-          margins: { top: 80, bottom: 80, left: 120, right: 120 },
-        }),
-    ),
+function gap(n = 120): Paragraph {
+  return new Paragraph({ text: '', spacing: { after: n } })
+}
+
+function divider(): Paragraph {
+  return new Paragraph({
+    text: '',
+    border: { bottom: { style: BorderStyle.SINGLE, size: 4, color: 'E0E0E0' } },
+    spacing: { before: 80, after: 120 },
   })
 }
 
-function overviewTable(doc: QuoteDoc, extra: { budget: string }): Table {
-  const rows = [
-    ['고객명', safeStr(doc.clientName)],
-    ['행사명', safeStr(doc.eventName)],
-    ['행사일', safeStr(doc.eventDate)],
-    ['장소', safeStr(doc.venue)],
-    ['인원', safeStr(doc.headcount)],
-    ['예산', safeStr(extra.budget) || '협의'],
-    ['행사 유형', safeStr(doc.eventType)],
-  ]
+// ── 테이블 헬퍼 ───────────────────────────────────────────────────
+function infoTable(rows: [string, string][]): Table {
   return new Table({
     width: { size: 100, type: WidthType.PERCENTAGE },
-    rows: rows.map(([label, value]) =>
+    rows: rows.map(([label, value], i) =>
       new TableRow({
         children: [
           new TableCell({
-            width: { size: 25, type: WidthType.PERCENTAGE },
+            width: { size: 22, type: WidthType.PERCENTAGE },
+            shading: { type: ShadingType.SOLID, color: LIGHT_BLUE, fill: LIGHT_BLUE },
             children: [
               new Paragraph({
-                children: [new TextRun({ text: label, font: FONT, bold: true, color: NAVY, size: 18 })],
+                children: [new TextRun({ text: label, font: FONT, bold: true, size: 18, color: NAVY })],
+                alignment: AlignmentType.CENTER,
               }),
             ],
-            shading: { type: ShadingType.SOLID, color: LIGHT_BLUE, fill: LIGHT_BLUE },
-            margins: { top: 80, bottom: 80, left: 120, right: 120 },
+            margins: { top: 90, bottom: 90, left: 120, right: 120 },
           }),
           new TableCell({
-            width: { size: 75, type: WidthType.PERCENTAGE },
+            width: { size: 78, type: WidthType.PERCENTAGE },
+            shading: i % 2 === 1
+              ? { type: ShadingType.SOLID, color: ACCENT, fill: ACCENT }
+              : undefined,
             children: [
               new Paragraph({
-                children: [new TextRun({ text: value, font: FONT, color: TEXT, size: 18 })],
+                children: [new TextRun({ text: s(value) || '–', font: FONT, size: 18, color: TEXT })],
               }),
             ],
-            margins: { top: 80, bottom: 80, left: 120, right: 120 },
+            margins: { top: 90, bottom: 90, left: 160, right: 120 },
           }),
         ],
       }),
@@ -140,197 +126,511 @@ function overviewTable(doc: QuoteDoc, extra: { budget: string }): Table {
   })
 }
 
-function timelineTable(rows: Array<{ time?: string; content?: string; detail?: string; manager?: string }>): Table {
-  const header = makeRow([
-    { text: '시간', header: true },
-    { text: '프로그램', header: true },
-    { text: '세부내용', header: true },
-    { text: '담당', header: true },
-  ])
-  const body = rows.map((r, i) =>
-    makeRow([
-      { text: safeStr(r.time), shade: i % 2 === 0 ? GRAY : undefined },
-      { text: safeStr(r.content), shade: i % 2 === 0 ? GRAY : undefined },
-      { text: safeStr(r.detail), shade: i % 2 === 0 ? GRAY : undefined },
-      { text: safeStr(r.manager), shade: i % 2 === 0 ? GRAY : undefined },
-    ]),
-  )
+// 프로그램 흐름 테이블: 단계(15) / 프로그램명(22) / 세부내용(48) / 소요(15)
+const PROG_W = [15, 22, 48, 15]
+
+function programTable(rows: { stage: string; name: string; detail: string; duration: string }[]): Table {
+  const hdr = new TableRow({
+    tableHeader: true,
+    children: ['단계 구분', '프로그램명', '세부 내용', '소요 시간'].map((col, i) =>
+      new TableCell({
+        width: { size: PROG_W[i], type: WidthType.PERCENTAGE },
+        shading: { type: ShadingType.SOLID, color: NAVY, fill: NAVY },
+        children: [
+          new Paragraph({
+            children: [new TextRun({ text: col, font: FONT, bold: true, size: 17, color: 'FFFFFF' })],
+            alignment: AlignmentType.CENTER,
+          }),
+        ],
+        margins: { top: 80, bottom: 80, left: 100, right: 100 },
+      }),
+    ),
+  })
+
+  const dataRows = rows.map((r, i) => {
+    const shade = i % 2 === 0 ? GRAY : undefined
+    return new TableRow({
+      children: [s(r.stage), s(r.name), s(r.detail), s(r.duration)].map((text, ci) =>
+        new TableCell({
+          width: { size: PROG_W[ci], type: WidthType.PERCENTAGE },
+          shading: shade ? { type: ShadingType.SOLID, color: shade, fill: shade } : undefined,
+          children: [
+            new Paragraph({
+              children: [new TextRun({ text, font: FONT, size: 18, color: TEXT })],
+            }),
+          ],
+          margins: { top: 70, bottom: 70, left: 100, right: 100 },
+        }),
+      ),
+    })
+  })
+
+  return new Table({ width: { size: 100, type: WidthType.PERCENTAGE }, rows: [hdr, ...dataRows] })
+}
+
+// 시상 방안 비교 테이블
+function awardTable(
+  options: { option: string; method: string; detail: string; examples: string[]; pros: string[] }[],
+): Table {
+  const hdr = new TableRow({
+    tableHeader: true,
+    children: ['안', '방식', '세부 내용'].map((col, i) =>
+      new TableCell({
+        width: { size: [8, 22, 70][i], type: WidthType.PERCENTAGE },
+        shading: { type: ShadingType.SOLID, color: NAVY, fill: NAVY },
+        children: [
+          new Paragraph({
+            children: [new TextRun({ text: col, font: FONT, bold: true, size: 17, color: 'FFFFFF' })],
+            alignment: AlignmentType.CENTER,
+          }),
+        ],
+        margins: { top: 80, bottom: 80, left: 100, right: 100 },
+      }),
+    ),
+  })
+
+  const dataRows = options.map((opt, i) => {
+    const shade = i % 2 === 0 ? GRAY : undefined
+    const detailLines = [
+      opt.detail,
+      ...(opt.examples ?? []).map((e) => `예시 — ${e}`),
+      ...(opt.pros ?? []).map((p) => `· ${p}`),
+    ].filter(Boolean)
+
+    return new TableRow({
+      children: [
+        new TableCell({
+          width: { size: 8, type: WidthType.PERCENTAGE },
+          shading: shade ? { type: ShadingType.SOLID, color: shade, fill: shade } : undefined,
+          children: [
+            new Paragraph({
+              children: [new TextRun({ text: s(opt.option), font: FONT, bold: true, size: 18, color: NAVY })],
+              alignment: AlignmentType.CENTER,
+            }),
+          ],
+          margins: { top: 80, bottom: 80, left: 80, right: 80 },
+        }),
+        new TableCell({
+          width: { size: 22, type: WidthType.PERCENTAGE },
+          shading: shade ? { type: ShadingType.SOLID, color: shade, fill: shade } : undefined,
+          children: [
+            new Paragraph({
+              children: [new TextRun({ text: s(opt.method), font: FONT, bold: true, size: 18, color: TEXT })],
+            }),
+          ],
+          margins: { top: 80, bottom: 80, left: 100, right: 100 },
+        }),
+        new TableCell({
+          width: { size: 70, type: WidthType.PERCENTAGE },
+          shading: shade ? { type: ShadingType.SOLID, color: shade, fill: shade } : undefined,
+          children: detailLines.map((line) =>
+            new Paragraph({
+              children: [new TextRun({ text: line, font: FONT, size: 17, color: TEXT })],
+              spacing: { after: 40 },
+            }),
+          ),
+          margins: { top: 80, bottom: 80, left: 100, right: 100 },
+        }),
+      ],
+    })
+  })
+
+  return new Table({ width: { size: 100, type: WidthType.PERCENTAGE }, rows: [hdr, ...dataRows] })
+}
+
+// 단순 타임테이블
+function simpleTimeTable(
+  rows: { time: string; label: string; merged?: boolean; assignments?: string[] }[],
+): Table {
+  const hdr = new TableRow({
+    tableHeader: true,
+    children: ['시간', '구분 / 활동'].map((col, i) =>
+      new TableCell({
+        width: { size: [18, 82][i], type: WidthType.PERCENTAGE },
+        shading: { type: ShadingType.SOLID, color: NAVY, fill: NAVY },
+        children: [
+          new Paragraph({
+            children: [new TextRun({ text: col, font: FONT, bold: true, size: 17, color: 'FFFFFF' })],
+            alignment: AlignmentType.CENTER,
+          }),
+        ],
+        margins: { top: 80, bottom: 80, left: 100, right: 100 },
+      }),
+    ),
+  })
+  const dataRows = rows.map((r, i) => {
+    const shade = i % 2 === 0 ? GRAY : undefined
+    const detail =
+      !r.assignments?.length || r.merged
+        ? s(r.label)
+        : `${s(r.label)}\n${r.assignments.join('  /  ')}`
+    return new TableRow({
+      children: [
+        new TableCell({
+          width: { size: 18, type: WidthType.PERCENTAGE },
+          shading: shade ? { type: ShadingType.SOLID, color: shade, fill: shade } : undefined,
+          children: [
+            new Paragraph({
+              children: [new TextRun({ text: s(r.time), font: FONT, size: 17, color: TEXT })],
+              alignment: AlignmentType.CENTER,
+            }),
+          ],
+          margins: { top: 70, bottom: 70, left: 80, right: 80 },
+        }),
+        new TableCell({
+          width: { size: 82, type: WidthType.PERCENTAGE },
+          shading: shade ? { type: ShadingType.SOLID, color: shade, fill: shade } : undefined,
+          children: detail.split('\n').map((line) =>
+            new Paragraph({
+              children: [new TextRun({ text: line, font: FONT, size: 18, color: TEXT })],
+              spacing: { after: 40 },
+            }),
+          ),
+          margins: { top: 70, bottom: 70, left: 100, right: 100 },
+        }),
+      ],
+    })
+  })
+  return new Table({ width: { size: 100, type: WidthType.PERCENTAGE }, rows: [hdr, ...dataRows] })
+}
+
+// 그룹 로테이션 타임테이블
+function rotationTable(
+  groups: string[],
+  rows: { time: string; label: string; merged?: boolean; assignments?: string[] }[],
+): Table {
+  const colCount = 1 + groups.length
+  const timeW = 14
+  const groupW = Math.floor((100 - timeW) / groups.length)
+
+  const hdrCells = [
+    new TableCell({
+      width: { size: timeW, type: WidthType.PERCENTAGE },
+      shading: { type: ShadingType.SOLID, color: NAVY, fill: NAVY },
+      children: [
+        new Paragraph({
+          children: [new TextRun({ text: '시간', font: FONT, bold: true, size: 17, color: 'FFFFFF' })],
+          alignment: AlignmentType.CENTER,
+        }),
+      ],
+      margins: { top: 80, bottom: 80, left: 80, right: 80 },
+    }),
+    ...groups.map((g) =>
+      new TableCell({
+        width: { size: groupW, type: WidthType.PERCENTAGE },
+        shading: { type: ShadingType.SOLID, color: NAVY, fill: NAVY },
+        children: [
+          new Paragraph({
+            children: [new TextRun({ text: g, font: FONT, bold: true, size: 17, color: 'FFFFFF' })],
+            alignment: AlignmentType.CENTER,
+          }),
+        ],
+        margins: { top: 80, bottom: 80, left: 80, right: 80 },
+      }),
+    ),
+  ]
+
+  const dataRows = rows.map((r, ri) => {
+    const shade = ri % 2 === 0 ? GRAY : undefined
+
+    if (r.merged) {
+      return new TableRow({
+        children: [
+          new TableCell({
+            columnSpan: colCount,
+            shading: { type: ShadingType.SOLID, color: LIGHT_BLUE, fill: LIGHT_BLUE },
+            children: [
+              new Paragraph({
+                children: [new TextRun({ text: s(r.label), font: FONT, bold: true, size: 17, color: NAVY })],
+                alignment: AlignmentType.CENTER,
+              }),
+            ],
+            margins: { top: 70, bottom: 70, left: 100, right: 100 },
+          }),
+        ],
+      })
+    }
+
+    return new TableRow({
+      children: [
+        new TableCell({
+          width: { size: timeW, type: WidthType.PERCENTAGE },
+          shading: shade ? { type: ShadingType.SOLID, color: shade, fill: shade } : undefined,
+          children: [
+            new Paragraph({
+              children: [new TextRun({ text: s(r.time), font: FONT, size: 17, color: TEXT })],
+              alignment: AlignmentType.CENTER,
+            }),
+          ],
+          margins: { top: 70, bottom: 70, left: 80, right: 80 },
+        }),
+        ...groups.map((_, gi) =>
+          new TableCell({
+            width: { size: groupW, type: WidthType.PERCENTAGE },
+            shading: shade ? { type: ShadingType.SOLID, color: shade, fill: shade } : undefined,
+            children: [
+              new Paragraph({
+                children: [
+                  new TextRun({
+                    text: s(r.assignments?.[gi] ?? ''),
+                    font: FONT, size: 17, color: TEXT,
+                  }),
+                ],
+                alignment: AlignmentType.CENTER,
+              }),
+            ],
+            margins: { top: 70, bottom: 70, left: 80, right: 80 },
+          }),
+        ),
+      ],
+    })
+  })
+
   return new Table({
     width: { size: 100, type: WidthType.PERCENTAGE },
-    rows: [header, ...body],
+    rows: [new TableRow({ tableHeader: true, children: hdrCells }), ...dataRows],
   })
 }
 
-function defaultTimeline(): Table {
-  const items = [
-    ['이동', '집결지 이동', ''],
-    ['오리엔테이션', '행사 안내 및 팀 구성', ''],
-    ['메인 프로그램', '주요 프로그램 진행', ''],
-    ['중식', '식사 및 휴식', ''],
-    ['오후 프로그램', '오후 세션 진행', ''],
-    ['정리', '마무리 및 시상', ''],
-    ['귀환', '귀환 이동', ''],
-  ]
-  const header = makeRow([
-    { text: '구분', header: true },
-    { text: '프로그램', header: true },
-    { text: '비고', header: true },
-  ])
-  const body = items.map(([section, program, note], i) =>
-    makeRow([
-      { text: section, shade: i % 2 === 0 ? GRAY : undefined },
-      { text: program, shade: i % 2 === 0 ? GRAY : undefined },
-      { text: note, shade: i % 2 === 0 ? GRAY : undefined },
-    ]),
-  )
-  return new Table({ width: { size: 100, type: WidthType.PERCENTAGE }, rows: [header, ...body] })
-}
-
-function quoteTable(doc: QuoteDoc): Table {
-  const header = makeRow([
-    { text: '구분', header: true },
-    { text: '소계 (원)', header: true },
-  ])
-  const rows = (doc.quoteItems ?? []).map((cat, i) => {
-    const subtotal = (cat.items ?? []).reduce((s, item) => s + (Number(item.total) || 0), 0)
-    return makeRow([
-      { text: safeStr(cat.category), shade: i % 2 === 0 ? GRAY : undefined },
-      {
-        text: subtotal > 0 ? subtotal.toLocaleString('ko-KR') : '협의',
-        shade: i % 2 === 0 ? GRAY : undefined,
-      },
-    ])
+// 준비물 테이블
+function materialsTable(items: { name: string; quantity: string }[]): Table {
+  const hdr = new TableRow({
+    tableHeader: true,
+    children: ['품목', '수량 / 비고'].map((col, i) =>
+      new TableCell({
+        width: { size: [55, 45][i], type: WidthType.PERCENTAGE },
+        shading: { type: ShadingType.SOLID, color: NAVY, fill: NAVY },
+        children: [
+          new Paragraph({
+            children: [new TextRun({ text: col, font: FONT, bold: true, size: 17, color: 'FFFFFF' })],
+            alignment: AlignmentType.CENTER,
+          }),
+        ],
+        margins: { top: 80, bottom: 80, left: 100, right: 100 },
+      }),
+    ),
   })
-  return new Table({ width: { size: 100, type: WidthType.PERCENTAGE }, rows: [header, ...rows] })
+  const dataRows = items.map((item, i) => {
+    const shade = i % 2 === 0 ? GRAY : undefined
+    return new TableRow({
+      children: [s(item.name), s(item.quantity)].map((text, ci) =>
+        new TableCell({
+          width: { size: [55, 45][ci], type: WidthType.PERCENTAGE },
+          shading: shade ? { type: ShadingType.SOLID, color: shade, fill: shade } : undefined,
+          children: [
+            new Paragraph({
+              children: [new TextRun({ text, font: FONT, size: 17, color: TEXT })],
+            }),
+          ],
+          margins: { top: 60, bottom: 60, left: 100, right: 100 },
+        }),
+      ),
+    })
+  })
+  return new Table({ width: { size: 100, type: WidthType.PERCENTAGE }, rows: [hdr, ...dataRows] })
 }
 
-function defaultBudgetTable(budget: string): Table {
-  const items = [
-    ['진행비', '35%'],
-    ['인건비', '25%'],
-    ['장비·시설', '20%'],
-    ['식음료', '15%'],
-    ['기타', '5%'],
-  ]
-  const header = makeRow([
-    { text: '항목', header: true },
-    { text: '비율', header: true },
-    { text: '비고', header: true },
-  ])
-  const body = items.map(([item, ratio], i) =>
-    makeRow([
-      { text: item, shade: i % 2 === 0 ? GRAY : undefined },
-      { text: ratio, shade: i % 2 === 0 ? GRAY : undefined },
-      { text: i === 0 ? safeStr(budget) || '협의' : '', shade: i % 2 === 0 ? GRAY : undefined },
-    ]),
-  )
-  return new Table({ width: { size: 100, type: WidthType.PERCENTAGE }, rows: [header, ...body] })
-}
-
-export async function exportProposalDocx(
-  doc: QuoteDoc,
-  extraData: { budget: string; followUp: string; notes: string },
-): Promise<void> {
-  const timeline = doc.program?.timeline ?? []
-  const hasTimeline = timeline.length > 0
-  const hasQuoteItems = (doc.quoteItems ?? []).length > 0
-
-  const reqLines = safeStr(doc.notes || extraData.notes || '')
-    .split('\n')
-    .filter(Boolean)
-  const followUpLines = safeStr(extraData.followUp).split('\n').filter(Boolean)
-
+// ── 메인 export 함수 ──────────────────────────────────────────────
+export async function exportProposalDocx(content: ProposalContent): Promise<void> {
   const children: Array<Paragraph | Table> = []
 
-  // 타이틀
+  // ── 타이틀
   children.push(
     new Paragraph({
-      children: [new TextRun({ text: '행사 기획 제안서', font: FONT, color: NAVY, bold: true, size: 48 })],
+      children: [new TextRun({ text: '행 사 기 획 제 안 서', font: FONT, bold: true, size: 52, color: NAVY })],
       alignment: AlignmentType.CENTER,
-      spacing: { before: 200, after: 120 },
+      spacing: { before: 320, after: 120 },
     }),
-  )
-  children.push(
     new Paragraph({
-      children: [new TextRun({ text: safeStr(doc.eventName), font: FONT, color: MID_BLUE, size: 28 })],
+      children: [new TextRun({ text: s(content.eventName), font: FONT, size: 34, color: MID_BLUE, bold: true })],
       alignment: AlignmentType.CENTER,
-      spacing: { after: 60 },
+      spacing: { after: 80 },
     }),
   )
+
+  if (content.tagline) {
+    children.push(
+      new Paragraph({
+        children: [new TextRun({ text: s(content.tagline), font: FONT, size: 22, color: '555555', italics: true })],
+        alignment: AlignmentType.CENTER,
+        spacing: { after: 80 },
+      }),
+    )
+  }
+
+  if (content.highlights?.length) {
+    children.push(
+      new Paragraph({
+        children: content.highlights
+          .map((h, i) => [
+            new TextRun({ text: s(h), font: FONT, size: 20, color: MID_BLUE }),
+            ...(i < content.highlights.length - 1
+              ? [new TextRun({ text: '  ·  ', font: FONT, size: 20, color: 'BBBBBB' })]
+              : []),
+          ])
+          .flat(),
+        alignment: AlignmentType.CENTER,
+        spacing: { after: 80 },
+      }),
+    )
+  }
+
   children.push(
     new Paragraph({
       children: [
         new TextRun({
-          text: `${safeStr(doc.clientName) || '고객사'}  ·  ${safeStr(doc.eventDate) || '날짜 미정'}`,
-          font: FONT,
-          color: '666666',
-          size: 20,
+          text: `${s(content.clientName) || '(고객사)'}  |  ${s(content.eventDate) || '날짜 미정'}  |  작성일: ${todayKor()}`,
+          font: FONT, size: 18, color: '888888',
         }),
       ],
       alignment: AlignmentType.CENTER,
-      spacing: { after: 400 },
+      spacing: { after: 80 },
     }),
+    divider(),
   )
 
-  // 1. 행사 개요
-  children.push(sectionHeading('1', '행사 개요'))
-  children.push(overviewTable(doc, { budget: extraData.budget }))
-
-  // 2. 주요 요구사항
-  if (reqLines.length > 0) {
-    children.push(sectionHeading('2', '주요 요구사항'))
-    reqLines.forEach((line) => children.push(bulletPara(line)))
-  }
-
-  // 3. 프로그램 구성 (안)
-  children.push(sectionHeading('3', '프로그램 구성 (안)'))
-  children.push(hasTimeline ? timelineTable(timeline) : defaultTimeline())
-
-  // 4. 견적 요약
-  children.push(sectionHeading('4', '견적 요약'))
-  children.push(hasQuoteItems ? quoteTable(doc) : defaultBudgetTable(extraData.budget))
-
-  // 5. 팔로업 계획
-  if (followUpLines.length > 0) {
-    children.push(sectionHeading('5', '팔로업 계획'))
-    followUpLines.forEach((line) => children.push(bulletPara(line)))
-  }
-
-  // 6. 특이사항
-  const notesLines = safeStr(extraData.notes).split('\n').filter(Boolean)
-  if (notesLines.length > 0) {
-    children.push(sectionHeading('6', '특이사항'))
-    notesLines.forEach((line) => children.push(bulletPara(line)))
-  }
-
-  // 7. 제안사 소개
-  children.push(sectionHeading('7', '제안사 소개'))
+  // ── 1. 행사 개요
+  children.push(secH('1. 행사 개요'))
   children.push(
-    bodyPara(
-      '(주)위드아크는 기업 행사 전문 기획 파트너입니다. 체육대회·워크숍·시상식·세미나 등 다양한 행사를 기획·진행해 왔으며, ' +
-        '고객사의 요구에 맞는 맞춤형 프로그램과 운영 서비스를 제공합니다.',
-    ),
+    infoTable([
+      ['고  객  명', s(content.clientName)],
+      ['연  락  처', s(content.contact)],
+      ['행  사  명', s(content.eventName)],
+      ['행  사  일', s(content.eventDate)],
+      ['행사 장소',  s(content.eventPlace)],
+      ['예상 인원',  s(content.headcount)],
+      ['예    산',   s(content.budget)],
+      ['행사 유형',  s(content.eventType)],
+    ]),
   )
 
-  // 마무리
-  children.push(new Paragraph({ text: '', spacing: { before: 400 } }))
+  // ── 2. 프로그램 진행 흐름
+  children.push(gap(), secH('2. 프로그램 진행 흐름', true))
+  if (content.programFlow?.length) {
+    children.push(programTable(content.programFlow))
+  }
+
+  // ── 3. 운영 시스템
+  let nextSec = 3
+  if (content.operationSystem) {
+    children.push(gap(), secH(`${nextSec}. 운영 시스템 안내`, true))
+    children.push(subH(s(content.operationSystem.title)))
+    ;(content.operationSystem.rules ?? []).forEach((r) => children.push(bulletP(r)))
+    if (content.operationSystem.note) {
+      children.push(bodyP(s(content.operationSystem.note), { color: '888888', italic: true }))
+    }
+    nextSec++
+  }
+
+  // ── 시상 방안
+  if (content.awardOptions?.length) {
+    children.push(gap(), secH(`${nextSec}. 시상 방안`, true))
+    children.push(awardTable(content.awardOptions))
+    children.push(gap(80), bodyP('※ 두 안 병행 가능 · 최종 시상 방식은 사전 협의 후 확정', { color: '888888', size: 17, italic: true }))
+    nextSec++
+  }
+
+  // ── 타임테이블
+  if (content.timetable) {
+    children.push(gap(), secH(`${nextSec}. 진행 타임테이블`, true))
+    nextSec++
+
+    if (content.timetable.structureNote) {
+      children.push(
+        new Paragraph({
+          children: [
+            new TextRun({
+              text: `【 운영 구조 】  ${s(content.timetable.structureNote)}`,
+              font: FONT, size: 19, color: '444444', bold: true,
+            }),
+          ],
+          spacing: { before: 80, after: 120 },
+          shading: { type: ShadingType.SOLID, color: 'F0F4FB', fill: 'F0F4FB' },
+        }),
+      )
+    }
+
+    for (const session of content.timetable.sessions ?? []) {
+      if (session.label) {
+        children.push(
+          new Paragraph({
+            children: [new TextRun({ text: s(session.label), font: FONT, bold: true, size: 20, color: MID_BLUE })],
+            spacing: { before: 120, after: 80 },
+          }),
+        )
+      }
+      if (session.groups?.length) {
+        children.push(rotationTable(session.groups, session.rows ?? []))
+      } else {
+        children.push(simpleTimeTable(session.rows ?? []))
+      }
+      children.push(gap(80))
+    }
+
+    for (const note of content.timetable.footerNotes ?? []) {
+      children.push(bodyP(`※ ${note}`, { color: '888888', size: 17 }))
+    }
+  }
+
+  // ── 준비물 목록
+  if (content.materialsList?.length) {
+    children.push(gap(), secH(`${nextSec}. 부스별 필요 준비물`, true))
+    nextSec++
+
+    for (const cat of content.materialsList) {
+      children.push(subH(s(cat.category)))
+      children.push(materialsTable(cat.items ?? []))
+      children.push(gap(80))
+    }
+
+    if (content.staffingNote) {
+      children.push(bodyP(`※ 운영 참고: ${s(content.staffingNote)}`, { color: '666666', size: 18 }))
+    }
+  }
+
+  // ── 팔로업 / 특이사항
+  const followUp = content.followUp ?? []
+  const notes    = content.notes ?? []
+
+  if (followUp.length) {
+    children.push(gap(), secH(`${nextSec}. 팔로업 계획`))
+    nextSec++
+    followUp.forEach((l) => children.push(bulletP(s(l))))
+  }
+
+  if (notes.length) {
+    children.push(gap(), secH(`${nextSec}. 특이사항`))
+    notes.forEach((l) => children.push(bulletP(s(l))))
+  }
+
+  // ── 제안사 소개
   children.push(
+    gap(),
+    secH('제안사 소개', true),
+    bodyP('위드아크(WITH ARK)는 조직 개발 및 팀빌딩 전문 기업으로, 공공기관·지자체·대기업을 대상으로 체험형 프로그램을 운영하고 있습니다.'),
+    gap(60),
+    bulletP('주민자치·지방행정 조직 대상 워크숍 다수 수행'),
+    bulletP('갈등 관리 체험 프로그램 자체 개발·운영'),
+    bulletP('행사 기획부터 현장 운영까지 원스톱 제공'),
+    bulletP('전국 네트워크 기반 신속한 현장 지원 가능'),
+    gap(),
+    divider(),
+    bodyP('본 제안서는 귀 기관의 요청 사항을 바탕으로 작성된 초안입니다.', { color: '666666', italic: true, center: true }),
+    bodyP('세부 내용은 협의를 통해 조정 가능하며, 최선의 행사를 함께 만들어 가겠습니다.', { color: '666666', italic: true, center: true }),
+    gap(),
     new Paragraph({
-      children: [
-        new TextRun({
-          text: '본 제안서는 협의 과정에서 조정될 수 있으며, 최종 내용은 계약서로 확정됩니다.',
-          font: FONT,
-          color: NAVY,
-          bold: true,
-          italics: true,
-          size: 18,
-        }),
-      ],
+      children: [new TextRun({ text: '위드아크(WITH ARK)', font: FONT, bold: true, size: 26, color: NAVY })],
       alignment: AlignmentType.CENTER,
+    }),
+    new Paragraph({
+      children: [new TextRun({ text: `작성일: ${todayKor()}`, font: FONT, size: 17, color: '999999' })],
+      alignment: AlignmentType.CENTER,
+      spacing: { after: 240 },
     }),
   )
 
-  const docx = new Document({
+  // ── 문서 조립
+  const doc = new Document({
     sections: [
       {
         properties: {
@@ -344,9 +644,13 @@ export async function exportProposalDocx(
             children: [
               new Paragraph({
                 children: [
-                  new TextRun({ text: '위드아크(WITH ARK)  |  행사 제안서', font: FONT, color: '888888', size: 16 }),
+                  new TextRun({
+                    text: `위드아크(WITH ARK)  |  ${s(content.eventName) || '행사 제안서'}`,
+                    font: FONT, size: 17, color: '999999',
+                  }),
                 ],
                 alignment: AlignmentType.RIGHT,
+                border: { bottom: { style: BorderStyle.SINGLE, size: 4, color: 'CCCCCC' } },
               }),
             ],
           }),
@@ -357,13 +661,16 @@ export async function exportProposalDocx(
               new Paragraph({
                 children: [
                   new TextRun({
-                    children: ['- ', PageNumber.CURRENT, ' -'],
-                    font: FONT,
-                    size: 16,
-                    color: '888888',
+                    children: [PageNumber.CURRENT, ' / ', PageNumber.TOTAL_PAGES],
+                    font: FONT, size: 17, color: '999999',
+                  }),
+                  new TextRun({
+                    text: `    |    ${s(content.clientName) || ''} 귀중`,
+                    font: FONT, size: 17, color: 'CCCCCC',
                   }),
                 ],
                 alignment: AlignmentType.CENTER,
+                border: { top: { style: BorderStyle.SINGLE, size: 4, color: 'CCCCCC' } },
               }),
             ],
           }),
@@ -373,8 +680,8 @@ export async function exportProposalDocx(
     ],
   })
 
-  const blob = await Packer.toBlob(docx)
-  const eventName = safeStr(doc.eventName || '행사').replace(/\s/g, '_')
-  const eventDate = safeStr(doc.eventDate || '미정').replace(/\./g, '-')
-  saveAs(blob, `제안서_${eventName}_${eventDate}.docx`)
+  const blob = await Packer.toBlob(doc)
+  const name = s(content.clientName || '고객').replace(/\s/g, '_')
+  const date = s(content.eventDate || '미정').replace(/[\s.년월일]/g, '-').replace(/-+/g, '-').replace(/-$/, '')
+  saveAs(blob, `제안서_${name}_${date}.docx`)
 }
