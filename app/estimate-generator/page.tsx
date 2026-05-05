@@ -70,6 +70,7 @@ function getTaskOrderParsed(t: TaskOrderDoc): TaskOrderSummaryParsed | null {
 }
 
 function EstimateGeneratorContent() {
+  const proposalLabel = '행사 제안서'
   const searchParams = useSearchParams()
   const [toast, setToast] = useState<string | null>(null)
   const showToast = useCallback((m: string) => {
@@ -157,22 +158,22 @@ function EstimateGeneratorContent() {
       {
         id: 'fromTopic',
         title: '주제만 입력',
-        desc: '수신처·행사 정보를 채우면 단가표와 맞춰 견적을 만듭니다.',
+        desc: `수신처·행사 정보를 채우면 단가표와 맞춰 ${proposalLabel} 초안을 만듭니다.`,
       },
       {
         id: 'fromPrompt',
         title: '업체 원문만',
-        desc: '들은 내용·메모를 그대로 붙여 넣어 견적 형식으로 정리합니다.',
+        desc: `들은 내용·메모를 그대로 붙여 넣어 ${proposalLabel} 형식으로 정리합니다.`,
       },
       {
         id: 'fromTaskOrder',
         title: '과업지시서 기준',
-        desc: '업로드한 과업지시서 요지를 반영해 견적을 구성합니다.',
+        desc: `업로드한 과업지시서 요지를 반영해 ${proposalLabel}을 구성합니다.`,
       },
       {
         id: 'fromEstimate',
-        title: '저장된 견적서 기준',
-        desc: '이전에 저장한 견적을 불러와 수정·재발행합니다.',
+        title: '저장된 제안서 기준',
+        desc: '이전에 저장한 문서를 불러와 수정·재발행합니다.',
       },
     ],
     [],
@@ -440,7 +441,7 @@ function EstimateGeneratorContent() {
         clientManager: '',
         clientTel: '',
         requirements:
-          '업체 견적·브리핑 원문을 기준으로 견적서를 구성합니다. 원문의 품목·수량·단가·조건을 반영하고, 사용자 단가표와 조합해 합리적인 항목을 만드세요.',
+          '업체 견적·브리핑 원문을 기준으로 행사 제안서를 구성합니다. 원문의 품목·수량·단가·조건을 반영하고, 사용자 단가표와 조합해 합리적인 항목을 만드세요.',
         briefNotes: raw,
         generationMode: 'vendorBrief' as const,
         eventName: topic.trim() || '업체 견적 기반',
@@ -547,7 +548,7 @@ function EstimateGeneratorContent() {
     const body = requestBodyForEstimate()
     if (!body) {
       if (sourceMode === 'fromEstimate') {
-        showToast('저장된 견적 문서를 불러올 수 없습니다. 목록에서 다시 선택해 주세요.')
+        showToast('저장된 문서를 불러올 수 없습니다. 목록에서 다시 선택해 주세요.')
       } else if (sourceMode === 'fromTaskOrder') {
         showToast('과업지시서 정보를 불러올 수 없습니다. 다시 선택해 주세요.')
       } else if (sourceMode === 'fromPrompt') {
@@ -575,10 +576,10 @@ function EstimateGeneratorContent() {
           `단가표 ${priceItemCount}개 품목 기준으로 맞췄고, 없는 항목은 시장가로 채웠습니다. (「단가표」에서 확인)`,
         )
       } else {
-        showToast('견적서 생성 완료!')
+        showToast('행사 제안서 생성 완료!')
       }
     } catch (e) {
-      showToast(toUserMessage(e, '견적서 생성에 실패했습니다.'))
+      showToast(toUserMessage(e, '행사 제안서 생성에 실패했습니다.'))
     } finally {
       setGenerating(false)
       setGenerationProgressLabel(null)
@@ -673,7 +674,7 @@ function EstimateGeneratorContent() {
   const handleLoadSavedEstimate = useCallback(() => {
     const id = loadPickerId.trim()
     if (!id) {
-      showToast('불러올 견적을 목록에서 선택해 주세요.')
+      showToast('불러올 문서를 목록에서 선택해 주세요.')
       return
     }
     const rec = historyList.find((r) => r.id === id)
@@ -685,7 +686,7 @@ function EstimateGeneratorContent() {
     normalizeQuoteUnitPricesToThousand(next)
     setDoc(next)
     setGeneratedDocId(rec.id)
-    showToast('저장된 견적을 불러왔습니다. 수신처·항목만 수정한 뒤 저장하거나 보내세요.')
+    showToast('저장된 문서를 불러왔습니다. 수신처·항목만 수정한 뒤 저장하거나 보내세요.')
   }, [historyList, loadPickerId, showToast])
 
   const generateDisabled = useMemo(() => {
@@ -738,7 +739,7 @@ function EstimateGeneratorContent() {
         : null
     }
     if (sourceMode === 'fromEstimate') {
-      if (!selectedEstimateId) return '저장된 견적을 선택해 주세요.'
+      if (!selectedEstimateId) return '저장된 문서를 선택해 주세요.'
       if (!selectedHistoryDoc) return '선택한 견적 문서를 불러올 수 없습니다. 다른 항목을 선택해 주세요.'
     }
     if (sourceMode === 'fromTaskOrder') {
@@ -797,7 +798,7 @@ function EstimateGeneratorContent() {
     <div className="space-y-3">
       <div className="rounded-2xl border border-slate-200 bg-white px-4 py-4 space-y-3">
         <p className="text-xs leading-relaxed text-slate-600">
-          업체·행사사 등에서 들은 견적 내용을 그대로 붙여 넣으면, 단가표를 반영해 견적서 형식으로 정리합니다. 행사명·수신처·일정은
+          업체·행사사 등에서 들은 내용을 그대로 붙여 넣으면, 단가표를 반영해 행사 제안서 형식으로 정리합니다. 행사명·수신처·일정은
           원문에서 찾거나 AI가 채웁니다.
         </p>
         <div>
@@ -837,7 +838,7 @@ function EstimateGeneratorContent() {
           label="행사명(선택)"
           value={topic}
           onChange={(e) => setTopic(e.target.value)}
-          placeholder="비워 두면 원문·견적서 제목에서 추정합니다"
+          placeholder="비워 두면 원문·문서 제목에서 추정합니다"
         />
         <div>
           <label className="mb-1.5 block text-sm font-medium text-slate-800">예산 범위</label>
@@ -987,7 +988,7 @@ function EstimateGeneratorContent() {
       <GNB />
       <div className="flex min-h-0 flex-1 flex-col overflow-hidden">
         <header className="flex flex-shrink-0 flex-wrap items-center border-b border-slate-200 bg-white/95 px-4 py-3 sm:px-6">
-          <h1 className="text-lg font-semibold tracking-tight text-slate-900 sm:text-xl">견적서 생성</h1>
+          <h1 className="text-lg font-semibold tracking-tight text-slate-900 sm:text-xl">행사 제안서 생성</h1>
         </header>
 
         <div className="flex min-h-0 flex-1 flex-col lg:flex-row">
@@ -1005,7 +1006,7 @@ function EstimateGeneratorContent() {
               ) : null}
             <section className="min-w-0">
               <SimpleGeneratorWizard
-            title="견적서 생성하기"
+            title="행사 제안서 생성하기"
             step1Label="생성 방식"
             showHeaderEyebrow={false}
             preStepContent={null}
@@ -1043,7 +1044,7 @@ function EstimateGeneratorContent() {
                     className="w-full rounded-xl border border-slate-200 bg-white px-3.5 py-3 text-[15px] text-slate-900 shadow-sm focus:outline-none focus:border-primary-400 focus:ring-4 focus:ring-primary-100/70"
                   >
                     <option value="" disabled>
-                      저장된 견적을 선택하세요
+                      저장된 문서를 선택하세요
                     </option>
                     {historyList.slice(0, 20).map((r) => (
                       <option key={r.id} value={r.id}>
@@ -1081,14 +1082,14 @@ function EstimateGeneratorContent() {
                 topicInputs
               )
             }
-            generateLabel="견적서 생성하기"
+            generateLabel="행사 제안서 생성하기"
             onGenerate={handleGenerateEstimate}
             generating={generating}
             generationProgressLabel={generationProgressLabel}
             generateDisabled={generateDisabled}
             validationMessage={validationMessage}
             showValidationBanner
-            step2ActionLabel="견적서 생성으로 이동"
+            step2ActionLabel="행사 제안서 생성으로 이동"
               />
             </section>
             </div>
@@ -1122,7 +1123,7 @@ function EstimateGeneratorContent() {
                           disabled={proposalGenerating}
                           className="rounded-lg border border-slate-300 bg-slate-100 px-3 py-1.5 text-xs font-semibold text-slate-700 hover:bg-slate-200 disabled:opacity-60 sm:text-sm"
                         >
-                          {proposalGenerating ? '생성 중...' : '제안서 생성'}
+                          {proposalGenerating ? '생성 중...' : '행사 제안서 생성'}
                         </button>
                         <button
                           type="button"
@@ -1165,6 +1166,7 @@ function EstimateGeneratorContent() {
                       disableInternalScroll
                       estimateToolbar="exportOnly"
                       estimateSingleTabLayout="compact"
+                      estimateDisplayName={proposalLabel}
                       onExcel={async (view) => {
                         try {
                           await exportToExcel(doc, companySettings ?? undefined, view)
@@ -1187,9 +1189,9 @@ function EstimateGeneratorContent() {
               ) : generating ? (
                 <div className="flex h-full min-h-[320px] flex-col gap-4">
                   <div>
-                    <h2 className="text-sm font-semibold text-slate-800">견적 생성 진행</h2>
+                    <h2 className="text-sm font-semibold text-slate-800">행사 제안서 생성 진행</h2>
                     <p className="mt-1 text-xs text-slate-500">
-                      단계가 순서대로 쌓이며, 완료되면 오른쪽에 견적서가 열립니다.
+                      단계가 순서대로 쌓이며, 완료되면 오른쪽에 행사 제안서가 열립니다.
                     </p>
                   </div>
                   <div className="flex min-h-0 flex-1 flex-col gap-2.5 overflow-y-auto rounded-2xl border border-primary-100/80 bg-gradient-to-b from-white to-primary-50/40 p-4 shadow-inner">
@@ -1202,7 +1204,7 @@ function EstimateGeneratorContent() {
                         <span className="text-slate-600">
                           {' '}
                           — 입력하신{' '}
-                          {sourceMode === 'fromPrompt' ? '업체 원문·예산·단가표' : '주제·예산·단가표'}를 바탕으로 견적을 구성하고
+                          {sourceMode === 'fromPrompt' ? '업체 원문·예산·단가표' : '주제·예산·단가표'}를 바탕으로 행사 제안서를 구성하고
                           있어요.
                         </span>
                       </div>
@@ -1261,11 +1263,11 @@ function EstimateGeneratorContent() {
                         <strong className="text-primary-800">
                           {sourceMode === 'fromPrompt' ? '업체 원문·예산' : '주제·예산'}
                         </strong>
-                        을 입력한 뒤 생성하면, 단가표를 반영한 견적이 여기에 표시됩니다.
+                        을 입력한 뒤 생성하면, 단가표를 반영한 행사 제안서 초안이 여기에 표시됩니다.
                       </div>
                       <div className="bubble-tip relative ml-4 rounded-2xl border border-slate-200 bg-white px-4 py-3 text-sm leading-relaxed text-slate-700 shadow-sm">
                         <span className="absolute -left-1 top-4 h-3 w-3 rotate-45 border-l border-b border-slate-200 bg-white" aria-hidden />
-                        이미 만든 견적은 아래에서 불러와 <strong>수신처·금액</strong>만 손보고 저장·엑셀·PDF로 보낼 수 있어요.
+                        이미 만든 문서는 아래에서 불러와 <strong>수신처·금액</strong>만 손보고 저장·엑셀·PDF로 보낼 수 있어요.
                       </div>
                       <div className="bubble-tip relative rounded-2xl border border-emerald-100 bg-emerald-50/50 px-4 py-3 text-sm leading-relaxed text-slate-800 shadow-sm">
                         <span className="absolute -left-1 top-4 h-3 w-3 rotate-45 border-l border-b border-emerald-100 bg-emerald-50/50" aria-hidden />
@@ -1274,8 +1276,8 @@ function EstimateGeneratorContent() {
                     </div>
 
                     <div className="mt-4 rounded-2xl border border-slate-200 bg-white p-4 shadow-sm">
-                      <p className="text-xs font-semibold text-slate-700">저장된 견적 불러오기</p>
-                      <p className="mt-1 text-xs text-slate-500">작업 이력에 있는 견적을 그대로 열어 수정합니다. 전체 목록은 작업 이력에서 확인하세요.</p>
+                      <p className="text-xs font-semibold text-slate-700">저장된 문서 불러오기</p>
+                      <p className="mt-1 text-xs text-slate-500">작업 이력에 있는 문서를 그대로 열어 수정합니다. 전체 목록은 작업 이력에서 확인하세요.</p>
                       <div className="mt-3 flex flex-col gap-2 sm:flex-row sm:items-stretch">
                         <select
                           value={loadPickerId}
@@ -1284,7 +1286,7 @@ function EstimateGeneratorContent() {
                           className="min-w-0 flex-1 rounded-xl border border-slate-200 bg-white px-3 py-2.5 text-sm text-slate-900 shadow-sm focus:outline-none focus:ring-2 focus:ring-primary-200 disabled:opacity-50"
                         >
                           {historyList.length === 0 ? (
-                            <option value="">저장된 견적이 없습니다</option>
+                            <option value="">저장된 문서가 없습니다</option>
                           ) : (
                             historyList.map((r) => (
                               <option key={r.id} value={r.id}>

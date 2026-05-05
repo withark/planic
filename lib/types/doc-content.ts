@@ -69,6 +69,27 @@ export interface ProposalContent extends BaseEventInfo {
   staffingNote?: string
   followUp?:     string[]
   notes?:        string[]
+  quote?:        QuoteData   // 사용자가 직접 입력한 견적
+}
+
+// ── 견적서 ────────────────────────────────────────────────────────
+export interface QuoteLineItem {
+  name:       string    // "사회자(MC)"
+  unitPrice:  number    // 800000
+  quantity:   number    // 1
+  unit:       string    // "인" | "식" | "개" | "팀" | "일"
+  subItems?:  string[]  // ["· 무선 핸드마이크 2EA", "· 앰프·스피커"] → 포함 처리
+}
+
+export interface QuoteData {
+  companyName?:    string          // "(주)시냇가에심은나무 (위드아크)"
+  representative?: string         // "이다윗 대표"
+  contact?:        string         // "010-4537-2382"
+  items:           QuoteLineItem[]
+  optionalItems?:  QuoteLineItem[] // 선택 항목(별도)
+  expenseRate:     number          // 제경비율 (기본 10 → 10%)
+  profitAmount:    number          // 기업이윤 고정액 (원)
+  includeVat:      boolean         // VAT 포함 여부
 }
 
 // ── 큐시트 ────────────────────────────────────────────────────────

@@ -87,7 +87,17 @@ export async function POST(req: NextRequest) {
   try {
     const body = (await req.json()) as EmceeRequest
 
-    const { eventName, eventDate, eventPlace, headcount, eventType, mcTone, eventStartTime, eventEndTime } = body
+    const ss = (v: unknown) => (typeof v === 'string' ? v : String(v ?? ''))
+    const eventName      = ss(body.eventName)
+    const eventDate      = ss(body.eventDate)
+    const eventPlace     = ss(body.eventPlace)
+    const headcount      = ss(body.headcount)
+    const eventType      = ss(body.eventType)
+    const mcTone         = ss(body.mcTone)
+    const eventStartTime = ss(body.eventStartTime)
+    const eventEndTime   = ss(body.eventEndTime)
+    const requirements   = ss((body as any).requirements)
+    const restrictions   = ss((body as any).restrictions)
 
     if (!eventName || !eventDate || !eventPlace || !headcount || !eventType || !mcTone || !eventStartTime || !eventEndTime) {
       return NextResponse.json(

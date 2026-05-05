@@ -90,20 +90,19 @@ export async function POST(req: NextRequest) {
   try {
     const body = (await req.json()) as GenerateCuesheetRequest
 
-    const {
-      eventName,
-      eventDate,
-      eventPlace,
-      headcount,
-      eventType,
-      cuesheetType,
-      eventStartTime,
-      eventEndTime,
-      requirements,
-      notes,
-    } = body
+    const ss = (v: unknown) => (typeof v === 'string' ? v : String(v ?? ''))
+    const eventName      = ss(body.eventName)
+    const eventDate      = ss(body.eventDate)
+    const eventPlace     = ss(body.eventPlace)
+    const headcount      = ss(body.headcount)
+    const eventType      = ss(body.eventType)
+    const cuesheetType   = ss(body.cuesheetType)
+    const eventStartTime = ss(body.eventStartTime)
+    const eventEndTime   = ss(body.eventEndTime)
+    const requirements   = ss(body.requirements)
+    const notes          = ss(body.notes)
 
-    if (!eventName || !eventDate || !eventStartTime || !eventEndTime) {
+    if (!eventName) {
       return NextResponse.json(
         { ok: false, error: { message: '필수 입력값이 누락되었습니다.' } },
         { status: 400 },

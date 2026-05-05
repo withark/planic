@@ -156,19 +156,25 @@ export async function POST(req: NextRequest) {
   try {
     const body = (await req.json()) as ProposalRequestBody
 
-    const {
-      clientName,
-      contact,
-      eventName,
-      eventDate,
-      eventPlace,
-      headcount,
-      budget,
-      eventType,
-      requirements,
-      followUp,
-      notes,
-    } = body
+    const ss = (v: unknown) => (typeof v === 'string' ? v : String(v ?? ''))
+    const clientName   = ss(body.clientName)
+    const contact      = ss(body.contact)
+    const eventName    = ss(body.eventName)
+    const eventDate    = ss(body.eventDate)
+    const eventPlace   = ss(body.eventPlace)
+    const headcount    = ss(body.headcount)
+    const budget       = ss(body.budget)
+    const eventType    = ss(body.eventType)
+    const requirements = ss(body.requirements)
+    const followUp     = ss(body.followUp)
+    const notes        = ss(body.notes)
+
+    if (!eventName) {
+      return NextResponse.json(
+        { ok: false, error: { message: '행사명을 입력해 주세요.' } },
+        { status: 400 },
+      )
+    }
 
     const apiKey = process.env.ANTHROPIC_API_KEY
     if (!apiKey) {

@@ -94,6 +94,8 @@ interface Props {
    * compact면 편집에 맞춘 일반 표(구분·항목 열)를 쓴다.
    */
   estimateSingleTabLayout?: 'excel' | 'compact'
+  /** estimate 탭의 사용자 표시 명칭을 덮어씀 */
+  estimateDisplayName?: string
 }
 
 function isProgramProposalReady(doc: QuoteDoc) {
@@ -221,6 +223,7 @@ export function QuoteResult({
   disableInternalScroll = false,
   estimateToolbar = 'full',
   estimateSingleTabLayout = 'excel',
+  estimateDisplayName = '견적서',
 }: Props) {
   const initial = visibleTabs.includes(initialTab) ? initialTab : 'estimate'
   const [tab, setTab] = useState<DocTab>(initial)
@@ -325,7 +328,7 @@ export function QuoteResult({
                 : null
   const tabLabel =
     tab === 'estimate'
-      ? '견적서'
+      ? estimateDisplayName
       : tab === 'program'
         ? (showCueSheetEditor ? '큐시트' : '프로그램 제안')
         : tab === 'timetable'
@@ -496,7 +499,7 @@ export function QuoteResult({
             <div className="flex flex-wrap gap-1.5">
             {visibleTabs.map((id) => {
               const label =
-                id === 'estimate' ? '견적서' :
+                id === 'estimate' ? estimateDisplayName :
                 id === 'program' ? '프로그램 제안' :
                 id === 'timetable' ? '타임테이블' :
                 id === 'planning' ? '기획 문서' :
@@ -523,7 +526,7 @@ export function QuoteResult({
             {tab === 'estimate' && excelSheetMode && (
               <span className="flex items-center gap-1.5 rounded-xl border border-slate-200 bg-slate-50 px-2.5 py-1.5">
                 <span className="text-xs font-semibold text-slate-600">양식</span>
-                <span className="rounded-lg border border-slate-200 bg-white px-2.5 py-1.5 text-sm text-slate-700">엑셀형 견적서</span>
+                <span className="rounded-lg border border-slate-200 bg-white px-2.5 py-1.5 text-sm text-slate-700">엑셀형 {estimateDisplayName}</span>
               </span>
             )}
             {onLoadPrevious && (
@@ -605,7 +608,7 @@ export function QuoteResult({
       <p className={clsx('flex-shrink-0 px-4 text-[13px] leading-5 text-slate-600', compactEstimateEditor && tab === 'estimate' ? 'py-2' : 'py-3')}>
         {tab === 'estimate' &&
           (excelSheetMode
-            ? '엑셀 견적서와 같은 열 구성(구분·항목·내역·수량·단가·단위·기간·합계 등)으로 편집할 수 있습니다. 제경비·이윤은 하단 요약에만 반영됩니다.'
+            ? `엑셀 ${estimateDisplayName}와 같은 열 구성(구분·항목·내역·수량·단가·단위·기간·합계 등)으로 편집할 수 있습니다. 제경비·이윤은 하단 요약에만 반영됩니다.`
             : compactEstimateEditor
               ? '표에서 항목·수량·단가를 수정한 뒤 저장하거나 엑셀·PDF로 내보낼 수 있습니다.'
               : '개당 단가·수량·항목명 등 견적 표에서 바로 수정 가능')}
@@ -727,7 +730,7 @@ export function QuoteResult({
               <div lang="ko" className="max-w-none space-y-4 pb-10">
                 <div className="flex flex-wrap items-start justify-between gap-4 border-b-2 border-slate-800 pb-3">
                   <div className="min-w-[120px] flex-1" />
-                  <h2 className="text-center text-xl font-bold tracking-[0.25em] text-slate-900">견 적 서</h2>
+                  <h2 className="text-center text-xl font-bold tracking-[0.25em] text-slate-900">{estimateDisplayName}</h2>
                   <div className="min-w-[160px] flex-1 text-right text-[11px] leading-relaxed text-slate-600">
                     <div>
                       <span className="font-semibold text-slate-700">작성자</span> {writer}
@@ -762,7 +765,7 @@ export function QuoteResult({
                     {supplierProfileWeak ? (
                       <div className="border-t border-amber-200 bg-amber-50/90 px-3 py-2.5 text-[11px] leading-snug text-slate-800">
                         <p className="font-semibold text-amber-900">공급자 정보가 비어 있거나 부족합니다.</p>
-                        <p className="mt-1 text-slate-700">상호·사업자번호·연락처를 입력하면 견적서·PDF에 올바르게 표시됩니다.</p>
+                        <p className="mt-1 text-slate-700">상호·사업자번호·연락처를 입력하면 {estimateDisplayName}·PDF에 올바르게 표시됩니다.</p>
                         <Link
                           href="/settings"
                           className="mt-2 inline-flex items-center font-semibold text-primary-700 underline decoration-primary-400 underline-offset-2 hover:text-primary-800"
@@ -1072,14 +1075,14 @@ export function QuoteResult({
               <div className={templateId === 'default' ? 'quote-header-area text-center space-y-1' : 'flex justify-between items-start'}>
                 {templateId === 'default' ? (
                   <>
-                    <h2 className="quote-title text-2xl font-bold tracking-tight text-primary-700">견적서</h2>
+                    <h2 className="quote-title text-2xl font-bold tracking-tight text-primary-700">{estimateDisplayName}</h2>
                     <p className="text-sm text-gray-500">{doc.eventName} · {doc.clientName}</p>
                     <p className="text-xs text-gray-400">견적일 {doc.quoteDate} · 유효기간 {doc.validDays}일</p>
                   </>
                 ) : templateId !== 'classic' ? (
                   <>
                     <div>
-                      <h2 className="quote-title text-xl font-semibold tracking-wide text-primary-700">견 적 서</h2>
+                      <h2 className="quote-title text-xl font-semibold tracking-wide text-primary-700">{estimateDisplayName}</h2>
                       <p className="text-xs text-gray-500 mt-1">{doc.eventName} · {doc.clientName}</p>
                     </div>
                     <div className="text-right text-xs text-gray-400 space-y-0.5">
@@ -1090,7 +1093,7 @@ export function QuoteResult({
                 ) : (
                   <div className="flex justify-between w-full">
                     <div>
-                      <h2 className="quote-title text-xl font-semibold text-[#1e3a5f]">견 적 서</h2>
+                      <h2 className="quote-title text-xl font-semibold text-[#1e3a5f]">{estimateDisplayName}</h2>
                       <p className="text-xs text-slate-500 mt-1">{doc.eventName} · {doc.clientName}</p>
                     </div>
                   </div>

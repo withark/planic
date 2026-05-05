@@ -5,7 +5,8 @@ import { Textarea, Spinner } from '@/components/ui'
 import { apiFetch } from '@/lib/api/client'
 import { toUserMessage } from '@/lib/errors/toUserMessage'
 import { exportProposalDocx } from '@/lib/export/exportProposalDocx'
-import type { ProposalContent } from '@/lib/types/doc-content'
+import type { ProposalContent, QuoteData } from '@/lib/types/doc-content'
+import QuoteEditor from '@/components/proposal/QuoteEditor'
 
 const STEPS = [
   '행사 유형 분석 중...',
@@ -16,11 +17,24 @@ const STEPS = [
   '문서 마무리 중...',
 ]
 
+const DEFAULT_QUOTE: QuoteData = {
+  companyName:    '',
+  representative: '',
+  contact:        '',
+  items:          [],
+  optionalItems:  [],
+  expenseRate:    10,
+  profitAmount:   0,
+  includeVat:     true,
+}
+
 export default function ProposalPage() {
   const [baseData, setBaseData] = useState<BaseFormData | null>(null)
   const [budget, setBudget]     = useState('')
   const [followUp, setFollowUp] = useState('')
   const [notes, setNotes]       = useState('')
+  const [quoteData, setQuoteData] = useState<QuoteData>(DEFAULT_QUOTE)
+  const [showQuote, setShowQuote] = useState(false)
 
   const [generating, setGenerating] = useState(false)
   const [stepIdx, setStepIdx]       = useState(0)
@@ -70,13 +84,17 @@ export default function ProposalPage() {
     if (!content) return
     setDownloading(true)
     try {
-      await exportProposalDocx(content)
+      const hasQuote = quoteData.items.length > 0
+      await exportProposalDocx({
+        ...content,
+        quote: hasQuote ? quoteData : undefined,
+      })
     } catch (e) {
       setError(toUserMessage(e, 'DOCX 다운로드에 실패했습니다.'))
     } finally {
       setDownloading(false)
     }
-  }, [content])
+  }, [content, quoteData])
 
   return (
     <div className="mx-auto max-w-5xl px-4 py-8 sm:px-6">
@@ -89,22 +107,52 @@ export default function ProposalPage() {
 
       <div className="grid gap-6 lg:grid-cols-[1fr_300px]">
         {/* 좌: 입력 폼 */}
-        <div className="space-y-6 rounded-2xl border border-slate-200 bg-white p-6 shadow-sm">
-          <BaseInfoForm onChange={setBaseData} />
-          <div className="border-t border-slate-100 pt-4 space-y-4">
-            <div className="flex flex-col gap-1.5">
-              <label className="text-sm font-semibold text-slate-700">예산</label>
-              <input
-                value={budget}
-                onChange={(e) => setBudget(e.target.value)}
-                placeholder="예: 1,500만원"
-                className="w-full rounded-xl border border-slate-200 bg-white px-3.5 py-3 text-[15px] text-slate-900 shadow-sm focus:border-primary-400 focus:outline-none focus:ring-4 focus:ring-primary-100/70"
-              />
+        <div className="space-y-6">
+          <div className="rounded-2xl border border-slate-200 bg-white p-6 shadow-sm">
+            <BaseInfoForm onChange={setBaseData} />
+            <div className="border-t border-slate-100 pt-4 space-y-4 mt-4">
+              <div className="flex flex-col gap-1.5">
+                <label className="text-sm font-semibold text-slate-700">예산</label>
+                <input
+                  value={budget}
+                  onChange={(e) => setBudget(e.target.value)}
+                  placeholder="예: 1,500만원"
+                  className="w-full rounded-xl border border-slate-200 bg-white px-3.5 py-3 text-[15px] text-slate-900 shadow-sm focus:border-primary-400 focus:outline-none focus:ring-4 focus:ring-primary-100/70"
+                />
+              </div>
+              <Textarea label="팔로업 계획" value={followUp} onChange={(e) => setFollowUp(e.target.value)} rows={2}
+                placeholder="견적 제출 후 미팅 일정, 현장 답사 계획 등" />
+              <Textarea label="특이사항" value={notes} onChange={(e) => setNotes(e.target.value)} rows={2}
+                placeholder="VIP 동선, 금지사항, 특별 요청 등" />
             </div>
-            <Textarea label="팔로업 계획" value={followUp} onChange={(e) => setFollowUp(e.target.value)} rows={2}
-              placeholder="견적 제출 후 미팅 일정, 현장 답사 계획 등" />
-            <Textarea label="특이사항" value={notes} onChange={(e) => setNotes(e.target.value)} rows={2}
-              placeholder="VIP 동선, 금지사항, 특별 요청 등" />
+          </div>
+
+          {/* 견적서 입력 섹션 (토글) */}
+          <div className="rounded-2xl border border-slate-200 bg-white shadow-sm overflow-hidden">
+            <button
+              type="button"
+              onClick={() => setShowQuote((v) => !v)}
+              className="flex w-full items-center justify-between px-6 py-4 text-sm font-semibold text-slate-700 hover:bg-slate-50 transition-colors"
+            >
+              <span className="flex items-center gap-2">
+                <span className="inline-flex h-5 w-5 items-center justify-center rounded bg-primary-100 text-primary-700 text-xs font-bold">₩</span>
+                견적서 작성 (선택)
+              </span>
+              <svg
+                className={`h-4 w-4 text-slate-400 transition-transform ${showQuote ? 'rotate-180' : ''}`}
+                viewBox="0 0 20 20" fill="currentColor"
+              >
+                <path fillRule="evenodd" d="M5.23 7.21a.75.75 0 011.06.02L10 11.168l3.71-3.938a.75.75 0 111.08 1.04l-4.25 4.5a.75.75 0 01-1.08 0l-4.25-4.5a.75.75 0 01.02-1.06z" clipRule="evenodd" />
+              </svg>
+            </button>
+            {showQuote && (
+              <div className="border-t border-slate-100 px-6 pb-6 pt-4">
+                <p className="mb-4 text-xs text-slate-500">
+                  견적 항목을 입력하면 제안서 마지막 섹션에 견적서가 포함됩니다. 항목이 없으면 생략됩니다.
+                </p>
+                <QuoteEditor value={quoteData} onChange={setQuoteData} />
+              </div>
+            )}
           </div>
         </div>
 
@@ -145,6 +193,7 @@ export default function ProposalPage() {
                 {content.awardOptions?.length ? <p>• 시상 방안 {content.awardOptions.length}안</p> : null}
                 {content.timetable && <p>• 타임테이블 {content.timetable.sessions?.length ?? 1}세션</p>}
                 {content.materialsList?.length ? <p>• 준비물 {content.materialsList.length}카테고리</p> : null}
+                {quoteData.items.length > 0 && <p>• 견적 항목 {quoteData.items.length}개 포함</p>}
               </div>
             </div>
           )}
@@ -157,6 +206,7 @@ export default function ProposalPage() {
               <li>• 시상 방안 2~3안 비교</li>
               <li>• 팀/반별 로테이션 타임테이블</li>
               <li>• 부스별 준비물 목록</li>
+              <li>• 견적서 (선택 입력 시)</li>
             </ul>
           </div>
         </div>

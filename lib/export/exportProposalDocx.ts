@@ -1,4 +1,4 @@
-import type { ProposalContent } from '@/lib/types/doc-content'
+import type { ProposalContent, QuoteData, QuoteLineItem } from '@/lib/types/doc-content'
 import {
   AlignmentType,
   BorderStyle,
@@ -430,6 +430,250 @@ function materialsTable(items: { name: string; quantity: string }[]): Table {
   return new Table({ width: { size: 100, type: WidthType.PERCENTAGE }, rows: [hdr, ...dataRows] })
 }
 
+// ── 숫자 포맷 ──────────────────────────────────────────────────────
+function numFmt(n: number): string {
+  return n > 0 ? n.toLocaleString('ko-KR') : '–'
+}
+
+// ── 견적서 섹션 ───────────────────────────────────────────────────
+const QW = [40, 20, 8, 8, 24] as const // 항목명/단가/수량/단위/금액
+
+function quoteItemRow(item: QuoteLineItem, idx: number): TableRow[] {
+  const shade = idx % 2 === 0 ? GRAY : undefined
+  const amt   = item.unitPrice * item.quantity
+  const rows: TableRow[] = []
+
+  rows.push(
+    new TableRow({
+      children: [
+        // 항목명
+        new TableCell({
+          width: { size: QW[0], type: WidthType.PERCENTAGE },
+          shading: shade ? { type: ShadingType.SOLID, color: shade, fill: shade } : undefined,
+          children: [
+            new Paragraph({
+              children: [new TextRun({ text: s(item.name), font: FONT, size: 18, color: TEXT, bold: true })],
+            }),
+          ],
+          margins: { top: 70, bottom: 70, left: 100, right: 100 },
+        }),
+        // 단가
+        new TableCell({
+          width: { size: QW[1], type: WidthType.PERCENTAGE },
+          shading: shade ? { type: ShadingType.SOLID, color: shade, fill: shade } : undefined,
+          children: [
+            new Paragraph({
+              children: [new TextRun({ text: item.unitPrice > 0 ? numFmt(item.unitPrice) : '–', font: FONT, size: 17, color: TEXT })],
+              alignment: AlignmentType.RIGHT,
+            }),
+          ],
+          margins: { top: 70, bottom: 70, left: 80, right: 100 },
+        }),
+        // 수량
+        new TableCell({
+          width: { size: QW[2], type: WidthType.PERCENTAGE },
+          shading: shade ? { type: ShadingType.SOLID, color: shade, fill: shade } : undefined,
+          children: [
+            new Paragraph({
+              children: [new TextRun({ text: String(item.quantity), font: FONT, size: 17, color: TEXT })],
+              alignment: AlignmentType.CENTER,
+            }),
+          ],
+          margins: { top: 70, bottom: 70, left: 60, right: 60 },
+        }),
+        // 단위
+        new TableCell({
+          width: { size: QW[3], type: WidthType.PERCENTAGE },
+          shading: shade ? { type: ShadingType.SOLID, color: shade, fill: shade } : undefined,
+          children: [
+            new Paragraph({
+              children: [new TextRun({ text: s(item.unit), font: FONT, size: 17, color: TEXT })],
+              alignment: AlignmentType.CENTER,
+            }),
+          ],
+          margins: { top: 70, bottom: 70, left: 60, right: 60 },
+        }),
+        // 금액
+        new TableCell({
+          width: { size: QW[4], type: WidthType.PERCENTAGE },
+          shading: shade ? { type: ShadingType.SOLID, color: shade, fill: shade } : undefined,
+          children: [
+            new Paragraph({
+              children: [new TextRun({ text: amt > 0 ? numFmt(amt) : '–', font: FONT, size: 17, color: TEXT, bold: true })],
+              alignment: AlignmentType.RIGHT,
+            }),
+          ],
+          margins: { top: 70, bottom: 70, left: 80, right: 100 },
+        }),
+      ],
+    }),
+  )
+
+  // 세부항목 행 (있을 때만)
+  if (item.subItems?.length) {
+    rows.push(
+      new TableRow({
+        children: [
+          new TableCell({
+            columnSpan: 5,
+            shading: { type: ShadingType.SOLID, color: LIGHT_BLUE, fill: LIGHT_BLUE },
+            children: item.subItems.map((sub) =>
+              new Paragraph({
+                children: [
+                  new TextRun({
+                    text: `    ${sub.startsWith('·') || sub.startsWith('•') ? '' : '· '}${sub}`,
+                    font: FONT, size: 16, color: '555555',
+                  }),
+                ],
+                spacing: { after: 20 },
+              }),
+            ),
+            margins: { top: 50, bottom: 50, left: 140, right: 100 },
+          }),
+        ],
+      }),
+    )
+  }
+
+  return rows
+}
+
+function quoteTableHeader(headerColor: string): TableRow {
+  return new TableRow({
+    tableHeader: true,
+    children: ['항  목  명', '단  가 (원)', '수 량', '단 위', '금  액 (원)'].map((col, i) =>
+      new TableCell({
+        width: { size: QW[i], type: WidthType.PERCENTAGE },
+        shading: { type: ShadingType.SOLID, color: headerColor, fill: headerColor },
+        children: [
+          new Paragraph({
+            children: [new TextRun({ text: col, font: FONT, bold: true, size: 17, color: 'FFFFFF' })],
+            alignment: AlignmentType.CENTER,
+          }),
+        ],
+        margins: { top: 80, bottom: 80, left: 100, right: 100 },
+      }),
+    ),
+  })
+}
+
+function quoteSummaryRows(quote: QuoteData): TableRow[] {
+  const subtotal  = (quote.items ?? []).reduce((s, it) => s + it.unitPrice * it.quantity, 0)
+  const expense   = Math.round(subtotal * (quote.expenseRate / 100))
+  const subtotal2 = subtotal + expense
+  const profit    = quote.profitAmount
+  const supplyAmt = subtotal2 + profit
+  const vat       = quote.includeVat ? Math.round(supplyAmt * 0.1) : 0
+  const total     = supplyAmt + vat
+
+  const rows: Array<{ label: string; value: number; isTotal?: boolean; isBold?: boolean }> = [
+    { label: '소  계',                        value: subtotal },
+    { label: `제경비 (${quote.expenseRate}%)`, value: expense },
+    { label: '소  계',                        value: subtotal2 },
+    { label: '기업이윤',                       value: profit },
+    { label: '공급가액',                       value: supplyAmt, isBold: true },
+  ]
+  if (quote.includeVat) rows.push({ label: '부가세 VAT (10%)', value: vat })
+  rows.push({ label: quote.includeVat ? '합  계 (VAT 포함)' : '합  계', value: total, isTotal: true })
+
+  return rows.map(({ label, value, isTotal, isBold }) =>
+    new TableRow({
+      children: [
+        new TableCell({
+          columnSpan: 4,
+          shading: {
+            type: ShadingType.SOLID,
+            color: isTotal ? NAVY : LIGHT_BLUE,
+            fill:  isTotal ? NAVY : LIGHT_BLUE,
+          },
+          children: [
+            new Paragraph({
+              children: [new TextRun({ text: label, font: FONT, bold: true, size: isTotal ? 19 : 17, color: isTotal ? 'FFFFFF' : NAVY })],
+              alignment: AlignmentType.RIGHT,
+            }),
+          ],
+          margins: { top: 80, bottom: 80, left: 100, right: 120 },
+        }),
+        new TableCell({
+          shading: {
+            type: ShadingType.SOLID,
+            color: isTotal ? NAVY : (isBold ? ACCENT : 'FFFFFF'),
+            fill:  isTotal ? NAVY : (isBold ? ACCENT : 'FFFFFF'),
+          },
+          children: [
+            new Paragraph({
+              children: [new TextRun({
+                text: value > 0 ? numFmt(value) : '–',
+                font: FONT, bold: isBold || isTotal,
+                size: isTotal ? 19 : 17,
+                color: isTotal ? 'FFFFFF' : TEXT,
+              })],
+              alignment: AlignmentType.RIGHT,
+            }),
+          ],
+          margins: { top: 80, bottom: 80, left: 80, right: 120 },
+        }),
+      ],
+    }),
+  )
+}
+
+function quoteSection(quote: QuoteData): Array<Paragraph | Table> {
+  const result: Array<Paragraph | Table> = []
+
+  // 업체 정보
+  const companyRows: [string, string][] = []
+  if (quote.companyName)    companyRows.push(['업 체 명', quote.companyName])
+  if (quote.representative) companyRows.push(['대 표 자', quote.representative])
+  if (quote.contact)        companyRows.push(['연 락 처', quote.contact])
+  if (companyRows.length) {
+    result.push(infoTable(companyRows))
+    result.push(gap(140))
+  }
+
+  // 주요 항목 테이블
+  const itemRows = (quote.items ?? []).flatMap((item, i) => quoteItemRow(item, i))
+  const summaryRows = quoteSummaryRows(quote)
+
+  result.push(
+    new Table({
+      width: { size: 100, type: WidthType.PERCENTAGE },
+      rows: [quoteTableHeader(NAVY), ...itemRows, ...summaryRows],
+    }),
+  )
+
+  // 선택 항목
+  const optItems = quote.optionalItems ?? []
+  if (optItems.length > 0) {
+    const optTotal = optItems.reduce((s, it) => s + it.unitPrice * it.quantity, 0)
+    result.push(gap(140), subH('선택 항목 (별도)'))
+
+    const optRows = optItems.flatMap((item, i) => quoteItemRow(item, i))
+    result.push(
+      new Table({
+        width: { size: 100, type: WidthType.PERCENTAGE },
+        rows: [quoteTableHeader(MID_BLUE), ...optRows],
+      }),
+    )
+
+    if (optTotal > 0) {
+      result.push(
+        gap(60),
+        new Paragraph({
+          children: [
+            new TextRun({ text: '선택항목 합계:  ', font: FONT, size: 17, color: '555555' }),
+            new TextRun({ text: `${numFmt(optTotal)}원`, font: FONT, size: 17, color: TEXT, bold: true }),
+          ],
+          alignment: AlignmentType.RIGHT,
+          spacing: { after: 60 },
+        }),
+      )
+    }
+  }
+
+  return result
+}
+
 // ── 메인 export 함수 ──────────────────────────────────────────────
 export async function exportProposalDocx(content: ProposalContent): Promise<void> {
   const children: Array<Paragraph | Table> = []
@@ -600,7 +844,15 @@ export async function exportProposalDocx(content: ProposalContent): Promise<void
 
   if (notes.length) {
     children.push(gap(), secH(`${nextSec}. 특이사항`))
+    nextSec++
     notes.forEach((l) => children.push(bulletP(s(l))))
+  }
+
+  // ── 견적서
+  if (content.quote && content.quote.items?.length > 0) {
+    children.push(gap(), secH(`${nextSec}. 견적서`, true))
+    nextSec++
+    children.push(...quoteSection(content.quote))
   }
 
   // ── 제안사 소개
