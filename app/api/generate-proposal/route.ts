@@ -1,6 +1,12 @@
 import { NextRequest, NextResponse } from 'next/server'
 import Anthropic from '@anthropic-ai/sdk'
 import type { ProposalContent } from '@/lib/types/doc-content'
+import { claudeRepairJsonText, parseRepairedJson } from '@/lib/ai/claude-json-repair'
+import {
+  collectProposalQualityIssues,
+  normalizeProposalContentPatch,
+  omitUndefinedProps,
+} from '@/lib/ai/document-output-quality'
 import { parseAiJson } from '@/lib/ai/json-response'
 
 export const maxDuration = 120
@@ -203,7 +209,11 @@ export async function POST(req: NextRequest) {
       throw new Error('AI 응답 형식 오류')
     }
 
-    const parsed = parseAiJson<Omit<ProposalContent, keyof typeof baseFields>>(responseContent.text)
+    type ProposalAiPatch = Omit<
+      ProposalContent,
+      'clientName' | 'contact' | 'eventName' | 'eventDate' | 'eventPlace' | 'headcount' | 'budget' | 'eventType' | 'quote'
+    >
+    const parsed = parseAiJson<Partial<ProposalAiPatch>>(responseContent.text)
 
     const baseFields = {
       clientName,
@@ -216,18 +226,58 @@ export async function POST(req: NextRequest) {
       eventType,
     }
 
-    const aiParsed = parsed as Partial<ProposalContent>
-    const content: ProposalContent = {
-      tagline:    '',
+    const aiParsed = normalizeProposalContentPatch(parsed as Partial<ProposalContent>)
+    let content: ProposalContent = {
+      tagline: '',
       highlights: [],
       programFlow: [],
       ...baseFields,
       ...aiParsed,
       // Preserve user-supplied followUp/notes only if AI didn't generate them
-      followUp: aiParsed.followUp ??
-        (followUp ? followUp.split('\n').filter(Boolean) : []),
-      notes: aiParsed.notes ??
-        (notes ? notes.split('\n').filter(Boolean) : []),
+      followUp:
+        aiParsed.followUp && aiParsed.followUp.length > 0
+          ? aiParsed.followUp
+          : followUp
+            ? followUp.split('\n').filter(Boolean)
+            : [],
+      notes:
+        aiParsed.notes && aiParsed.notes.length > 0
+          ? aiParsed.notes
+          : notes
+            ? notes.split('\n').filter(Boolean)
+            : [],
+    }
+
+    const qualityIssues = collectProposalQualityIssues(content)
+    if (qualityIssues.length > 0) {
+      try {
+        const repairPrompt = `다음은 행사 제안서 JSON입니다. 품질 검증 이슈를 모두 해결한 수정본만 출력하세요.
+
+[품질 이슈]
+${qualityIssues.map((s) => `- ${s}`).join('\n')}
+
+[규칙]
+- clientName, contact, eventName, eventDate, eventPlace, headcount, budget, eventType 값은 절대 변경하지 마세요.
+- 위 필드를 제외한 나머지 필드만 보강·수정하세요.
+- 출력은 마크다운 없이 단일 JSON만.
+
+[원본 JSON]
+${JSON.stringify(content)}`
+
+        const repairRaw = await claudeRepairJsonText({ client, userRepairPrompt: repairPrompt, maxTokens: 8192 })
+        const patch = normalizeProposalContentPatch(parseRepairedJson<Partial<ProposalContent>>(repairRaw))
+        const safePatch = omitUndefinedProps(patch as Record<string, unknown>) as Partial<ProposalContent>
+        content = {
+          ...content,
+          ...safePatch,
+          ...baseFields,
+          followUp:
+            patch.followUp && patch.followUp.length > 0 ? patch.followUp : content.followUp,
+          notes: patch.notes && patch.notes.length > 0 ? patch.notes : content.notes,
+        }
+      } catch {
+        /* 1차 결과 유지 */
+      }
     }
 
     return NextResponse.json({ ok: true, data: { content } })

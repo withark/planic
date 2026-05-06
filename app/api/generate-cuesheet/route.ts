@@ -1,30 +1,11 @@
 import { NextRequest, NextResponse } from 'next/server'
 import Anthropic from '@anthropic-ai/sdk'
+import { claudeRepairJsonText, parseRepairedJson } from '@/lib/ai/claude-json-repair'
+import { collectCuesheetQualityIssues } from '@/lib/ai/document-output-quality'
 import { parseAiJson } from '@/lib/ai/json-response'
+import type { CuesheetContent } from '@/lib/types/doc-content'
 
 export const maxDuration = 120
-
-interface CuesheetRow {
-  time: string
-  duration: string
-  program: string
-  detail: string
-  format: string
-  staff: string
-  equipment?: string
-  notes?: string
-}
-
-interface CuesheetContent {
-  eventName: string
-  eventDate: string
-  eventPlace: string
-  headcount: string
-  cuesheetType: string
-  rows: CuesheetRow[]
-  staffList?: string[]
-  notes?: string[]
-}
 
 interface GenerateCuesheetRequest {
   eventName: string
@@ -131,9 +112,11 @@ export async function POST(req: NextRequest) {
       throw new Error('AI 응답 형식 오류')
     }
 
-    const parsed = parseAiJson<{ rows: CuesheetRow[]; staffList?: string[]; notes?: string[] }>(aiContent.text)
+    const parsed = parseAiJson<{ rows: CuesheetContent['rows']; staffList?: string[]; notes?: string[] }>(
+      aiContent.text,
+    )
 
-    const content: CuesheetContent = {
+    let content: CuesheetContent = {
       eventName,
       eventDate,
       eventPlace,
@@ -142,6 +125,40 @@ export async function POST(req: NextRequest) {
       rows: parsed.rows ?? [],
       staffList: parsed.staffList,
       notes: parsed.notes,
+    }
+
+    const qualityIssues = collectCuesheetQualityIssues(content)
+    if (qualityIssues.length > 0) {
+      try {
+        const repairPrompt = `다음은 행사 큐시트 JSON입니다. 품질 검증 이슈를 모두 해결한 수정본만 출력하세요.
+
+[품질 이슈]
+${qualityIssues.map((s) => `- ${s}`).join('\n')}
+
+[규칙]
+- eventName, eventDate, eventPlace, headcount, cuesheetType 값은 절대 변경하지 마세요.
+- rows의 time은 "HH:MM", duration은 "XX분" 형태를 유지하세요.
+- 출력은 마크다운 없이 단일 JSON만.
+
+[원본 JSON]
+${JSON.stringify(content)}`
+
+        const repairRaw = await claudeRepairJsonText({ client, userRepairPrompt: repairPrompt, maxTokens: 6144 })
+        const repaired = parseRepairedJson<CuesheetContent>(repairRaw)
+        content = {
+          ...repaired,
+          eventName,
+          eventDate,
+          eventPlace,
+          headcount,
+          cuesheetType: cuesheetType || eventType,
+          rows: Array.isArray(repaired.rows) ? repaired.rows : content.rows,
+          staffList: repaired.staffList ?? content.staffList,
+          notes: repaired.notes ?? content.notes,
+        }
+      } catch {
+        /* 1차 결과 유지 */
+      }
     }
 
     return NextResponse.json({ ok: true, data: { content } })

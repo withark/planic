@@ -1,25 +1,11 @@
 import { NextRequest, NextResponse } from 'next/server'
 import Anthropic from '@anthropic-ai/sdk'
+import { claudeRepairJsonText, parseRepairedJson } from '@/lib/ai/claude-json-repair'
+import { collectEmceeQualityIssues } from '@/lib/ai/document-output-quality'
 import { parseAiJson } from '@/lib/ai/json-response'
+import type { EmceeContent } from '@/lib/types/doc-content'
 
 export const maxDuration = 120
-
-interface EmceeSegment {
-  sequence: number
-  time?: string
-  stage: string
-  cue?: string
-  script: string
-  notes?: string
-}
-
-interface EmceeContent {
-  eventName: string
-  eventDate: string
-  tone: string
-  segments: EmceeSegment[]
-  notes?: string[]
-}
 
 interface EmceeRequest {
   eventName: string
@@ -97,8 +83,8 @@ export async function POST(req: NextRequest) {
     const mcTone         = ss(body.mcTone)
     const eventStartTime = ss(body.eventStartTime)
     const eventEndTime   = ss(body.eventEndTime)
-    const requirements   = ss((body as any).requirements)
-    const restrictions   = ss((body as any).restrictions)
+    const requirements = ss(body.requirements)
+    const restrictions = ss(body.restrictions)
 
     if (!eventName || !eventDate || !eventPlace || !headcount || !eventType || !mcTone || !eventStartTime || !eventEndTime) {
       return NextResponse.json(
@@ -128,14 +114,45 @@ export async function POST(req: NextRequest) {
       throw new Error('AI 응답 형식 오류')
     }
 
-    const parsed = parseAiJson<EmceeContent>(responseContent.text)
+    const parsed = parseAiJson<Pick<EmceeContent, 'segments' | 'notes'> & Partial<EmceeContent>>(responseContent.text)
 
-    const content: EmceeContent = {
-      eventName: body.eventName,
-      eventDate: body.eventDate,
-      tone: body.mcTone,
-      segments: parsed.segments,
+    let content: EmceeContent = {
+      eventName,
+      eventDate,
+      tone: mcTone,
+      segments: parsed.segments ?? [],
       notes: parsed.notes,
+    }
+
+    const qualityIssues = collectEmceeQualityIssues(content)
+    if (qualityIssues.length > 0) {
+      try {
+        const repairPrompt = `다음은 사회자 멘트 원고 JSON입니다. 품질 검증 이슈를 모두 해결한 수정본만 출력하세요.
+
+[품질 이슈]
+${qualityIssues.map((s) => `- ${s}`).join('\n')}
+
+[규칙]
+- eventName, eventDate, tone 값은 절대 변경하지 마세요. (tone은 요청된 사회자 톤과 일치해야 합니다)
+- 각 segments[].script는 현장에서 그대로 읽을 완성 멘트여야 합니다.
+- 출력은 마크다운 없이 단일 JSON만.
+
+[원본 JSON]
+${JSON.stringify(content)}`
+
+        const repairRaw = await claudeRepairJsonText({ client, userRepairPrompt: repairPrompt, maxTokens: 8192 })
+        const repaired = parseRepairedJson<EmceeContent>(repairRaw)
+        content = {
+          ...repaired,
+          eventName,
+          eventDate,
+          tone: mcTone,
+          segments: Array.isArray(repaired.segments) ? repaired.segments : content.segments,
+          notes: repaired.notes ?? content.notes,
+        }
+      } catch {
+        /* 1차 결과 유지 */
+      }
     }
 
     return NextResponse.json({ ok: true, data: { content } })
