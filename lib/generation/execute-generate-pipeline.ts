@@ -1,3 +1,4 @@
+import Anthropic from '@anthropic-ai/sdk'
 import { generateQuoteWithMeta, type GenerateInput } from '@/lib/ai'
 import { calcTotals, normalizeQuoteUnitPricesToThousand, uid } from '@/lib/calc'
 import { getDefaultCompanyProfile, profileToCompanySettings } from '@/lib/db/company-profiles-db'
@@ -28,6 +29,8 @@ import { enforceBudgetHardConstraint } from '@/lib/quote/budget-enforcer'
 import { deriveProgramHintsFromQuoteDoc } from '@/lib/ai/prompts/existing-doc-context'
 import { trackEvent } from '@/lib/analytics'
 import { applyFixedEstimateTemplateV2 } from '@/lib/estimate/fixed-template-v2'
+import { anthropicFallbackRepairQuoteDoc } from '@/lib/ai/quote-doc-anthropic-fallback'
+import type { AppDocumentType } from '@/lib/plan-access'
 
 export class GeneratePipelineError extends Error {
   constructor(
@@ -370,6 +373,42 @@ export async function executeGeneratePipeline(
     budgetConstraint = enforceBudgetHardConstraint(doc, body.budget || '')
     doc.budgetConstraint = budgetConstraint
     normalizeQuoteUnitPricesToThousand(doc)
+  }
+
+  if (
+    process.env.AI_ANTHROPIC_FINAL_DOC_REPAIR !== '0' &&
+    !isMockAi &&
+    documentTarget !== 'estimate' &&
+    genMeta &&
+    genMeta.qualityIssueCountAfter > 0 &&
+    process.env.ANTHROPIC_API_KEY
+  ) {
+    try {
+      const client = new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY })
+      const issueLines =
+        genMeta.qualityIssuesAfterTop?.filter(Boolean).length > 0
+          ? genMeta.qualityIssuesAfterTop
+          : ['생성 문서에 남은 품질 이슈를 해결하세요.']
+      doc = await anthropicFallbackRepairQuoteDoc({
+        client,
+        doc,
+        issues: issueLines,
+        documentTarget: documentTarget as AppDocumentType,
+        normalizeOpts: {
+          eventStartHHmm: body.eventStartHHmm,
+          eventEndHHmm: body.eventEndHHmm,
+          eventName: body.eventName,
+          eventType: body.eventType,
+          headcount: body.headcount,
+          eventDuration: body.eventDuration,
+          fillProgramDefaults: false,
+          fillScenarioDefaults: false,
+          fillCueRows: false,
+        },
+      })
+    } catch (e) {
+      logError('generate.anthropic_fallback_doc_repair', e)
+    }
   }
 
   const totals = calcTotals(doc)

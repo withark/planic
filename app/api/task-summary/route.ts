@@ -1,21 +1,11 @@
 import { NextRequest, NextResponse } from 'next/server'
 import Anthropic from '@anthropic-ai/sdk'
+import { claudeRepairJsonText, parseRepairedJson } from '@/lib/ai/claude-json-repair'
+import { collectTaskSummaryQualityIssues, normalizeTaskSummaryPatch } from '@/lib/ai/document-output-quality'
 import { parseAiJson } from '@/lib/ai/json-response'
+import type { TaskSummary } from '@/lib/types/task-summary'
 
 export const maxDuration = 120
-
-interface TaskSummary {
-  projectTitle: string
-  orderingOrganization: string
-  purpose: string
-  mainScope: string
-  eventRange: string
-  deliverables: string
-  requiredStaffing: string
-  budget: string
-  specialNotes: string
-  oneLineSummary: string
-}
 
 async function extractTextFromBuffer(buffer: Buffer, filename: string): Promise<string> {
   const ext = filename.toLowerCase().split('.').pop() ?? ''
@@ -105,7 +95,31 @@ export async function POST(req: NextRequest) {
       throw new Error('AI 응답 형식 오류')
     }
 
-    const summary = parseAiJson<TaskSummary>(content.text)
+    let summary = parseAiJson<TaskSummary>(content.text)
+    summary = normalizeTaskSummaryPatch(summary)
+
+    const qualityIssues = collectTaskSummaryQualityIssues(summary)
+    if (qualityIssues.length > 0) {
+      try {
+        const repairPrompt = `다음은 과업지시서 요약 JSON입니다. 품질 검증 이슈를 모두 해결한 수정본만 출력하세요.
+
+[품질 이슈]
+${qualityIssues.map((s) => `- ${s}`).join('\n')}
+
+[규칙]
+- 모든 키를 유지하고, 빈 문자열("")은 문서에 정보가 없을 때만 사용하세요.
+- oneLineSummary는 80자 이내로 유지하세요.
+- 출력은 마크다운 없이 단일 JSON만.
+
+[원본 JSON]
+${JSON.stringify(summary)}`
+        const repairRaw = await claudeRepairJsonText({ client, userRepairPrompt: repairPrompt, maxTokens: 3000 })
+        const patch = parseRepairedJson<Partial<TaskSummary>>(repairRaw)
+        summary = normalizeTaskSummaryPatch({ ...summary, ...patch })
+      } catch {
+        /* 1차 요약 유지 */
+      }
+    }
 
     return NextResponse.json({ ok: true, data: { summary, rawText: rawText.slice(0, 500) } })
   } catch (e) {

@@ -1,6 +1,7 @@
 import type { CuesheetContent, EmceeContent, ProposalContent } from '@/lib/types/doc-content'
+import type { TaskSummary } from '@/lib/types/task-summary'
 
-export type DocQualityDocKind = 'proposal' | 'cuesheet' | 'emcee'
+export type DocQualityDocKind = 'proposal' | 'cuesheet' | 'emcee' | 'taskSummary'
 
 /** 스프레드 시 선택 필드가 undefined로 덮어쓰이지 않도록 제거 */
 export function omitUndefinedProps<T extends Record<string, unknown>>(obj: T): Partial<T> {
@@ -62,6 +63,57 @@ export function collectCuesheetQualityIssues(content: CuesheetContent): string[]
   if (notesOk.length < 3) issues.push('notes에 현장 유의사항을 최소 3개 이상 작성하세요.')
 
   return issues
+}
+
+export function collectTaskSummaryQualityIssues(s: TaskSummary): string[] {
+  const issues: string[] = []
+  const t = (v: unknown) => String(v ?? '').trim()
+
+  if (t(s.projectTitle).length < 2) issues.push('projectTitle(사업명)을 구체적으로 채우세요.')
+  if (t(s.orderingOrganization).length < 2) issues.push('orderingOrganization(발주기관)을 채우세요.')
+
+  const purpose = t(s.purpose)
+  const scope = t(s.mainScope)
+  if (purpose.length < 30 && scope.length < 30) {
+    issues.push('purpose 또는 mainScope 중 하나는 최소 30자 이상으로 사업 목적·범위가 드러나게 작성하세요.')
+  }
+
+  const oneLine = t(s.oneLineSummary)
+  if (oneLine.length < 8) issues.push('oneLineSummary를 8자 이상으로 핵심을 요약하세요.')
+  if (oneLine.length > 80) issues.push('oneLineSummary는 80자 이내로 간결하게 조정하세요.')
+
+  const filledCount = [
+    t(s.eventRange),
+    t(s.deliverables),
+    t(s.requiredStaffing),
+    t(s.budget),
+    t(s.specialNotes),
+  ].filter((x) => x.length >= 8).length
+  if (filledCount < 2) {
+    issues.push('eventRange, deliverables, requiredStaffing, budget, specialNotes 중 최소 2개 이상을 문서 근거로 구체적으로 채우세요.')
+  }
+
+  return issues
+}
+
+export function normalizeTaskSummaryPatch(patch: Partial<TaskSummary>): TaskSummary {
+  const keys: (keyof TaskSummary)[] = [
+    'projectTitle',
+    'orderingOrganization',
+    'purpose',
+    'mainScope',
+    'eventRange',
+    'deliverables',
+    'requiredStaffing',
+    'budget',
+    'specialNotes',
+    'oneLineSummary',
+  ]
+  const out = {} as TaskSummary
+  for (const k of keys) {
+    out[k] = String(patch[k] ?? '').trim()
+  }
+  return out
 }
 
 export function collectEmceeQualityIssues(content: EmceeContent): string[] {
