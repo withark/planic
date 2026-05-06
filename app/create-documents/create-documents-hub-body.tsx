@@ -30,17 +30,17 @@ function ArrowIntoIcon({ className }: { className?: string }) {
 }
 
 const QUICK_START_DOC_HREFS = [
-  '/create/proposal',
-  '/create/cuesheet',
-  '/create/emcee',
-  '/create/task-summary',
+  '/estimate-generator',
+  '/cue-sheet-generator',
+  '/emcee-script-generator',
+  '/task-order-summary',
 ] as const
 
 const DOC_TYPE_BY_HREF: Record<string, AppDocumentType> = {
-  '/create/proposal': 'estimate',
-  '/create/cuesheet': 'cuesheet',
-  '/create/emcee': 'emceeScript',
-  '/create/task-summary': 'taskOrderSummary',
+  '/estimate-generator': 'estimate',
+  '/cue-sheet-generator': 'cuesheet',
+  '/emcee-script-generator': 'emceeScript',
+  '/task-order-summary': 'taskOrderSummary',
 }
 
 export function CreateDocumentsHubBody() {

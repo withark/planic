@@ -1,4 +1,4 @@
-/** 랜딩·문서 만들기 등에서 공통으로 쓰는 문서 종류 안내 */
+/** 랜딩·문서 생성 등에서 공통으로 쓰는 문서 종류 안내 */
 export type MarketingDocCategory = '견적·금액' | '기획·제안' | '운영·정리'
 
 export type MarketingDocHubIcon =
@@ -15,15 +15,18 @@ export type MarketingDocumentItem = {
   title: string
   desc: string
   category: MarketingDocCategory
-  /** 문서 만들기 허브 카드 왼쪽 아이콘 */
+  /** 문서 생성 허브 카드 왼쪽 아이콘 */
   hubIcon: MarketingDocHubIcon
   /** 허브·대시보드에서 “많이 씀 / 추천” 배지 */
   recommended?: boolean
 }
 
+export const CORE_DOCUMENT_COUNT = 4
+export const TOTAL_DOCUMENT_COUNT = 7
+
 export const MARKETING_DOCUMENTS: MarketingDocumentItem[] = [
   {
-    href: '/create/proposal',
+    href: '/estimate-generator',
     title: '제안서 생성',
     desc: '행사 개요·프로그램·견적을 포함한 완성형 제안서를 만듭니다.',
     category: '기획·제안',
@@ -31,7 +34,7 @@ export const MARKETING_DOCUMENTS: MarketingDocumentItem[] = [
     recommended: true,
   },
   {
-    href: '/create/cuesheet',
+    href: '/cue-sheet-generator',
     title: '큐시트 생성',
     desc: '시간·순서·담당자 기준 행사 진행 운영표를 만듭니다.',
     category: '운영·정리',
@@ -39,14 +42,14 @@ export const MARKETING_DOCUMENTS: MarketingDocumentItem[] = [
     recommended: true,
   },
   {
-    href: '/create/emcee',
+    href: '/emcee-script-generator',
     title: '사회자 멘트 생성',
     desc: '행사 흐름에 맞춘 사회자 멘트 원고를 생성합니다.',
     category: '운영·정리',
     hubIcon: 'emcee',
   },
   {
-    href: '/create/task-summary',
+    href: '/task-order-summary',
     title: '과업지시서 요약',
     desc: 'PDF·DOCX 파일을 AI로 핵심만 구조화 요약합니다.',
     category: '운영·정리',
@@ -54,7 +57,7 @@ export const MARKETING_DOCUMENTS: MarketingDocumentItem[] = [
   },
 ]
 
-/** 문서 만들기 허브 전용 — 위와 동일 목록 */
+/** 문서 생성 허브 전용 — 위와 동일 목록 */
 export const CREATE_DOCUMENT_HUB_ITEMS = MARKETING_DOCUMENTS
 
 export type LandingProcessStep = {

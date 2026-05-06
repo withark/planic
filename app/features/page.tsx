@@ -1,6 +1,7 @@
 import type { Metadata } from 'next'
 import { PublicPageCrossLinks } from '@/components/public/PublicPageCrossLinks'
 import { PublicPageShell } from '@/components/public/PublicPageShell'
+import { TOTAL_DOCUMENT_COUNT } from '@/lib/marketing-documents'
 
 const title = '기능 소개 · 플래닉 Planic'
 const description = '플래닉의 행사 문서 생성 기능을 안내합니다.'
@@ -73,7 +74,7 @@ export default function FeaturesPage() {
         </section>
 
         <section className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm sm:p-6">
-          <h2 className="text-[17px] font-semibold text-slate-900">플래닉이 만들 수 있는 문서 종류</h2>
+          <h2 className="text-[17px] font-semibold text-slate-900">플래닉에서 생성 가능한 문서 {TOTAL_DOCUMENT_COUNT}종</h2>
           <div className="mt-4 grid grid-cols-1 gap-3 sm:grid-cols-2">
             <div className="rounded-xl border border-slate-100 bg-slate-50 p-4 transition-colors hover:border-slate-200 hover:bg-slate-50/80">
               <p className="text-sm font-semibold text-slate-900">견적서</p>

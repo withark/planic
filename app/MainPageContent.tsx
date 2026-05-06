@@ -9,6 +9,7 @@ import { PLAN_LIMITS, planLabelKo, PRICES_KRW, type PlanType } from '@/lib/plans
 import { SUPPORT_EMAIL, supportMailtoHref } from '@/lib/support-contact'
 import { HomeStepsAccordion } from '@/components/public/HomeStepsAccordion'
 import { LandingHeroPreview } from '@/components/public/LandingHeroPreview'
+import { CORE_DOCUMENT_COUNT, TOTAL_DOCUMENT_COUNT } from '@/lib/marketing-documents'
 import {
   LandingIconClapper,
   LandingIconClipboard,
@@ -47,25 +48,25 @@ const templateCards = [
     label: '제안서',
     description: '행사 개요·프로그램·견적을 포함한 완성형 제안서',
     Icon: LandingIconDocCurrency,
-    href: '/create/proposal',
+    href: '/estimate-generator',
   },
   {
     label: '큐시트',
     description: '현장 운영 순서와 역할 분담을 시간축으로 맞출 때',
     Icon: LandingIconTimeline,
-    href: '/create/cuesheet',
+    href: '/cue-sheet-generator',
   },
   {
     label: '사회자 멘트',
     description: '사회자가 현장에서 읽을 구간별 멘트 원고가 필요할 때',
     Icon: LandingIconMic,
-    href: '/create/emcee',
+    href: '/emcee-script-generator',
   },
   {
     label: '과업지시서 요약',
     description: '긴 요구사항 문서에서 핵심만 빠르게 추려야 할 때',
     Icon: LandingIconClipboard,
-    href: '/create/task-summary',
+    href: '/task-order-summary',
   },
 ]
 
@@ -215,7 +216,7 @@ function QuoteMarkIcon({ className }: { className?: string }) {
 
 export async function MainPageContent() {
   const session = await getServerSession(authOptions)
-  const initialStartHref = buildStartHref({ isAuthenticated: !!session, targetPath: '/create/proposal' })
+  const initialStartHref = buildStartHref({ isAuthenticated: !!session, targetPath: '/estimate-generator' })
   const loginHref = session ? '/dashboard' : '/auth'
   const loginLabel = session ? '대시보드' : '로그인'
 
@@ -252,7 +253,7 @@ export async function MainPageContent() {
             </p>
             <div className="mt-6 flex flex-wrap items-center justify-center gap-2 text-sm font-medium text-slate-600 lg:justify-start">
               <span className="rounded-full border border-white/80 bg-white/90 px-3.5 py-1.5 shadow-sm shadow-slate-900/5 backdrop-blur-sm">
-                문서 7종 통합
+                핵심 {CORE_DOCUMENT_COUNT}종 · 전체 {TOTAL_DOCUMENT_COUNT}종
               </span>
               <span className="rounded-full border border-white/80 bg-white/90 px-3.5 py-1.5 shadow-sm shadow-slate-900/5 backdrop-blur-sm">
                 엑셀·PDF 보내기
@@ -332,9 +333,11 @@ export async function MainPageContent() {
         <div className="mx-auto max-w-7xl">
           <div className="text-center">
             <p className="text-xs font-semibold tracking-wide text-primary-600">문서 템플릿</p>
-            <h2 className="mt-2.5 text-[22px] font-bold text-slate-900 sm:text-[30px]">플래닉에서 생성 가능한 문서 종류</h2>
+            <h2 className="mt-2.5 text-[22px] font-bold text-slate-900 sm:text-[30px]">
+              핵심 {CORE_DOCUMENT_COUNT}종 문서 생성
+            </h2>
             <p className="mx-auto mt-3 max-w-2xl text-sm text-slate-600">
-              유형만 고르면 그에 맞는 완성본 레이아웃·항목으로 바로 생성합니다.
+              자주 쓰는 핵심 문서 {CORE_DOCUMENT_COUNT}종을 빠르게 시작하고, 전체 {TOTAL_DOCUMENT_COUNT}종 문서로 확장할 수 있습니다.
             </p>
           </div>
           <div className="mt-10 grid gap-4 sm:grid-cols-2 lg:grid-cols-2">
