@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import Anthropic from '@anthropic-ai/sdk'
+import { parseAiJson } from '@/lib/ai/json-response'
 
 export const maxDuration = 120
 
@@ -127,12 +128,7 @@ export async function POST(req: NextRequest) {
       throw new Error('AI 응답 형식 오류')
     }
 
-    let parsed: EmceeContent
-    try {
-      parsed = JSON.parse(responseContent.text) as EmceeContent
-    } catch {
-      throw new Error('AI 응답 파싱 실패')
-    }
+    const parsed = parseAiJson<EmceeContent>(responseContent.text)
 
     const content: EmceeContent = {
       eventName: body.eventName,

@@ -37,7 +37,10 @@ const QUICK_START_DOC_HREFS = [
 ] as const
 
 const DOC_TYPE_BY_HREF: Record<string, AppDocumentType> = {
-  // 새 /create/* 라우트는 플랜 잠금 없이 모두 접근 가능
+  '/create/proposal': 'estimate',
+  '/create/cuesheet': 'cuesheet',
+  '/create/emcee': 'emceeScript',
+  '/create/task-summary': 'taskOrderSummary',
 }
 
 export function CreateDocumentsHubBody() {

@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import Anthropic from '@anthropic-ai/sdk'
+import { parseAiJson } from '@/lib/ai/json-response'
 
 export const maxDuration = 120
 
@@ -61,7 +62,15 @@ ${text.slice(0, 12000)}
 
 export async function POST(req: NextRequest) {
   try {
-    const formData = await req.formData()
+    let formData: FormData
+    try {
+      formData = await req.formData()
+    } catch {
+      return NextResponse.json(
+        { ok: false, error: { message: 'multipart/form-data 형식으로 파일을 업로드해 주세요.' } },
+        { status: 400 },
+      )
+    }
     const file = formData.get('file') as File | null
 
     if (!file) {
@@ -96,12 +105,7 @@ export async function POST(req: NextRequest) {
       throw new Error('AI 응답 형식 오류')
     }
 
-    let summary: TaskSummary
-    try {
-      summary = JSON.parse(content.text) as TaskSummary
-    } catch {
-      throw new Error('AI 응답 파싱 실패')
-    }
+    const summary = parseAiJson<TaskSummary>(content.text)
 
     return NextResponse.json({ ok: true, data: { summary, rawText: rawText.slice(0, 500) } })
   } catch (e) {

@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import Anthropic from '@anthropic-ai/sdk'
 import type { ProposalContent } from '@/lib/types/doc-content'
+import { parseAiJson } from '@/lib/ai/json-response'
 
 export const maxDuration = 120
 
@@ -202,17 +203,7 @@ export async function POST(req: NextRequest) {
       throw new Error('AI 응답 형식 오류')
     }
 
-    let parsed: Omit<ProposalContent, keyof typeof baseFields>
-    try {
-      const raw = responseContent.text.trim()
-      // Strip markdown code fences if Claude included them despite instructions
-      const jsonStr = raw.startsWith('```')
-        ? raw.replace(/^```(?:json)?\n?/, '').replace(/\n?```$/, '')
-        : raw
-      parsed = JSON.parse(jsonStr)
-    } catch {
-      throw new Error('AI 응답 파싱 실패')
-    }
+    const parsed = parseAiJson<Omit<ProposalContent, keyof typeof baseFields>>(responseContent.text)
 
     const baseFields = {
       clientName,
