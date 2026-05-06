@@ -93,7 +93,7 @@ export default function FeaturesPage() {
             </div>
             <div className="rounded-xl border border-slate-100 bg-slate-50 p-4 transition-colors hover:border-slate-200 hover:bg-slate-50/80">
               <p className="text-sm font-semibold text-slate-900">사회자 멘트</p>
-              <p className="mt-1 text-sm text-slate-600">행사 흐름에 맞춘 MC 대본(구간별 멘트)이 필요할 때</p>
+              <p className="mt-1 text-sm text-slate-600">행사 흐름에 맞춘 사회자 멘트 원고가 필요할 때</p>
             </div>
             <div className="rounded-xl border border-slate-100 bg-slate-50 p-4 transition-colors hover:border-slate-200 hover:bg-slate-50/80">
               <p className="text-sm font-semibold text-slate-900">큐시트</p>

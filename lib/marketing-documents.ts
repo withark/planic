@@ -24,7 +24,7 @@ export type MarketingDocumentItem = {
 export const MARKETING_DOCUMENTS: MarketingDocumentItem[] = [
   {
     href: '/create/proposal',
-    title: '제안서 만들기',
+    title: '제안서 생성',
     desc: '행사 개요·프로그램·견적을 포함한 완성형 제안서를 만듭니다.',
     category: '기획·제안',
     hubIcon: 'estimate',
@@ -32,7 +32,7 @@ export const MARKETING_DOCUMENTS: MarketingDocumentItem[] = [
   },
   {
     href: '/create/cuesheet',
-    title: '큐시트 만들기',
+    title: '큐시트 생성',
     desc: '시간·순서·담당자 기준 행사 진행 운영표를 만듭니다.',
     category: '운영·정리',
     hubIcon: 'cue',
@@ -40,14 +40,14 @@ export const MARKETING_DOCUMENTS: MarketingDocumentItem[] = [
   },
   {
     href: '/create/emcee',
-    title: '사회자 멘트 만들기',
-    desc: '행사 흐름에 맞춘 MC 대본(구간별 멘트)을 만듭니다.',
+    title: '사회자 멘트 생성',
+    desc: '행사 흐름에 맞춘 사회자 멘트 원고를 생성합니다.',
     category: '운영·정리',
     hubIcon: 'emcee',
   },
   {
     href: '/create/task-summary',
-    title: '과업지시서 요약하기',
+    title: '과업지시서 요약',
     desc: 'PDF·DOCX 파일을 AI로 핵심만 구조화 요약합니다.',
     category: '운영·정리',
     hubIcon: 'task-summary',

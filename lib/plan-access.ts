@@ -78,22 +78,22 @@ export function requiredPlanForFeature(feature: PlanFeatureKey): PlanType {
 export function documentAccessMessage(docType: AppDocumentType): string {
   const label = DOCUMENT_LABEL_KO[docType]
   const required = requiredPlanForDocument(docType)
-  if (required === 'PREMIUM') return `${label}은(는) 프로 플랜에서 사용할 수 있습니다.`
-  return `${label}은(는) 베이직 플랜부터 사용할 수 있습니다.`
+  if (required === 'PREMIUM') return `${label} 기능은 프로 플랜에서 사용할 수 있습니다.`
+  return `${label} 기능은 베이직 플랜 이상에서 사용할 수 있습니다.`
 }
 
 export function featureAccessMessage(feature: PlanFeatureKey): string {
   switch (feature) {
     case 'taskOrderWorkflow':
-      return '과업지시서 기반 워크플로우는 베이직 플랜부터 사용할 수 있습니다.'
+      return '과업지시서 기반 워크플로우는 베이직 플랜 이상에서 사용할 수 있습니다.'
     case 'pricingTable':
-      return '단가표 기능은 베이직 플랜부터 사용할 수 있습니다.'
+      return '단가표 기능은 베이직 플랜 이상에서 사용할 수 있습니다.'
     case 'scenarioReference':
-      return '시나리오 참고자료는 베이직 플랜부터 사용할 수 있습니다.'
+      return '시나리오 참고자료는 베이직 플랜 이상에서 사용할 수 있습니다.'
     case 'cuesheetReference':
-      return '큐시트 샘플 자료는 베이직 플랜부터 사용할 수 있습니다.'
+      return '큐시트 샘플 자료는 베이직 플랜 이상에서 사용할 수 있습니다.'
     case 'historyFull':
-      return '작업 이력의 전체 보관/재활용 기능은 베이직 플랜부터 사용할 수 있습니다.'
+      return '작업 이력의 전체 보관/재활용 기능은 베이직 플랜 이상에서 사용할 수 있습니다.'
     case 'premiumGeneration':
       return '프리미엄 생성 모드는 프로 플랜에서 사용할 수 있습니다.'
     default:
