@@ -57,7 +57,7 @@ const templateCards = [
   },
   {
     label: '사회자 멘트',
-    description: 'MC가 현장에서 읽을 구간별 대본이 필요할 때',
+    description: '사회자가 현장에서 읽을 구간별 멘트 원고가 필요할 때',
     Icon: LandingIconMic,
     href: '/create/emcee',
   },
@@ -247,7 +247,7 @@ export async function MainPageContent() {
               </span>
             </h1>
             <p className="mx-auto mt-5 max-w-xl text-[15px] leading-7 text-slate-600 sm:text-[17px] lg:mx-0 lg:max-w-[540px]">
-              견적서·기획안·프로그램 제안서·시나리오·사회자 멘트·큐시트·과업지시서 요약까지 한곳에서 완성본으로 만듭니다.
+              견적서·기획안·프로그램 제안서·시나리오·사회자 멘트·큐시트·과업지시서 요약까지 한곳에서 완성본으로 생성합니다.
               주제와 목적, 단가표만 입력해도 검토·발송까지 이어갈 수 있는 문서가 한 번에 정리됩니다.
             </p>
             <div className="mt-6 flex flex-wrap items-center justify-center gap-2 text-sm font-medium text-slate-600 lg:justify-start">
@@ -332,7 +332,7 @@ export async function MainPageContent() {
         <div className="mx-auto max-w-7xl">
           <div className="text-center">
             <p className="text-xs font-semibold tracking-wide text-primary-600">문서 템플릿</p>
-            <h2 className="mt-2.5 text-[22px] font-bold text-slate-900 sm:text-[30px]">플래닉이 만들 수 있는 문서 종류</h2>
+            <h2 className="mt-2.5 text-[22px] font-bold text-slate-900 sm:text-[30px]">플래닉에서 생성 가능한 문서 종류</h2>
             <p className="mx-auto mt-3 max-w-2xl text-sm text-slate-600">
               유형만 고르면 그에 맞는 완성본 레이아웃·항목으로 바로 생성합니다.
             </p>
@@ -352,7 +352,7 @@ export async function MainPageContent() {
                   <h3 className="text-base font-semibold text-slate-900">{template.label}</h3>
                   <p className="mt-2 text-sm leading-relaxed text-slate-600">{template.description}</p>
                   <p className="mt-3 text-xs font-semibold text-primary-600 opacity-0 transition-opacity group-hover:opacity-100">
-                    생성하기 →
+                    문서 생성 →
                   </p>
                 </Link>
               )
@@ -489,7 +489,7 @@ export async function MainPageContent() {
       <section className="w-full px-4 pb-16 pt-6 sm:px-8 lg:px-12">
         <div className="mx-auto max-w-5xl overflow-hidden rounded-[2rem] border border-slate-200 bg-white px-8 py-14 text-center shadow-[0_22px_48px_-28px_rgba(15,23,42,0.35)] sm:px-12 sm:py-16">
           <div className="mx-auto mb-5 h-1.5 w-20 rounded-full bg-gradient-to-r from-primary-500 via-violet-500 to-teal-500 shadow-sm shadow-primary-500/20" />
-          <h2 className="text-[22px] font-bold text-slate-900 sm:text-[30px]">완성본 문서, 지금 바로 만들어 보세요</h2>
+          <h2 className="text-[22px] font-bold text-slate-900 sm:text-[30px]">완성본 문서, 지금 바로 생성해 보세요</h2>
           <p className="mx-auto mt-4 max-w-lg text-sm leading-relaxed text-slate-600 sm:text-[15px]">
             무료 플랜으로 월 {freeMonthlyGenerations}회까지 완성본 생성을 직접 써 보세요. 규모가 커지면 유료 플랜으로 자연스럽게
             늘리면 됩니다.

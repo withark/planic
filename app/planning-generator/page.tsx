@@ -240,7 +240,7 @@ export default function PlanningGeneratorPage() {
       <div className="flex-1 flex flex-col overflow-hidden">
         <header className="flex flex-wrap items-start justify-between gap-4 border-b border-slate-200 bg-white/90 px-6 py-5 flex-shrink-0">
           <div>
-            <h1 className="text-xl font-semibold tracking-tight text-slate-900">기획안 만들기</h1>
+            <h1 className="text-xl font-semibold tracking-tight text-slate-900">기획안 생성</h1>
             <p className="mt-1 text-sm leading-6 text-slate-600">목적, 운영 방향, 리스크 대응까지 정리된 기획 문서를 빠르게 만듭니다.</p>
           </div>
         </header>
@@ -251,7 +251,7 @@ export default function PlanningGeneratorPage() {
               className={`min-h-0 overflow-y-auto rounded-2xl border border-slate-200 bg-white p-4 shadow-sm ${generating ? 'max-md:order-last' : ''}`}
             >
               <SimpleGeneratorWizard
-            title="기획안 만들기"
+            title="기획안 생성"
             subtitle="실행 계획과 산출물 기준이 보이도록, 내부 검토와 고객 공유 둘 다 가능한 초안으로 작성합니다."
             modes={[
               { id: 'fromTopic', title: '주제만 입력', desc: '행사 목적과 메시지를 중심으로 기획안을 씁니다.' },
@@ -433,7 +433,7 @@ export default function PlanningGeneratorPage() {
                   {doc
                     ? '생성 후 편집 영역이 열립니다.'
                     : sourceMode === 'fromTopic'
-                      ? '주제/목표만 입력하면 됩니다'
+                      ? '주제와 목표를 입력하면 돼요.'
                       : '소스 선택과 필수 입력이 필요합니다'}
                 </div>
                 <button
@@ -444,7 +444,7 @@ export default function PlanningGeneratorPage() {
                   과거 기획안 불러오기
                 </button>
                 <p className="mt-2 text-xs text-slate-500">
-                  예전에 저장한 문서를 불러와 내용만 수정·전송할 수 있습니다. (이어쓰기 아님)
+                  예전에 저장한 문서를 불러와 내용만 수정·저장·다운로드할 수 있어요. (이어쓰기는 지원하지 않아요.)
                 </p>
               </section>
             )}

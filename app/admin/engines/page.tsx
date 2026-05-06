@@ -316,7 +316,7 @@ export default function AdminEnginesPage() {
           disabled={saving}
           className="btn-primary text-sm py-2 px-4 disabled:opacity-50 mt-4"
         >
-          {saving ? '저장 중…' : '규칙 저장'}
+          {saving ? '저장 중...' : '규칙 저장'}
         </button>
       </section>
 

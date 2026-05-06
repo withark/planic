@@ -5,7 +5,7 @@ import Link from 'next/link'
 export function PlanLockedNotice({
   title,
   message,
-  ctaLabel = '플랜 업그레이드',
+  ctaLabel = '요금제 업그레이드',
   compact = false,
 }: {
   title: string

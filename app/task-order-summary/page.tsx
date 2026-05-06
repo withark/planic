@@ -120,7 +120,7 @@ export default function TaskOrderSummaryPage() {
       <div className="flex-1 flex flex-col overflow-hidden">
         <header className="flex-shrink-0 h-14 border-b border-gray-100 bg-white/90 flex items-center justify-between px-6">
           <div>
-            <h1 className="text-base font-semibold text-gray-900">과업지시서 요약하기</h1>
+            <h1 className="text-base font-semibold text-gray-900">과업지시서 요약 생성</h1>
             <p className="text-xs text-gray-500 mt-0.5">과업지시서/기획안 업로드 → 핵심 정보를 구조화 → 이후 견적 생성에 자동 반영</p>
           </div>
         </header>
@@ -163,7 +163,7 @@ export default function TaskOrderSummaryPage() {
               >
                 과업지시서 / 기획안 파일을 이 영역에 끌어놓거나 클릭해서 업로드하세요.
                 <br />
-                한글(.hwp)은 먼저 PDF 또는 Word(.docx)로 저장해서 올려주세요.
+                한글(.hwp)은 먼저 PDF 또는 Word(.docx)로 저장해서 올려 주세요.
               </button>
               <p className="text-xs text-gray-500 mb-3">
                 지원 형식: .txt, .csv, .md, .pdf, .xlsx, .ppt, .pptx, .doc, .docx · 파일 크기 {formatUploadLimitText()} 이하

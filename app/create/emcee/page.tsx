@@ -82,7 +82,7 @@ export default function EmceePage() {
       <div className="mb-6">
         <h1 className="text-xl font-bold text-slate-900">사회자 멘트 생성</h1>
         <p className="mt-1 text-sm text-slate-500">
-          행사 정보와 MC 스타일을 입력하면 AI가 현장에서 바로 읽을 수 있는 구간별 대본을 만들어 드립니다.
+          행사 정보와 사회자 톤을 입력하면 AI가 현장에서 바로 읽을 수 있는 구간별 대본을 생성해요.
         </p>
       </div>
 
@@ -92,7 +92,7 @@ export default function EmceePage() {
           <BaseInfoForm onChange={setBaseData} />
           <div className="border-t border-slate-100 pt-4 space-y-4">
             <div className="flex flex-col gap-1.5">
-              <label className="text-sm font-semibold text-slate-700">MC 톤 / 스타일</label>
+              <label className="text-sm font-semibold text-slate-700">사회자 톤 / 스타일</label>
               <div className="flex flex-wrap gap-2">
                 {MC_TONES.map((tone) => (
                   <button
@@ -124,7 +124,7 @@ export default function EmceePage() {
               disabled={generating}
               className="w-full rounded-xl bg-purple-600 px-4 py-3 text-sm font-semibold text-white transition-colors hover:bg-purple-700 disabled:opacity-50"
             >
-              {generating ? <Spinner label={STEPS[stepIdx]} /> : 'AI로 사회자 대본 생성'}
+              {generating ? <Spinner label={STEPS[stepIdx]} /> : '사회자 멘트 생성'}
             </button>
             {error && <p className="mt-3 rounded-lg bg-red-50 px-3 py-2 text-xs text-red-700">{error}</p>}
           </div>

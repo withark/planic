@@ -21,7 +21,7 @@ function openDaumPostcode(onComplete: (address: string) => void, onError: (messa
     }
     const kakao = w.kakao
     if (!kakao?.Postcode) {
-      onError('주소 검색 서비스를 불러올 수 없습니다. 직접 입력해주세요.')
+      onError('주소 검색 서비스를 불러올 수 없습니다. 직접 입력해 주세요.')
       return
     }
     new kakao.Postcode({
@@ -47,7 +47,7 @@ function openDaumPostcode(onComplete: (address: string) => void, onError: (messa
   script.src = DAUM_POSTCODE_SCRIPT
   script.async = true
   script.onload = run
-  script.onerror = () => onError('주소 검색 서비스를 불러올 수 없습니다. 직접 입력해주세요.')
+  script.onerror = () => onError('주소 검색 서비스를 불러올 수 없습니다. 직접 입력해 주세요.')
   document.head.appendChild(script)
 }
 

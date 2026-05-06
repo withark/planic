@@ -72,8 +72,8 @@ export function QuoteForm({ onSubmit, loading }: Props) {
   }
 
   function handleSubmit() {
-    if (!form.eventName.trim()) { alert('행사명을 입력해주세요.'); return }
-    if (!form.eventType)        { alert('행사 종류를 선택해주세요.'); return }
+    if (!form.eventName.trim()) { alert('행사명을 입력해 주세요.'); return }
+    if (!form.eventType)        { alert('행사 종류를 선택해 주세요.'); return }
     onSubmit(form)
   }
 

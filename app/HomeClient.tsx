@@ -97,7 +97,7 @@ export default function HomeClient({ userEmail }: Props) {
       {/* 메인 */}
       <main className="mx-auto max-w-5xl px-4 py-12 sm:px-6 sm:py-16">
         <div className="mb-10 text-center">
-          <h1 className="text-2xl font-bold text-slate-900 sm:text-3xl">어떤 문서를 만들까요?</h1>
+          <h1 className="text-2xl font-bold text-slate-900 sm:text-3xl">어떤 문서를 생성할까요?</h1>
           <p className="mt-2 text-sm text-slate-500">문서 종류를 선택하고 정보를 입력하면 AI가 완성본을 만들어 드립니다.</p>
         </div>
 
@@ -116,7 +116,7 @@ export default function HomeClient({ userEmail }: Props) {
                 href={doc.href}
                 className={`mt-5 inline-flex items-center gap-1.5 rounded-xl px-4 py-2.5 text-sm font-semibold text-white transition-colors ${doc.btnColor}`}
               >
-                생성하기
+                문서 생성
                 <svg viewBox="0 0 20 20" className="h-4 w-4" fill="currentColor">
                   <path fillRule="evenodd" d="M3 10a.75.75 0 01.75-.75h10.638L10.23 5.29a.75.75 0 111.04-1.08l5.5 5.25a.75.75 0 010 1.08l-5.5 5.25a.75.75 0 11-1.04-1.08l4.158-3.96H3.75A.75.75 0 013 10z" clipRule="evenodd" />
                 </svg>

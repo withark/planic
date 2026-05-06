@@ -596,7 +596,7 @@ async function buildQuoteSheet(
     Boolean(company?.bankAccount?.accountHolder?.trim())
   const accountText = hasBankAccount
     ? `입금 계좌: ${company?.bankAccount?.bankName || ''} ${company?.bankAccount?.accountNumber || ''} (${company?.bankAccount?.accountHolder || ''})`
-    : '계좌 정보를 설정에서 입력해주세요'
+    : '계좌 정보를 설정에서 입력해 주세요'
   setCell(ws, r, 10, accountText, {})
   merge(ws, r, 10, r, 11)
   ws.getCell(r, 10).alignment = { horizontal: 'left', vertical: 'middle', wrapText: true }

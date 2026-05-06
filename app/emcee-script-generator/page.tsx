@@ -223,8 +223,8 @@ export default function EmceeScriptGeneratorPage() {
       <div className="flex-1 flex flex-col overflow-hidden">
         <header className="flex items-center justify-between px-6 h-14 border-b border-gray-100 bg-white/90 flex-shrink-0">
           <div>
-            <h1 className="text-base font-semibold text-gray-900">사회자 멘트 만들기</h1>
-            <p className="text-xs text-gray-500 mt-0.5">현장에서 읽을 MC 대본을 생성합니다</p>
+            <h1 className="text-base font-semibold text-gray-900">사회자 멘트 생성</h1>
+            <p className="text-xs text-gray-500 mt-0.5">현장에서 바로 읽을 사회자 멘트 원고를 생성해요.</p>
           </div>
           {me?.subscription?.planType === 'FREE' && (
             <span className="text-xs text-amber-700 bg-amber-50 border border-amber-200 rounded-lg px-3 py-1">
@@ -239,7 +239,7 @@ export default function EmceeScriptGeneratorPage() {
               className={`min-h-0 overflow-y-auto rounded-2xl border border-slate-200 bg-white p-4 shadow-sm ${generating ? 'max-md:order-last' : ''}`}
             >
           <SimpleGeneratorWizard
-            title="사회자 멘트 만들기"
+            title="사회자 멘트 생성"
             subtitle=""
             modes={[
               { id: 'fromTopic', title: '주제만 입력' },
@@ -395,7 +395,7 @@ export default function EmceeScriptGeneratorPage() {
                 {doc
                   ? '생성 후 편집 영역이 열립니다.'
                   : sourceMode === 'fromTopic'
-                    ? '주제와 멘트 목표만 입력하면 됩니다'
+                    ? '주제와 멘트 목표만 입력하면 돼요.'
                     : '저장된 문서를 선택해야 합니다'}
               </div>
               <button
@@ -406,7 +406,7 @@ export default function EmceeScriptGeneratorPage() {
                 과거 멘트 문서 불러오기
               </button>
               <p className="mt-2 text-xs text-slate-500">
-                예전에 저장한 문서를 불러와 내용만 수정·전송할 수 있습니다. (이어쓰기 아님)
+                예전에 저장한 문서를 불러와 내용만 수정·저장·다운로드할 수 있어요. (이어쓰기는 지원하지 않아요.)
               </p>
             </section>
           )}

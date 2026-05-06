@@ -1131,7 +1131,7 @@ function EstimateGeneratorContent() {
                           disabled={saving}
                           className="rounded-lg bg-slate-900 px-3 py-1.5 text-xs font-semibold text-white hover:bg-slate-800 disabled:opacity-60 sm:text-sm"
                         >
-                          {saving ? '저장 중…' : '저장'}
+                          {saving ? '저장 중...' : '저장'}
                         </button>
                         <button
                           type="button"

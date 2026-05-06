@@ -27,7 +27,7 @@ const NAVS: NavItem[] = [
   },
   {
     href: '/create-documents',
-    text: '문서 만들기',
+    text: '문서 생성',
     matchPrefixes: [
       '/estimate-generator',
       '/program-proposal-generator',

@@ -103,7 +103,7 @@ export function HomeStepsAccordion({ className }: HomeStepsAccordionProps) {
           href="#templates"
           className="inline-flex items-center gap-1 text-sm font-semibold text-primary-600 underline-offset-4 transition-colors hover:text-primary-700 hover:underline"
         >
-          만들 수 있는 문서 종류 보기
+          생성 가능한 문서 종류 보기
           <span aria-hidden>→</span>
         </Link>
       </p>

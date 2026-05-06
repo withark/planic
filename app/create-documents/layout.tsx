@@ -1,7 +1,7 @@
 import type { Metadata } from 'next'
 
 export const metadata: Metadata = {
-  title: '문서 만들기 · 플래닉 Planic',
+  title: '문서 생성 · 플래닉 Planic',
 }
 
 export default function CreateDocumentsLayout({ children }: { children: React.ReactNode }) {

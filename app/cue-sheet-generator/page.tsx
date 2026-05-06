@@ -234,7 +234,7 @@ export default function CueSheetGeneratorPage() {
       <div className="flex-1 flex flex-col overflow-hidden">
         <header className="flex flex-wrap items-start justify-between gap-4 border-b border-slate-200 bg-white/90 px-6 py-5 flex-shrink-0">
           <div>
-            <h1 className="text-xl font-semibold tracking-tight text-slate-900">큐시트 만들기</h1>
+            <h1 className="text-xl font-semibold tracking-tight text-slate-900">큐시트 생성</h1>
             <p className="mt-1 text-sm leading-6 text-slate-600">현장 스태프가 그대로 따라갈 수 있는 시간축 운영표를 만듭니다.</p>
           </div>
           {me?.subscription?.planType === 'FREE' && (
@@ -257,7 +257,7 @@ export default function CueSheetGeneratorPage() {
                 className={`min-h-0 overflow-y-auto rounded-2xl border border-slate-200 bg-white p-4 shadow-sm ${generating ? 'max-md:order-last' : ''}`}
               >
                 <SimpleGeneratorWizard
-            title="큐시트 만들기"
+            title="큐시트 생성"
             subtitle="시간, 담당자, 준비물, 멘트 큐를 한 번에 정리해 바로 현장 공유가 가능하도록 구성했습니다."
             modes={modes}
             modeId={sourceMode}
@@ -433,7 +433,7 @@ export default function CueSheetGeneratorPage() {
                 <section className="min-h-0 overflow-y-auto rounded-2xl border border-dashed border-gray-200 bg-white p-8 text-center">
                   <div className="text-sm font-semibold text-gray-900">입력 후 생성하세요</div>
                   <div className="mt-2 text-xs text-gray-500">
-                    {sourceMode === 'fromTopic' ? '주제와 목표만 있으면 됩니다' : '소스를 선택하세요'}
+                    {sourceMode === 'fromTopic' ? '주제와 목표를 입력하면 돼요.' : '소스를 선택해 주세요.'}
                   </div>
                   <button
                     type="button"
@@ -443,7 +443,7 @@ export default function CueSheetGeneratorPage() {
                     과거 큐시트 불러오기
                   </button>
                   <p className="mt-2 text-xs text-slate-500">
-                    예전에 저장한 문서를 불러와 내용만 수정·전송할 수 있습니다. (이어쓰기 아님)
+                    예전에 저장한 문서를 불러와 내용만 수정·저장·다운로드할 수 있어요. (이어쓰기는 지원하지 않아요.)
                   </p>
                 </section>
               )}

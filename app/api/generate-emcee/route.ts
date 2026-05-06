@@ -34,10 +34,10 @@ interface EmceeRequest {
   restrictions: string
 }
 
-const EMCEE_SYSTEM_PROMPT = `당신은 대한민국 최고 수준의 행사 사회자이자 MC 대본 작가입니다. 실제 현장에서 바로 읽을 수 있는 수준의 사회자 멘트를 작성합니다. 멘트는 자연스럽고 현장감 있게, 요청된 톤(격식체/친근체/유머/진중한)에 맞춰 작성하세요. 반드시 한국어로 응답하고 JSON만 출력하세요.`
+const EMCEE_SYSTEM_PROMPT = `당신은 대한민국 최고 수준의 행사 사회자이자 행사 멘트 작가입니다. 실제 현장에서 바로 읽을 수 있는 수준의 사회자 멘트 원고를 작성합니다. 멘트는 자연스럽고 현장감 있게, 요청된 톤(격식체/친근체/유머/진중한)에 맞춰 작성하세요. 반드시 한국어로 응답하고 JSON만 출력하세요.`
 
 const buildEmceePrompt = (body: EmceeRequest): string => `
-다음 행사 정보를 바탕으로 MC 대본을 작성해 주세요.
+다음 행사 정보를 바탕으로 사회자 멘트 원고를 작성해 주세요.
 
 [행사 정보]
 - 행사명: ${body.eventName}
@@ -45,7 +45,7 @@ const buildEmceePrompt = (body: EmceeRequest): string => `
 - 행사 장소: ${body.eventPlace}
 - 참석 인원: ${body.headcount}
 - 행사 유형: ${body.eventType}
-- MC 톤: ${body.mcTone}
+- 사회자 톤: ${body.mcTone}
 - 행사 시작 시간: ${body.eventStartTime}
 - 행사 종료 시간: ${body.eventEndTime}
 - 요청 사항: ${body.requirements || '없음'}
@@ -55,7 +55,7 @@ const buildEmceePrompt = (body: EmceeRequest): string => `
 1. 행사 시작(${body.eventStartTime})부터 종료(${body.eventEndTime})까지 전체 흐름을 커버하는 세그먼트를 생성하세요.
 2. 일반적인 행사 기준 최소 8~12개 세그먼트를 작성하세요. 행사 특성에 따라 더 많이 작성해도 됩니다.
 3. 각 세그먼트의 script는 사회자가 현장에서 바로 읽을 수 있는 완성된 멘트여야 합니다. 요약이 아니라 실제 대사 전문을 자연스러운 문장으로 여러 문장 작성하세요.
-4. MC 톤을 전 세그먼트에 일관되게 적용하세요:
+4. 사회자 톤을 전 세그먼트에 일관되게 적용하세요:
    - 격식체: 존댓말·경어 사용, 정중하고 격조 있는 표현
    - 친근체: 친근하고 따뜻한 말투, 청중과 가까운 느낌
    - 유머: 재치 있는 농담과 위트, 웃음을 유발하는 표현 포함
@@ -140,7 +140,7 @@ export async function POST(req: NextRequest) {
 
     return NextResponse.json({ ok: true, data: { content } })
   } catch (e) {
-    const msg = e instanceof Error ? e.message : 'MC 대본 생성에 실패했습니다.'
+    const msg = e instanceof Error ? e.message : '사회자 멘트 생성에 실패했습니다.'
     return NextResponse.json({ ok: false, error: { message: msg } }, { status: 500 })
   }
 }

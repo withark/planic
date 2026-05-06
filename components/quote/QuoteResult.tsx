@@ -567,7 +567,7 @@ export function QuoteResult({
                 onClick={() => void onSaveDoc(doc)}
                 disabled={!!saving}
               >
-                {saving ? '저장 중…' : '저장하기'}
+                {saving ? '저장 중...' : '저장'}
               </Button>
             ) : null}
             <Button

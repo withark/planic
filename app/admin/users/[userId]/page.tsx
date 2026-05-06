@@ -160,7 +160,7 @@ export default function AdminUserDetailPage() {
             />
             활성 (로그인 허용)
           </label>
-          <span className="text-xs text-slate-500">{saving ? '저장 중…' : ''}</span>
+          <span className="text-xs text-slate-500">{saving ? '저장 중...' : ''}</span>
         </div>
         <p className="mt-2 text-xs text-slate-500">관리자 여부: {user.isAdmin ? '예' : '아니오'}</p>
       </AdminSection>

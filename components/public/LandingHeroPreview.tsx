@@ -10,7 +10,7 @@ export function LandingHeroPreview() {
           <span className="h-2.5 w-2.5 rounded-full bg-red-400/90" />
           <span className="h-2.5 w-2.5 rounded-full bg-amber-400/90" />
           <span className="h-2.5 w-2.5 rounded-full bg-emerald-400/90" />
-          <span className="ml-2 flex-1 truncate text-center text-[11px] font-medium text-slate-400">planic.cloud · 문서 만들기</span>
+          <span className="ml-2 flex-1 truncate text-center text-[11px] font-medium text-slate-400">planic.cloud · 문서 생성</span>
         </div>
         <div className="space-y-4 p-5 sm:p-6">
           <div>

@@ -53,7 +53,7 @@ export default function AdminPlansPage() {
     }
   }
 
-  if (loading) return <p className="text-sm text-gray-500">로딩 중…</p>
+  if (loading) return <p className="text-sm text-gray-500">로딩 중...</p>
   if (error && list.length === 0) return <p className="text-sm text-red-600">{error}</p>
 
   return (
@@ -62,7 +62,7 @@ export default function AdminPlansPage() {
         <h1 className="text-lg font-semibold text-gray-900">플랜 관리</h1>
         <div className="flex items-center gap-2">
           <button type="button" onClick={save} disabled={saving} className="btn-primary text-sm py-2 px-4 disabled:opacity-50">
-            {saving ? '저장 중…' : '저장'}
+            {saving ? '저장 중...' : '저장'}
           </button>
           <Link href="/admin" className="text-sm text-primary-600 hover:text-primary-700">← 대시보드</Link>
         </div>

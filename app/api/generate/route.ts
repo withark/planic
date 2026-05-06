@@ -23,11 +23,11 @@ import type { QuoteDoc } from '@/lib/types'
 export const maxDuration = 300
 
 const GenerateRequestSchema = z.object({
-  eventName: z.string().min(1, '행사명을 입력해주세요.'),
+  eventName: z.string().min(1, '행사명을 입력해 주세요.'),
   clientName: z.string().optional().default(''),
   clientManager: z.string().optional().default(''),
   clientTel: z.string().optional().default(''),
-  quoteDate: z.string().min(1, '견적일을 입력해주세요.'),
+  quoteDate: z.string().min(1, '견적일을 입력해 주세요.'),
   eventDate: z.string().optional().default(''),
   eventDuration: z.string().optional().default(''),
   /** HH:mm — 타임테이블·프롬프트 연동 */
@@ -35,7 +35,7 @@ const GenerateRequestSchema = z.object({
   eventEndHHmm: z.string().optional().default(''),
   headcount: z.string().optional().default(''),
   venue: z.string().optional().default(''),
-  eventType: z.string().min(1, '행사 종류를 선택해주세요.'),
+  eventType: z.string().min(1, '행사 종류를 선택해 주세요.'),
   budget: z.string().optional().default(''),
   requirements: z.string().optional().default(''),
   briefGoal: z.string().optional().default(''),

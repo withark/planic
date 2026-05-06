@@ -60,7 +60,7 @@ export default async function AuthPage({
           socialProviders={socialProviders}
           hint={
             isSignupInduction
-              ? '바로 시작하기 — 가입·로그인 후 견적 만들기 화면으로 돌아가요.'
+              ? '바로 시작하기 — 가입·로그인 후 견적 생성 화면으로 돌아가요.'
               : undefined
           }
           loginRequiredNote={

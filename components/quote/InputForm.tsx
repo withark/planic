@@ -256,8 +256,8 @@ export default function InputForm({
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault()
-    if (!eventName.trim()) { setError('행사명을 입력해주세요.'); return }
-    if (!eventType)        { setError('행사 종류를 선택해주세요.'); return }
+    if (!eventName.trim()) { setError('행사명을 입력해 주세요.'); return }
+    if (!eventType)        { setError('행사 종류를 선택해 주세요.'); return }
     setError(''); setLoading(true)
     onLoadingChange?.(true)
 

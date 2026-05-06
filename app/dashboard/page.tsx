@@ -196,7 +196,7 @@ function DashboardContent() {
               {planLabelKo(plan)}
             </span>
             <Link href="/plans" className="text-xs font-semibold text-primary-700 hover:text-primary-800 underline underline-offset-2">
-              업그레이드
+              요금제 업그레이드
             </Link>
           </div>
         </header>
@@ -260,7 +260,7 @@ function DashboardContent() {
                 href="/estimate-generator"
                 className="inline-flex items-center justify-center rounded-xl bg-primary-600 px-4 py-2.5 text-sm font-semibold text-white hover:bg-primary-700 transition-colors"
               >
-                새 견적서 만들기
+                새 견적서 생성
               </Link>
               {latestRecord ? (
                 <Link
@@ -431,7 +431,7 @@ function DashboardContent() {
                       href="/estimate-generator"
                       className="inline-flex items-center justify-center rounded-xl bg-primary-600 px-4 py-2.5 text-xs font-semibold text-white hover:bg-primary-700 transition-colors"
                     >
-                      견적서 만들기 시작
+                      견적서 생성 시작
                     </Link>
                   </div>
                 </div>
@@ -480,7 +480,7 @@ function DashboardContent() {
                   href="/plans"
                   className="inline-flex px-4 py-2.5 text-xs font-semibold rounded-xl bg-primary-600 text-white hover:bg-primary-700 transition-colors"
                 >
-                  플랜 업그레이드
+                  요금제 업그레이드
                 </Link>
               </div>
             </div>
