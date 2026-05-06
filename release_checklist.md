@@ -18,7 +18,7 @@
 ## 2) CTA 동작
 - `/dashboard`
   - “업그레이드” 링크(또는 CTA)가 `/plans`로 정상 이동하는지
-  - “문서 만들기 화면으로 이동”(링크)이 `/create-documents`로 이동하는지
+  - “문서 생성 화면으로 이동”(링크)이 `/create-documents`로 이동하는지
 - `/plans`
   - 월간/연간 토글 동작
   - 각 플랜 카드 CTA

@@ -5,7 +5,7 @@ type Props = {
   className?: string
 }
 
-/** 문서 만들기 허브용 단순 라인 아이콘 (24×24) */
+/** 문서 생성 허브용 단순 라인 아이콘 (24×24) */
 export function HubDocIcon({ id, className }: Props) {
   const common = {
     width: 24,

@@ -6,6 +6,7 @@ import { GNB } from '@/components/GNB'
 import { apiFetch } from '@/lib/api/client'
 import { toUserMessage } from '@/lib/errors/toUserMessage'
 import { LoadingState } from '@/components/ui/AsyncState'
+import { CORE_DOCUMENT_COUNT } from '@/lib/marketing-documents'
 import type { PlanLimits, PlanType } from '@/lib/plans'
 import { planLabelKo } from '@/lib/plans'
 import type { HistoryRecord } from '@/lib/types'
@@ -255,12 +256,31 @@ function DashboardContent() {
                 전체 문서 보기
               </Link>
             </div>
+            <p className="mt-2 text-xs text-slate-600">핵심 문서 {CORE_DOCUMENT_COUNT}종을 빠르게 시작할 수 있어요.</p>
             <div className="mt-4 flex flex-col sm:flex-row sm:flex-wrap gap-2">
               <Link
                 href="/estimate-generator"
                 className="inline-flex items-center justify-center rounded-xl bg-primary-600 px-4 py-2.5 text-sm font-semibold text-white hover:bg-primary-700 transition-colors"
               >
                 새 견적서 생성
+              </Link>
+              <Link
+                href="/cue-sheet-generator"
+                className="inline-flex items-center justify-center rounded-xl border border-gray-200 bg-white px-4 py-2.5 text-sm font-semibold text-gray-800 hover:bg-gray-50 transition-colors"
+              >
+                큐시트 생성
+              </Link>
+              <Link
+                href="/emcee-script-generator"
+                className="inline-flex items-center justify-center rounded-xl border border-gray-200 bg-white px-4 py-2.5 text-sm font-semibold text-gray-800 hover:bg-gray-50 transition-colors"
+              >
+                사회자 멘트 생성
+              </Link>
+              <Link
+                href="/task-order-summary"
+                className="inline-flex items-center justify-center rounded-xl border border-gray-200 bg-white px-4 py-2.5 text-sm font-semibold text-gray-800 hover:bg-gray-50 transition-colors"
+              >
+                과업지시서 요약
               </Link>
               {latestRecord ? (
                 <Link

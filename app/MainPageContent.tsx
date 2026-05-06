@@ -358,7 +358,7 @@ export async function MainPageContent() {
               자주 쓰는 핵심 문서 {CORE_DOCUMENT_COUNT}종을 빠르게 시작하고, 전체 {TOTAL_DOCUMENT_COUNT}종 문서로 확장할 수 있습니다.
             </p>
           </div>
-          <div className="mt-10 grid gap-4 sm:grid-cols-2 lg:grid-cols-2">
+          <div className="mt-10 grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
             {templateCards.map((template) => {
               const TIcon = template.Icon
               return (
