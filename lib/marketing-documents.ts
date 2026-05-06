@@ -24,6 +24,13 @@ export type MarketingDocumentItem = {
 export const CORE_DOCUMENT_COUNT = 4
 export const TOTAL_DOCUMENT_COUNT = 7
 
+export const CORE_DOCUMENT_HREFS = [
+  '/estimate-generator',
+  '/cue-sheet-generator',
+  '/emcee-script-generator',
+  '/task-order-summary',
+] as const
+
 export const MARKETING_DOCUMENTS: MarketingDocumentItem[] = [
   {
     href: '/estimate-generator',
@@ -54,6 +61,27 @@ export const MARKETING_DOCUMENTS: MarketingDocumentItem[] = [
     desc: 'PDF·DOCX 파일을 AI로 핵심만 구조화 요약합니다.',
     category: '운영·정리',
     hubIcon: 'task-summary',
+  },
+  {
+    href: '/planning-generator',
+    title: '기획안 생성',
+    desc: '행사 목적·운영 포인트·구성 흐름을 구조화해 기획안을 만듭니다.',
+    category: '기획·제안',
+    hubIcon: 'planning',
+  },
+  {
+    href: '/program-proposal-generator',
+    title: '프로그램 제안서 생성',
+    desc: '세션·순서 중심의 프로그램 구성안을 제안서 형태로 생성합니다.',
+    category: '기획·제안',
+    hubIcon: 'program',
+  },
+  {
+    href: '/scenario-generator',
+    title: '시나리오 생성',
+    desc: '시간 흐름과 진행 멘트까지 포함한 실행 시나리오를 생성합니다.',
+    category: '운영·정리',
+    hubIcon: 'scenario',
   },
 ]
 

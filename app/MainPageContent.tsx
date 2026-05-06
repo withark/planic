@@ -68,6 +68,24 @@ const templateCards = [
     Icon: LandingIconClipboard,
     href: '/task-order-summary',
   },
+  {
+    label: '기획안',
+    description: '행사 목적과 운영 포인트를 구조화한 기획 문서가 필요할 때',
+    Icon: LandingIconDocLightbulb,
+    href: '/planning-generator',
+  },
+  {
+    label: '프로그램 제안서',
+    description: '세션 중심으로 제안용 프로그램 구성을 정리해야 할 때',
+    Icon: LandingIconSlides,
+    href: '/program-proposal-generator',
+  },
+  {
+    label: '시나리오',
+    description: '시간 흐름과 진행 멘트까지 포함한 실행안을 만들 때',
+    Icon: LandingIconClapper,
+    href: '/scenario-generator',
+  },
 ]
 
 function fmtKRW(n: number) {

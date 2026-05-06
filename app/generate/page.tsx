@@ -1,6 +1,6 @@
 import { redirect } from 'next/navigation'
 
 export default function GenerateLegacyPage() {
-  redirect('/create/proposal')
+  redirect('/estimate-generator')
 }
 

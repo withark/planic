@@ -4,7 +4,7 @@ import { signOut } from 'next-auth/react'
 
 const DOCS = [
   {
-    href: '/create/proposal',
+    href: '/estimate-generator',
     title: '제안서',
     description: '행사 개요·프로그램·견적을 포함한 완성형 제안서',
     icon: (
@@ -17,7 +17,7 @@ const DOCS = [
     btnColor: 'bg-blue-600 hover:bg-blue-700',
   },
   {
-    href: '/create/cuesheet',
+    href: '/cue-sheet-generator',
     title: '큐시트',
     description: '시간·순서·담당자 기준 행사 진행 운영표',
     icon: (
@@ -30,7 +30,7 @@ const DOCS = [
     btnColor: 'bg-green-600 hover:bg-green-700',
   },
   {
-    href: '/create/emcee',
+    href: '/emcee-script-generator',
     title: '사회자 멘트',
     description: '구간별 사회자 멘트 및 큐 사인 원고',
     icon: (
@@ -43,7 +43,7 @@ const DOCS = [
     btnColor: 'bg-purple-600 hover:bg-purple-700',
   },
   {
-    href: '/create/task-summary',
+    href: '/task-order-summary',
     title: '과업지시서 요약',
     description: 'PDF·DOCX 파일을 AI로 핵심만 구조화 요약',
     icon: (

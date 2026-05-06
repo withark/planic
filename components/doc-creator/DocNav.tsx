@@ -5,10 +5,10 @@ import { signOut, useSession } from 'next-auth/react'
 import clsx from 'clsx'
 
 const NAV_LINKS = [
-  { href: '/create/proposal', label: '제안서' },
-  { href: '/create/cuesheet', label: '큐시트' },
-  { href: '/create/emcee', label: '사회자 멘트' },
-  { href: '/create/task-summary', label: '과업지시서 요약' },
+  { href: '/estimate-generator', label: '제안서' },
+  { href: '/cue-sheet-generator', label: '큐시트' },
+  { href: '/emcee-script-generator', label: '사회자 멘트' },
+  { href: '/task-order-summary', label: '과업지시서 요약' },
 ] as const
 
 export default function DocNav() {
