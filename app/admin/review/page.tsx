@@ -17,13 +17,21 @@ type Item = {
 
 export default function AdminReviewPage() {
   const [items, setItems] = useState<Item[]>([])
+  const [loading, setLoading] = useState(true)
+  const [error, setError] = useState<string | null>(null)
   useEffect(() => {
     fetch('/api/admin/quotes-recent')
       .then((r) => r.json())
       .then((res) => {
         if (res?.ok) setItems(res.data?.items ?? [])
+        else setError(res?.error?.message || '목록을 불러오지 못했습니다.')
       })
+      .catch(() => setError('목록을 불러오지 못했습니다.'))
+      .finally(() => setLoading(false))
   }, [])
+
+  if (loading) return <p className="text-sm text-gray-500">로딩 중...</p>
+  if (error) return <p className="text-sm text-red-600">{error}</p>
 
   return (
     <div className="space-y-4">
@@ -34,6 +42,9 @@ export default function AdminReviewPage() {
         아래 <code className="bg-slate-100 px-1 rounded text-xs">generationMeta</code>로 샘플 반영 여부를
         교차 확인할 수 있습니다.
       </p>
+      {items.length === 0 ? (
+        <p className="text-sm text-slate-500">최근 생성 문서가 없습니다.</p>
+      ) : (
       <ul className="space-y-2">
         {items.map((it) => (
           <li
@@ -51,15 +62,16 @@ export default function AdminReviewPage() {
               </p>
             </div>
             <a
-              href={`/estimate-generator`}
+              href={`/admin/quotes/${it.id}`}
               className="text-xs text-primary-600 shrink-0"
-              title="사용자 계정으로 해당 견적은 히스토리에서 확인"
+              title="관리자 상세 화면으로 이동"
             >
-              생성 플로우 →
+              상세 보기 →
             </a>
           </li>
         ))}
       </ul>
+      )}
     </div>
   )
 }

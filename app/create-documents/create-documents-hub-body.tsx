@@ -45,10 +45,18 @@ const DOC_TYPE_BY_HREF: Record<string, AppDocumentType> = {
 
 export function CreateDocumentsHubBody() {
   const [plan, setPlan] = useState<PlanType>('FREE')
+  const [planResolved, setPlanResolved] = useState(false)
+  const [planError, setPlanError] = useState<string | null>(null)
   useEffect(() => {
     apiFetch<{ subscription: { planType: PlanType } }>('/api/me')
-      .then((m) => setPlan(m.subscription.planType))
-      .catch(() => setPlan('FREE'))
+      .then((m) => {
+        setPlan(m.subscription.planType)
+        setPlanError(null)
+      })
+      .catch(() => {
+        setPlanError('플랜 정보를 확인하지 못했습니다. 잠시 후 다시 시도해 주세요.')
+      })
+      .finally(() => setPlanResolved(true))
   }, [])
 
   const quickStartDocs = useMemo(
@@ -56,6 +64,7 @@ export function CreateDocumentsHubBody() {
     [],
   )
   const isLocked = (href: string) => {
+    if (!planResolved || planError) return false
     const docType = DOC_TYPE_BY_HREF[href]
     if (!docType) return false
     return !isDocumentAllowedForPlan(plan, docType)
@@ -69,7 +78,11 @@ export function CreateDocumentsHubBody() {
   return (
     <>
       <div className="mb-3 rounded-xl border border-slate-200 bg-white px-3 py-2 text-xs text-slate-600">
-        현재 플랜: <span className="font-semibold text-slate-900">{planLabelKo(plan)}</span>
+        현재 플랜:{' '}
+        <span className="font-semibold text-slate-900">
+          {planResolved ? planLabelKo(plan) : '확인 중...'}
+        </span>
+        {planError ? <span className="ml-2 text-rose-600">{planError}</span> : null}
       </div>
       <section className="rounded-2xl border-2 border-primary-100 bg-white p-4 sm:p-5 shadow-card ring-1 ring-primary-50/70">
         <h2 className="text-base font-bold text-gray-900">자주 쓰는 문서</h2>

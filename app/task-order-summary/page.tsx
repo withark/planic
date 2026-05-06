@@ -56,6 +56,8 @@ function detectTaskOrderStatus(rawSummary: string, parsed: TaskOrderStructuredSu
 
 export default function TaskOrderSummaryPage() {
   const [plan, setPlan] = useState<PlanType>('FREE')
+  const [planResolved, setPlanResolved] = useState(false)
+  const [planError, setPlanError] = useState<string | null>(null)
   const [taskOrderRefs, setTaskOrderRefs] = useState<TaskOrderDoc[]>([])
   const [uploading, setUploading] = useState(false)
   const [toast, setToast] = useState<{ msg: string; type: 'ok' | 'err' } | null>(null)
@@ -75,11 +77,15 @@ export default function TaskOrderSummaryPage() {
 
   useEffect(() => {
     apiFetch<{ subscription: { planType: PlanType } }>('/api/me')
-      .then((m) => setPlan(m.subscription.planType))
-      .catch(() => setPlan('FREE'))
+      .then((m) => {
+        setPlan(m.subscription.planType)
+        setPlanError(null)
+      })
+      .catch(() => setPlanError('플랜 정보를 확인하지 못했습니다. 잠시 후 다시 시도해 주세요.'))
+      .finally(() => setPlanResolved(true))
   }, [])
 
-  const isLocked = !isDocumentAllowedForPlan(plan, 'taskOrderSummary')
+  const isLocked = planResolved && !planError && !isDocumentAllowedForPlan(plan, 'taskOrderSummary')
   useEffect(() => {
     if (isLocked) {
       setTaskOrderRefs([])
@@ -127,6 +133,11 @@ export default function TaskOrderSummaryPage() {
 
         <div className="flex-1 overflow-y-auto">
           <div className="max-w-3xl mx-auto px-6 py-6 space-y-6">
+            {planError ? (
+              <div className="rounded-lg border border-rose-200 bg-rose-50 px-4 py-3 text-sm text-rose-700">
+                {planError}
+              </div>
+            ) : null}
             {isLocked ? (
               <PlanLockedNotice
                 title="과업지시서 요약은 베이직부터 사용할 수 있어요."

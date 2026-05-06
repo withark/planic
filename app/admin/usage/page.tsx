@@ -26,9 +26,9 @@ export default function AdminUsagePage() {
       .finally(() => setLoading(false))
   }, [])
 
-  if (loading) return <p className="text-sm text-gray-500">로딩 중…</p>
+  if (loading) return <p className="text-sm text-gray-500">로딩 중...</p>
   if (error) return <p className="text-sm text-red-600">{error}</p>
-  if (!data) return null
+  if (!data) return <p className="text-sm text-slate-500">표시할 사용량 데이터가 없습니다.</p>
 
   return (
     <div className="space-y-6">

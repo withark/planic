@@ -8,15 +8,22 @@ export default function AdminSettlementPage() {
     planShare: { plan: string; amount: number; count: number; pct: number }[]
     note?: string
   } | null>(null)
+  const [loading, setLoading] = useState(true)
+  const [error, setError] = useState<string | null>(null)
   useEffect(() => {
     fetch('/api/admin/settlement?months=6')
       .then((r) => r.json())
       .then((res) => {
         if (res?.ok) setData(res.data)
+        else setError(res?.error?.message || '정산 데이터를 불러오지 못했습니다.')
       })
+      .catch(() => setError('정산 데이터를 불러오지 못했습니다.'))
+      .finally(() => setLoading(false))
   }, [])
 
-  if (!data) return <p className="text-sm text-gray-500">로딩…</p>
+  if (loading) return <p className="text-sm text-gray-500">로딩 중...</p>
+  if (error) return <p className="text-sm text-red-600">{error}</p>
+  if (!data) return <p className="text-sm text-slate-500">표시할 정산 데이터가 없습니다.</p>
 
   return (
     <div className="space-y-6">

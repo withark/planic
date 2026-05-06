@@ -92,6 +92,17 @@ export async function PATCH(req: NextRequest) {
     }
 
     if (body?.action === 'reset_free_trial_quota') {
+      const planRows = await sql`
+        SELECT plan_type
+        FROM subscriptions
+        WHERE user_id = ${userId} AND status = 'active'
+        ORDER BY started_at DESC
+        LIMIT 1
+      `
+      const activePlan = String((planRows[0] as Record<string, unknown> | undefined)?.plan_type || 'FREE')
+      if (activePlan !== 'FREE') {
+        return errorResponse(400, 'BAD_REQUEST', '무료 플랜 사용자만 무료 체험 횟수 초기화가 가능합니다.')
+      }
       const usage = await resetQuoteGeneratedCount(userId)
       return okResponse({
         userId,

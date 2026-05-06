@@ -86,7 +86,7 @@ export default function AdminUsersPage() {
   }, [list])
 
   const selectableOverUsers = useMemo(() => {
-    return filtered.filter((u) => u.quotaExceeded).map((u) => u.userId)
+    return filtered.filter((u) => u.quotaExceeded && u.currentPlan === 'FREE').map((u) => u.userId)
   }, [filtered])
 
   const selectedSet = useMemo(() => new Set(selectedUserIds), [selectedUserIds])
@@ -255,7 +255,7 @@ export default function AdminUsersPage() {
 
         <div className="mt-3 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
           <p className="text-xs text-slate-500">
-            한도 초과 사용자만 선택할 수 있습니다. 선택: <span className="font-semibold">{selectedUserIds.length}</span>명
+            무료 플랜 한도 초과 사용자만 선택할 수 있습니다. 선택: <span className="font-semibold">{selectedUserIds.length}</span>명
           </p>
           <button
             type="button"
