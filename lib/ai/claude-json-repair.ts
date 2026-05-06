@@ -1,4 +1,5 @@
 import Anthropic from '@anthropic-ai/sdk'
+import { resolveAnthropicFinalModel } from '@/lib/ai/config'
 import { parseAiJson } from '@/lib/ai/json-response'
 
 const REPAIR_SYSTEM = `당신은 행사 문서 생성 파이프라인의 품질 보정기입니다.
@@ -13,7 +14,7 @@ export async function claudeRepairJsonText(params: {
 }): Promise<string> {
   const { client, userRepairPrompt, maxTokens = 8192 } = params
   const message = await client.messages.create({
-    model: 'claude-sonnet-4-6',
+    model: resolveAnthropicFinalModel(),
     max_tokens: maxTokens,
     system: REPAIR_SYSTEM,
     messages: [{ role: 'user', content: userRepairPrompt }],

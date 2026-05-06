@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import Anthropic from '@anthropic-ai/sdk'
+import { resolveAnthropicFinalModel } from '@/lib/ai/config'
 import { claudeRepairJsonText, parseRepairedJson } from '@/lib/ai/claude-json-repair'
 import { collectTaskSummaryQualityIssues, normalizeTaskSummaryPatch } from '@/lib/ai/document-output-quality'
 import { parseAiJson } from '@/lib/ai/json-response'
@@ -84,7 +85,7 @@ export async function POST(req: NextRequest) {
 
     const client = new Anthropic({ apiKey })
     const message = await client.messages.create({
-      model: 'claude-sonnet-4-6',
+      model: resolveAnthropicFinalModel(),
       max_tokens: 2000,
       system: SUMMARY_SYSTEM_PROMPT,
       messages: [{ role: 'user', content: SUMMARY_PROMPT(rawText) }],
