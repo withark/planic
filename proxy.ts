@@ -72,6 +72,10 @@ export function proxy(request: NextRequest) {
     try {
       secret = resolveNextAuthSecret()
     } catch (e) {
+      // 로컬에서 .env 없이 돌릴 때는 페이지/API 가드로 안내하고, 운영에서는 설정 누락을 명확히 드러냄
+      if (process.env.NODE_ENV !== 'production') {
+        return NextResponse.next()
+      }
       const msg = e instanceof Error ? e.message : '인증 비밀키가 설정되지 않았습니다.'
       return new NextResponse(msg, { status: 503 })
     }

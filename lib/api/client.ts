@@ -62,6 +62,16 @@ export async function apiFetch<T>(input: RequestInfo | URL, init?: RequestInit):
     )
   }
 
+  if (res.status === 401) {
+    const msg = toUserMessage(payload, '로그인이 필요합니다. 로그인 후 다시 시도해 주세요.')
+    throw new ApiError(msg, res.status, payload)
+  }
+
+  if (res.status === 403) {
+    const msg = toUserMessage(payload, '이 작업을 수행할 권한이 없습니다.')
+    throw new ApiError(msg, res.status, payload)
+  }
+
   const msg = toUserMessage(payload, '요청에 실패했습니다.')
   throw new ApiError(msg, res.status, payload)
 }
@@ -96,6 +106,16 @@ export async function apiGenerateStream(
         return (env as ApiOk<{ doc: QuoteDoc; totals: Record<string, number>; id: string }>).data
       }
       return payload as { doc: QuoteDoc; totals: Record<string, number>; id: string }
+    }
+    if (res.status === 401) {
+      throw new ApiError(
+        toUserMessage(payload, '로그인이 필요합니다. 로그인 후 다시 시도해 주세요.'),
+        res.status,
+        payload
+      )
+    }
+    if (res.status === 403) {
+      throw new ApiError(toUserMessage(payload, '이 작업을 수행할 권한이 없습니다.'), res.status, payload)
     }
     const msg = toUserMessage(payload, '요청에 실패했습니다.')
     throw new ApiError(msg, res.status, payload)

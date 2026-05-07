@@ -1,4 +1,4 @@
-import type { Metadata } from 'next'
+import type { Metadata, Viewport } from 'next'
 import './globals.css'
 import { pretendard } from './fonts'
 import { SessionProvider } from '@/components/auth/SessionProvider'
@@ -9,6 +9,12 @@ import { getMetadataBase, getSiteUrl } from '@/lib/site-url'
 
 const defaultTitle = `${SITE_NAME} · 행사 문서 올인원`
 const siteUrl = getSiteUrl()
+
+export const viewport: Viewport = {
+  width: 'device-width',
+  initialScale: 1,
+  viewportFit: 'cover',
+}
 
 export const metadata: Metadata = {
   metadataBase: getMetadataBase(),

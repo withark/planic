@@ -93,6 +93,10 @@ const SIDEBAR_WIDTH = 224
 const SIDEBAR_COLLAPSED_WIDTH = 76
 const SIDEBAR_COLLAPSED_KEY = 'planic-sidebar-collapsed'
 
+/** 모바일 상단 고정 햄버거와 겹치지 않도록 메인 열에 붙이는 패딩 */
+export const GNB_MOBILE_MAIN_COLUMN_PADDING =
+  'pt-[max(3.5rem,calc(env(safe-area-inset-top,0px)+2.75rem))] md:pt-0'
+
 function SidebarContent({
   onNavigate,
   collapsed = false,
@@ -280,7 +284,7 @@ export function GNB() {
           type="button"
           aria-label="메뉴 열기"
           onClick={() => setMobileOpen(true)}
-          className="md:hidden fixed top-4 left-4 z-50 w-10 h-10 flex items-center justify-center rounded-xl bg-white border border-slate-200 shadow-sm text-slate-600 hover:bg-slate-50"
+          className="md:hidden fixed z-50 w-10 h-10 flex items-center justify-center rounded-xl bg-white border border-slate-200 shadow-sm text-slate-600 hover:bg-slate-50 top-[max(1rem,calc(env(safe-area-inset-top,0px)+0.5rem))] left-[max(1rem,calc(env(safe-area-inset-left,0px)+0.5rem))]"
         >
           <svg width="20" height="20" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24" aria-hidden>
             <path strokeLinecap="round" strokeLinejoin="round" d="M4 6h16M4 12h16M4 18h16" />

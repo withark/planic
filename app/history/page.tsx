@@ -1,6 +1,6 @@
 'use client'
 import { useEffect, useState, useCallback } from 'react'
-import { GNB } from '@/components/GNB'
+import { GNB, GNB_MOBILE_MAIN_COLUMN_PADDING } from '@/components/GNB'
 import { Button, Toast } from '@/components/ui'
 import type { HistoryRecord } from '@/lib/types'
 import { fmtKRW } from '@/lib/calc'
@@ -54,7 +54,7 @@ export default function HistoryPage() {
   return (
     <div className="flex h-screen overflow-hidden bg-gray-50/50">
       <GNB />
-      <div className="flex-1 flex flex-col overflow-hidden">
+      <div className={`flex-1 flex flex-col overflow-hidden ${GNB_MOBILE_MAIN_COLUMN_PADDING}`}>
         <header className="flex items-center justify-between px-6 h-14 border-b border-gray-100 bg-white/90 flex-shrink-0">
           <div>
             <h1 className="text-base font-semibold text-gray-900">작업 이력</h1>

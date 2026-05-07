@@ -33,6 +33,7 @@ export default async function AuthPage({
   const callbackUrl = resolveCallbackUrl(resolvedSearchParams)
   const reason = typeof resolvedSearchParams?.reason === 'string' ? resolvedSearchParams.reason : ''
   const isSignupInduction = reason === 'signup_required'
+  const needSessionNote = reason === 'login_required' || reason === 'session_required'
   const devEnabled = isDevAuthEnabled()
   const emailPasswordAuthEnabled = isEmailPasswordAuthEnabled()
   const socialProviders = resolveEnabledSocialAuthProviders()
@@ -64,7 +65,7 @@ export default async function AuthPage({
               : undefined
           }
           loginRequiredNote={
-            reason === 'login_required'
+            needSessionNote
               ? '이 페이지는 로그인 후 이용할 수 있어요. 로그인하면 원래 화면으로 이동합니다.'
               : undefined
           }

@@ -2,7 +2,7 @@
 import { Suspense, useEffect, useMemo, useState } from 'react'
 import Link from 'next/link'
 import { useSearchParams } from 'next/navigation'
-import { GNB } from '@/components/GNB'
+import { GNB, GNB_MOBILE_MAIN_COLUMN_PADDING } from '@/components/GNB'
 import { apiFetch } from '@/lib/api/client'
 import { toUserMessage } from '@/lib/errors/toUserMessage'
 import { LoadingState } from '@/components/ui/AsyncState'
@@ -185,7 +185,7 @@ function DashboardContent() {
   return (
     <div className="flex h-screen overflow-hidden bg-gray-50/50">
       <GNB />
-      <div className="flex-1 flex flex-col overflow-hidden">
+      <div className={`flex-1 flex flex-col overflow-hidden ${GNB_MOBILE_MAIN_COLUMN_PADDING}`}>
         <header className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between px-6 py-4 border-b border-gray-100 bg-white/90 flex-shrink-0">
           <div>
             <h1 className="text-lg font-bold tracking-tight text-gray-900">홈</h1>
@@ -522,7 +522,7 @@ export default function DashboardPage() {
       fallback={
         <div className="flex h-screen overflow-hidden bg-gray-50/50">
           <GNB />
-          <div className="flex-1 flex items-center justify-center px-4">
+          <div className={`flex-1 flex items-center justify-center px-4 ${GNB_MOBILE_MAIN_COLUMN_PADDING}`}>
             <div className="w-full max-w-md">
               <LoadingState label="로딩 중…" />
             </div>
