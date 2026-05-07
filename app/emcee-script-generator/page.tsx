@@ -4,6 +4,7 @@ import { useCallback, useEffect, useMemo, useState } from 'react'
 import { GNB } from '@/components/GNB'
 import QuoteResult from '@/components/quote/QuoteResult'
 import SimpleGeneratorWizard from '@/components/generators/SimpleGeneratorWizard'
+import { MacroPasteGate } from '@/components/generators/MacroPasteGate'
 import { LoadSavedGeneratedDocModal } from '@/components/generators/LoadSavedGeneratedDocModal'
 import GenerationProgressPanel, { appendStageLine } from '@/components/generators/GenerationProgressPanel'
 import { Input, Textarea, Toast } from '@/components/ui'
@@ -14,6 +15,7 @@ import { exportToExcel } from '@/lib/exportExcel'
 import { exportToPdf, pdfKindFromQuoteTab } from '@/lib/exportPdf'
 import type { PlanType } from '@/lib/plans'
 import { buildTopicSeedDoc } from '@/lib/topic-seed-doc'
+import { mapPastedTextToTopicGoalFields } from '@/lib/brief-text-parse'
 
 type MeLite = {
   subscription: { planType: PlanType }
@@ -214,6 +216,31 @@ export default function EmceeScriptGeneratorPage() {
     return null
   }, [generateDisabled, sourceMode, topic, goal, selectedBaseDocId, doc])
 
+  const applyPastedBrief = useCallback(
+    (text: string) => {
+      setSourceMode('fromTopic')
+      const m = mapPastedTextToTopicGoalFields(text)
+      setTopic(m.topic)
+      setGoal(m.goal)
+      setNotes(m.notes)
+      setHeadcount(m.headcount)
+      setVenue(m.venue)
+      setDoc(
+        buildTopicSeedDoc({
+          topic: m.topic,
+          headcount: m.headcount,
+          venue: m.venue,
+          goal: m.goal,
+          notes: m.notes,
+          documentTarget: 'emcee',
+        }),
+      )
+      setGeneratedDocId(null)
+      showToast('입력을 반영했어요. 멘트 목표를 확인한 뒤 생성해 주세요.')
+    },
+    [showToast],
+  )
+
   const topicInvalid = sourceMode === 'fromTopic' && generateDisabled && !topic.trim()
   const goalInvalid = sourceMode === 'fromTopic' && generateDisabled && !goal.trim()
 
@@ -238,6 +265,14 @@ export default function EmceeScriptGeneratorPage() {
             <section
               className={`min-h-0 overflow-y-auto rounded-2xl border border-slate-200 bg-white p-4 shadow-sm ${generating ? 'max-md:order-last' : ''}`}
             >
+          <MacroPasteGate
+            skipStorageKey="planic:skip-paste-gate:emcee"
+            title="행사·멘트 브리프를 한 번에 붙여 넣기"
+            description="진행 순서, 톤, 주의할 이름·직함 등을 통째로 넣어도 됩니다. 다음 단계에서 멘트 목표를 확인하고 생성합니다."
+            placeholder="행사명, 진행 순서, 사회자 톤(격식/가벼움), 주의할 표현 등 자유 형식으로 입력해 주세요."
+            onApplyPaste={applyPastedBrief}
+            onSkipPaste={() => {}}
+          >
           <SimpleGeneratorWizard
             title="사회자 멘트 생성"
             subtitle=""
@@ -329,6 +364,7 @@ export default function EmceeScriptGeneratorPage() {
             generateDisabled={generateDisabled}
             validationMessage={validationMessage}
           />
+          </MacroPasteGate>
             </section>
 
           {generating ? (

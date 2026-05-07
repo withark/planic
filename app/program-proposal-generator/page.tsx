@@ -5,6 +5,7 @@ import { GNB } from '@/components/GNB'
 import QuoteResult from '@/components/quote/QuoteResult'
 import { Input, Textarea, Toast } from '@/components/ui'
 import SimpleGeneratorWizard from '@/components/generators/SimpleGeneratorWizard'
+import { MacroPasteGate } from '@/components/generators/MacroPasteGate'
 import { LoadSavedGeneratedDocModal } from '@/components/generators/LoadSavedGeneratedDocModal'
 import GenerationProgressPanel, { appendStageLine } from '@/components/generators/GenerationProgressPanel'
 import type { CompanySettings, HistoryRecord, PriceCategory, QuoteDoc, TaskOrderDoc } from '@/lib/types'
@@ -14,6 +15,7 @@ import { exportToExcel } from '@/lib/exportExcel'
 import { exportToPdf, pdfKindFromQuoteTab } from '@/lib/exportPdf'
 import type { PlanType } from '@/lib/plans'
 import { buildTopicSeedDoc } from '@/lib/topic-seed-doc'
+import { mapPastedTextToTopicGoalFields } from '@/lib/brief-text-parse'
 
 type MeLite = {
   subscription: { planType: PlanType }
@@ -236,6 +238,31 @@ export default function ProgramProposalGeneratorPage() {
     return null
   }, [generateDisabled, sourceMode, topic, goal, selectedTaskOrderBaseId, selectedEstimateId, doc])
 
+  const applyPastedBrief = useCallback(
+    (text: string) => {
+      setSourceMode('fromTopic')
+      const m = mapPastedTextToTopicGoalFields(text)
+      setTopic(m.topic)
+      setGoal(m.goal)
+      setNotes(m.notes)
+      setHeadcount(m.headcount)
+      setVenue(m.venue)
+      setDoc(
+        buildTopicSeedDoc({
+          topic: m.topic,
+          headcount: m.headcount,
+          venue: m.venue,
+          goal: m.goal,
+          notes: m.notes,
+          documentTarget: 'program',
+        }),
+      )
+      setGeneratedDocId(null)
+      showToast('입력을 반영했어요. 주제·목표를 확인한 뒤 생성해 주세요.')
+    },
+    [showToast],
+  )
+
   const topicInvalid = sourceMode === 'fromTopic' && generateDisabled && !topic.trim()
   const goalInvalid = sourceMode === 'fromTopic' && generateDisabled && !goal.trim()
 
@@ -260,6 +287,14 @@ export default function ProgramProposalGeneratorPage() {
             <section
               className={`min-h-0 overflow-y-auto rounded-2xl border border-slate-200 bg-white p-4 shadow-sm ${generating ? 'max-md:order-last' : ''}`}
             >
+              <MacroPasteGate
+                skipStorageKey="planic:skip-paste-gate:program"
+                title="행사·프로그램 정보를 한 번에 붙여 넣기"
+                description="세션 구성, 연사, 시간감 등 메모·메일을 그대로 넣을 수 있어요. 다음 단계에서 다듬고 생성합니다."
+                placeholder="행사 콘셉트, 세션 순서, 강조하고 싶은 운영 포인트를 자유롭게 입력해 주세요."
+                onApplyPaste={applyPastedBrief}
+                onSkipPaste={() => {}}
+              >
               <SimpleGeneratorWizard
             title="프로그램 제안서 생성"
             subtitle="고객에게 보여줄 구성안 중심으로 작성하고, 생성 후 바로 편집할 수 있습니다."
@@ -374,6 +409,7 @@ export default function ProgramProposalGeneratorPage() {
             generateDisabled={generateDisabled}
             validationMessage={validationMessage}
               />
+              </MacroPasteGate>
             </section>
 
             {generating ? (

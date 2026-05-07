@@ -40,17 +40,27 @@ async function authenticateFromProtectedRoute(page: Page, protectedPath: string)
   await expect(page).toHaveURL(new RegExp(`${protectedPath.replace('/', '\\/')}($|\\?)`))
 }
 
+async function dismissEstimatePasteGateIfPresent(page: Page) {
+  const skip = page.getByRole('button', { name: '건너뛰고 단계별 입력' })
+  if (await skip.isVisible().catch(() => false)) {
+    await skip.click()
+  }
+  await page.getByTestId('macro-paste-wizard-panel').waitFor({ state: 'visible', timeout: 15_000 })
+}
+
 test.describe('authenticated generation flow', () => {
   test.describe.configure({ mode: 'serial' })
 
   test('protected estimate-generator loads after dev auth', async ({ page }) => {
     await authenticateFromProtectedRoute(page, '/estimate-generator')
+    await dismissEstimatePasteGateIfPresent(page)
     await expect(page.getByRole('heading', { level: 1, name: '행사 제안서 생성' })).toBeVisible()
     await expect(page.getByText('행사 제안서 생성하기').first()).toBeVisible()
   })
 
   test('업체 원문 모드에서 필수 입력 후 생성 버튼 활성화', async ({ page }) => {
     await authenticateFromProtectedRoute(page, '/estimate-generator')
+    await dismissEstimatePasteGateIfPresent(page)
 
     await page.getByRole('radio', { name: /업체 원문만/ }).click()
     await page.locator('#wizard-step-2 select').first().selectOption({ index: 1 })

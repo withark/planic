@@ -4,6 +4,7 @@ import { useCallback, useEffect, useMemo, useState } from 'react'
 import { GNB } from '@/components/GNB'
 import QuoteResult from '@/components/quote/QuoteResult'
 import SimpleGeneratorWizard from '@/components/generators/SimpleGeneratorWizard'
+import { MacroPasteGate } from '@/components/generators/MacroPasteGate'
 import { LoadSavedGeneratedDocModal } from '@/components/generators/LoadSavedGeneratedDocModal'
 import GenerationProgressPanel, { appendStageLine } from '@/components/generators/GenerationProgressPanel'
 import { Input, Textarea, Toast } from '@/components/ui'
@@ -14,6 +15,7 @@ import { exportToExcel } from '@/lib/exportExcel'
 import { exportToPdf, pdfKindFromQuoteTab } from '@/lib/exportPdf'
 import type { PlanType } from '@/lib/plans'
 import { buildTopicSeedDoc } from '@/lib/topic-seed-doc'
+import { mapPastedTextToTopicGoalFields } from '@/lib/brief-text-parse'
 import { isDocumentAllowedForPlan } from '@/lib/plan-access'
 import { PlanLockedNotice } from '@/components/plan/PlanLockedNotice'
 
@@ -216,6 +218,31 @@ export default function ScenarioGeneratorPage() {
     return null
   }, [generateDisabled, sourceMode, topic, goal, selectedBaseDocId, doc])
 
+  const applyPastedBrief = useCallback(
+    (text: string) => {
+      setSourceMode('fromTopic')
+      const m = mapPastedTextToTopicGoalFields(text)
+      setTopic(m.topic)
+      setGoal(m.goal)
+      setNotes(m.notes)
+      setHeadcount(m.headcount)
+      setVenue(m.venue)
+      setDoc(
+        buildTopicSeedDoc({
+          topic: m.topic,
+          headcount: m.headcount,
+          venue: m.venue,
+          goal: m.goal,
+          notes: m.notes,
+          documentTarget: 'scenario',
+        }),
+      )
+      setGeneratedDocId(null)
+      showToast('입력을 반영했어요. 주제·목표를 확인한 뒤 생성해 주세요.')
+    },
+    [showToast],
+  )
+
   const topicInvalid = sourceMode === 'fromTopic' && generateDisabled && !topic.trim()
   const goalInvalid = sourceMode === 'fromTopic' && generateDisabled && !goal.trim()
   const isScenarioLocked = !isDocumentAllowedForPlan(me?.subscription?.planType ?? 'FREE', 'scenario')
@@ -250,6 +277,14 @@ export default function ScenarioGeneratorPage() {
               <section
                 className={`min-h-0 overflow-y-auto rounded-2xl border border-slate-200 bg-white p-4 shadow-sm ${generating ? 'max-md:order-last' : ''}`}
               >
+                <MacroPasteGate
+                  skipStorageKey="planic:skip-paste-gate:scenario"
+                  title="진행 시나리오 재료를 한 번에 붙여 넣기"
+                  description="연출 메모·행사 개요를 통째로 넣어도 됩니다. 다음 단계에서 연출 목표를 확인하고 시나리오를 생성합니다."
+                  placeholder="행사명, 진행 순서, 연출 포인트, 주의할 동선 등 자유 형식으로 입력해 주세요."
+                  onApplyPaste={applyPastedBrief}
+                  onSkipPaste={() => {}}
+                >
                 <SimpleGeneratorWizard
             title="시나리오 생성"
             subtitle="연출 흐름과 진행 멘트를 같이 정리해 바로 리허설 문서로 쓸 수 있게 구성합니다."
@@ -341,6 +376,7 @@ export default function ScenarioGeneratorPage() {
             generateDisabled={generateDisabled}
             validationMessage={validationMessage}
                 />
+                </MacroPasteGate>
               </section>
 
               {generating ? (

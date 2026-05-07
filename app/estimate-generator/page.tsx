@@ -6,6 +6,8 @@ import { useSearchParams } from 'next/navigation'
 import { GNB } from '@/components/GNB'
 import QuoteResult from '@/components/quote/QuoteResult'
 import SimpleGeneratorWizard, { type WizardMode } from '@/components/generators/SimpleGeneratorWizard'
+import { MacroPasteGate } from '@/components/generators/MacroPasteGate'
+import { looksLikeVendorQuoteBlock, parseLooseBrief } from '@/lib/brief-text-parse'
 import { CalendarPicker, Input, Textarea, Toast } from '@/components/ui'
 import type { CompanySettings, HistoryRecord, PriceCategory, QuoteDoc, TaskOrderDoc } from '@/lib/types'
 import { apiFetch, apiGenerateStream } from '@/lib/api/client'
@@ -734,6 +736,44 @@ function EstimateGeneratorContent() {
     eventType,
   ])
 
+  const applyPastedBrief = useCallback(
+    (text: string) => {
+      const trimmed = text.trim()
+      const p = parseLooseBrief(trimmed)
+      if (looksLikeVendorQuoteBlock(p)) {
+        setSourceMode('fromPrompt')
+        setVendorBrief(trimmed)
+        setTopic((prev) => prev.trim() || (p.supplierHint?.slice(0, 120) ?? '') || '업체 견적 기반')
+        setEventType((et) => et.trim() || '기타')
+        showToast('업체 원문 모드로 맞췄어요. 행사 종류를 선택한 뒤 생성해 주세요.')
+        return
+      }
+      setSourceMode('fromTopic')
+      if (p.supplierHint) setClientName(p.supplierHint)
+      if (p.representativeHint) {
+        const parts = p.representativeHint.split(/\s+/).filter(Boolean)
+        setClientManager(parts[parts.length - 1] || p.representativeHint)
+      }
+      if (p.phones[0]) setClientTel(p.phones[0])
+      const metaBits = [
+        p.bizNumbers.length ? `사업자등록번호: ${p.bizNumbers.join(', ')}` : '',
+        p.priceLines.length ? `금액 요약:\n${p.priceLines.join('\n')}` : '',
+      ].filter(Boolean)
+      setNotes(metaBits.length ? `${trimmed}\n\n---\n${metaBits.join('\n')}` : trimmed)
+      setTopic((prev) => {
+        if (prev.trim()) return prev
+        const first = trimmed
+          .split(/\r?\n/)
+          .map((l) => l.trim())
+          .find((l) => l.length > 0)
+        if (!first) return prev
+        return first.length > 100 ? `${first.slice(0, 97)}…` : first
+      })
+      showToast('필드를 채웠어요. 일정·인원을 확인한 뒤 생성해 주세요.')
+    },
+    [showToast],
+  )
+
   const validationMessage = useMemo(() => {
     if (!generateDisabled) return null
     if (pricingSheetRequired && priceItemCount === 0) {
@@ -996,7 +1036,12 @@ function EstimateGeneratorContent() {
       <GNB />
       <div className="flex min-h-0 flex-1 flex-col overflow-hidden">
         <header className="flex flex-shrink-0 flex-wrap items-center border-b border-slate-200 bg-white/95 px-4 py-3 sm:px-6">
-          <h1 className="text-lg font-semibold tracking-tight text-slate-900 sm:text-xl">행사 제안서 생성</h1>
+          <div>
+            <h1 className="text-lg font-semibold tracking-tight text-slate-900 sm:text-xl">행사 제안서 생성</h1>
+            <p className="mt-1 max-w-xl text-xs leading-relaxed text-slate-500">
+              타임테이블 등 세부 문서는 생성 완료 후 오른쪽 결과에서 같은 행사 정보로 이어서 만들 수 있어요.
+            </p>
+          </div>
         </header>
 
         <div className="flex min-h-0 flex-1 flex-col lg:flex-row">
@@ -1013,6 +1058,14 @@ function EstimateGeneratorContent() {
                 </p>
               ) : null}
             <section className="min-w-0">
+              <MacroPasteGate
+                skipStorageKey="planic:skip-paste-gate:estimate"
+                title="견적·행사 정보를 한 번에 붙여 넣기"
+                description="카톡·메일·메모에 있는 내용을 그대로 넣어도 됩니다. 다음 단계에서 상호·금액·일정을 확인한 뒤 문서를 만듭니다."
+                placeholder={`예)\n공급자 : (주)OOO 대표이사 홍길동\n사업자번호 : 000-00-00000\n연락처 : 010-0000-0000\n사회자 1명 330만원 · VAT 별도\n붐어 MC 4명 …`}
+                onApplyPaste={applyPastedBrief}
+                onSkipPaste={() => {}}
+              >
               <SimpleGeneratorWizard
             title="행사 제안서 생성하기"
             step1Label="생성 방식"
@@ -1099,6 +1152,7 @@ function EstimateGeneratorContent() {
             showValidationBanner
             step2ActionLabel="행사 제안서 생성으로 이동"
               />
+              </MacroPasteGate>
             </section>
             </div>
           </div>

@@ -4,6 +4,7 @@ import { useCallback, useEffect, useMemo, useState } from 'react'
 import { GNB } from '@/components/GNB'
 import QuoteResult from '@/components/quote/QuoteResult'
 import SimpleGeneratorWizard, { type WizardMode } from '@/components/generators/SimpleGeneratorWizard'
+import { MacroPasteGate } from '@/components/generators/MacroPasteGate'
 import { LoadSavedGeneratedDocModal } from '@/components/generators/LoadSavedGeneratedDocModal'
 import GenerationProgressPanel, { appendStageLine } from '@/components/generators/GenerationProgressPanel'
 import { Input, Textarea, Toast } from '@/components/ui'
@@ -14,6 +15,7 @@ import { toUserMessage } from '@/lib/errors/toUserMessage'
 import { exportToExcel } from '@/lib/exportExcel'
 import { exportToPdf, pdfKindFromQuoteTab } from '@/lib/exportPdf'
 import { buildTopicSeedDoc } from '@/lib/topic-seed-doc'
+import { mapPastedTextToTopicGoalFields } from '@/lib/brief-text-parse'
 import { isDocumentAllowedForPlan } from '@/lib/plan-access'
 import { PlanLockedNotice } from '@/components/plan/PlanLockedNotice'
 
@@ -224,6 +226,31 @@ export default function CueSheetGeneratorPage() {
     return null
   }, [generateDisabled, sourceMode, topic, goal, selectedScenarioId, selectedProgramId, contextDoc])
 
+  const applyPastedBrief = useCallback(
+    (text: string) => {
+      setSourceMode('fromTopic')
+      const m = mapPastedTextToTopicGoalFields(text)
+      setTopic(m.topic)
+      setGoal(m.goal)
+      setNotes(m.notes)
+      setHeadcount(m.headcount)
+      setVenue(m.venue)
+      setDoc(
+        buildTopicSeedDoc({
+          topic: m.topic,
+          headcount: m.headcount,
+          venue: m.venue,
+          goal: m.goal,
+          notes: m.notes,
+          documentTarget: 'cuesheet',
+        }),
+      )
+      setGeneratedDocId(null)
+      showToast('입력을 반영했어요. 주제·목표를 확인한 뒤 생성해 주세요.')
+    },
+    [showToast],
+  )
+
   const topicInvalid = sourceMode === 'fromTopic' && generateDisabled && !topic.trim()
   const goalInvalid = sourceMode === 'fromTopic' && generateDisabled && !goal.trim()
   const isCuesheetLocked = !isDocumentAllowedForPlan(me?.subscription?.planType ?? 'FREE', 'cuesheet')
@@ -256,6 +283,14 @@ export default function CueSheetGeneratorPage() {
               <section
                 className={`min-h-0 overflow-y-auto rounded-2xl border border-slate-200 bg-white p-4 shadow-sm ${generating ? 'max-md:order-last' : ''}`}
               >
+                <MacroPasteGate
+                  skipStorageKey="planic:skip-paste-gate:cuesheet"
+                  title="운영 정보를 한 번에 붙여 넣기"
+                  description="타임라인 메모·역할 분담을 통째로 넣어도 됩니다. 다음 단계에서 순서와 목표를 확인하고 큐시트를 생성합니다."
+                  placeholder="행사명, 세션 순서, 스태프 역할, 주의할 장비·동선 등 자유 형식으로 입력해 주세요."
+                  onApplyPaste={applyPastedBrief}
+                  onSkipPaste={() => {}}
+                >
                 <SimpleGeneratorWizard
             title="큐시트 생성"
             subtitle="시간, 담당자, 준비물, 멘트 큐를 한 번에 정리해 바로 현장 공유가 가능하도록 구성했습니다."
@@ -365,6 +400,7 @@ export default function CueSheetGeneratorPage() {
             generateDisabled={generateDisabled}
             validationMessage={validationMessage}
                 />
+                </MacroPasteGate>
               </section>
 
               {generating ? (
