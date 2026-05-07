@@ -2,17 +2,26 @@
 /**
  * Vercel Production + planic.cloud 배포 시 보안 필수 환경변수 점검.
  * - NEXTAUTH_SECRET 누락 시 middleware getToken 이 영구 실패함.
+ * - ADMIN_SECRET 누락 시 관리자 세션 쿠키 서명 실패(로그인 API 500).
  * - ADMIN_PASSWORD 누락/약한 값이면 관리자 로그인 보안 리스크가 발생함.
  */
 const vercelEnv = process.env.VERCEL_ENV || ''
 const nextAuthUrl = (process.env.NEXTAUTH_URL || '').trim().replace(/\/+$/, '')
 const secret = (process.env.NEXTAUTH_SECRET || '').trim()
+const adminSecret = (process.env.ADMIN_SECRET || '').trim()
 const adminPassword = (process.env.ADMIN_PASSWORD || '').trim()
 const isPlanic = /^https:\/\/(www\.)?planic\.cloud$/i.test(nextAuthUrl)
 
 if (vercelEnv === 'production' && isPlanic && !secret) {
   console.error(
     '[check-auth-env] Production 배포에서 NEXTAUTH_SECRET 이 비어 있습니다. Vercel Environment Variables 에 설정하세요.'
+  )
+  process.exit(1)
+}
+
+if (vercelEnv === 'production' && isPlanic && !adminSecret) {
+  console.error(
+    '[check-auth-env] Production 배포에서 ADMIN_SECRET 이 비어 있습니다. 관리자 쿠키 서명에 필요합니다. .env.local.example 및 Vercel 환경 변수를 참고하세요.'
   )
   process.exit(1)
 }
