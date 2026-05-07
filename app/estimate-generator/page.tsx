@@ -1035,32 +1035,32 @@ function EstimateGeneratorContent() {
     <div className="flex h-screen overflow-hidden bg-gray-50/50">
       <GNB />
       <div className="flex min-h-0 flex-1 flex-col overflow-hidden">
-        <header className="flex flex-shrink-0 flex-wrap items-center border-b border-slate-200 bg-white/95 px-4 py-3 sm:px-6">
-          <div>
-            <h1 className="text-lg font-semibold tracking-tight text-slate-900 sm:text-xl">행사 제안서 생성</h1>
-            <p className="mt-1 max-w-xl text-xs leading-relaxed text-slate-500">
-              타임테이블 등 세부 문서는 생성 완료 후 오른쪽 결과에서 같은 행사 정보로 이어서 만들 수 있어요.
-            </p>
-          </div>
+        <header className="flex flex-shrink-0 items-center gap-2 border-b border-slate-200 bg-white px-4 py-2 sm:px-5">
+          <h1 className="text-sm font-semibold text-slate-900">행사 제안서 생성</h1>
+          <p className="hidden text-[11px] text-slate-500 sm:block">
+            타임테이블 등 세부 문서는 생성 완료 후 같은 행사 정보로 이어서 만들 수 있어요.
+          </p>
         </header>
 
         <div className="flex min-h-0 flex-1 flex-col lg:flex-row">
-          <div className="flex min-h-0 min-w-0 flex-1 flex-col overflow-hidden border-slate-200 lg:max-w-[min(100%,440px)] lg:flex-none lg:border-r lg:bg-white">
-            <div id="estimate-wizard-top" className="flex min-h-0 flex-1 flex-col overflow-hidden p-4 sm:p-6">
+          <div className="flex min-h-0 w-full flex-col overflow-hidden border-slate-200 lg:w-[340px] lg:min-w-[340px] lg:max-w-[340px] lg:flex-none lg:border-r lg:bg-white">
+            <div id="estimate-wizard-top" className="flex min-h-0 flex-1 flex-col overflow-hidden">
               {me ? (
-                <p className="mb-3 text-[11px] text-slate-500 tabular-nums">
+                <div className="flex-shrink-0 border-b border-slate-100 bg-white px-3 py-2 text-[11px] text-slate-500 tabular-nums">
                   {me.subscription.planType}
                   {' · '}
                   {me.usage.quoteGeneratedCount}/{me.limits.monthlyQuoteGenerateLimit}
                   {me.subscription.planType === 'PREMIUM'
                     ? ` · 프리미엄 ${me.usage.premiumGeneratedCount}/${me.limits.monthlyPremiumGenerationLimit}`
                     : ''}
-                </p>
+                </div>
               ) : null}
-            <section className="flex min-h-0 min-w-0 flex-1 flex-col">
+              <section className="flex min-h-0 min-w-0 flex-1 flex-col">
               <MacroPasteGate
                 skipStorageKey="planic:skip-paste-gate:estimate"
                 layout="chat"
+                chatPanelStyle="split"
+                quickChipLabels={['VAT 별도', '만원 단위', '행사일 미정']}
                 title="행사 제안서 입력"
                 description="카톡·메일·메모에 있는 내용을 그대로 넣어도 됩니다. 다음 단계에서 상호·금액·일정을 확인한 뒤 문서를 만듭니다."
                 placeholder={`예)\n공급자 : (주)OOO 대표이사 홍길동\n사업자번호 : 000-00-00000\n연락처 : 010-0000-0000\n사회자 1명 330만원 · VAT 별도\n붐어 MC 4명 …`}
@@ -1158,7 +1158,26 @@ function EstimateGeneratorContent() {
             </div>
           </div>
 
-          <div className="flex min-h-0 min-w-0 flex-1 flex-col overflow-hidden bg-slate-50/90">
+          <div className="flex min-h-0 min-w-0 flex-1 flex-col overflow-hidden bg-slate-50">
+            <div className="flex flex-shrink-0 flex-wrap items-center gap-2 border-b border-slate-200 bg-white px-4 py-2.5">
+              <h2 className="text-sm font-medium text-slate-900">문서 미리보기</h2>
+              {doc && generatedDocId ? (
+                <span className="rounded-full bg-emerald-50 px-2 py-0.5 text-[10.5px] font-medium text-emerald-800">
+                  미리보기 준비됨
+                </span>
+              ) : generating ? (
+                <span className="rounded-full bg-amber-50 px-2 py-0.5 text-[10.5px] font-medium text-amber-800">
+                  생성 중…
+                </span>
+              ) : (
+                <span className="rounded-full bg-slate-100 px-2 py-0.5 text-[10.5px] font-medium text-slate-600">
+                  입력 대기
+                </span>
+              )}
+              <span className="ml-auto hidden text-[11px] text-slate-500 md:inline">
+                {proposalLabel} · 단가표 반영
+              </span>
+            </div>
             <div className="min-h-0 flex-1 overflow-y-auto p-4 sm:p-5">
               {doc && generatedDocId ? (
                 <div className="min-w-0 rounded-2xl border border-slate-200/80 bg-white shadow-sm">
@@ -1316,9 +1335,7 @@ function EstimateGeneratorContent() {
                   </div>
                 </div>
               ) : (
-                <div className="flex h-full min-h-[280px] flex-col">
-                  <div className="flex flex-1 flex-col gap-3">
-                    <div className="text-sm font-semibold text-slate-800">미리보기 · 결과</div>
+                <div className="flex flex-1 flex-col gap-3">
                     <div className="flex flex-1 flex-col justify-center gap-3">
                       <div className="bubble-tip relative rounded-2xl border border-primary-100 bg-gradient-to-br from-primary-50/90 to-white px-4 py-3 text-sm leading-relaxed text-slate-800 shadow-sm">
                         <span className="absolute -left-1 top-4 h-3 w-3 rotate-45 border-l border-b border-primary-100 bg-primary-50/90" aria-hidden />
@@ -1378,7 +1395,6 @@ function EstimateGeneratorContent() {
                       </div>
                     </div>
                   </div>
-                </div>
               )}
             </div>
           </div>

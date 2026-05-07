@@ -26,6 +26,10 @@ type Props = {
   layout?: 'card' | 'chat'
   /** layout=chat 일 때 첫 안내 말풍선 */
   chatWelcome?: string
+  /** layout=chat + split: 목업처럼 좌 패널 밀착(카드형 테두리 최소화), 우측 미리보기는 페이지에서 헤더 분리 */
+  chatPanelStyle?: 'default' | 'split'
+  /** split 패널 입력 위 빠른 칩 — 클릭 시 초안에 한 줄 추가 */
+  quickChipLabels?: string[]
 }
 
 export function MacroPasteGate({
@@ -38,6 +42,8 @@ export function MacroPasteGate({
   children,
   layout = 'card',
   chatWelcome,
+  chatPanelStyle = 'default',
+  quickChipLabels,
 }: Props) {
   const [phase, setPhase] = useState<Phase>('paste')
   const [draft, setDraft] = useState('')
@@ -108,20 +114,63 @@ export function MacroPasteGate({
   if (layout === 'chat') {
     const wizardOpen = phase === 'wizard'
     const compactChat = wizardOpen && chatMessages.length > 0
+    const embedSplit = chatPanelStyle === 'split'
+
+    const appendQuickChip = (label: string) => {
+      setDraft((d) => {
+        const next = d.trim() ? `${d.trim()}\n${label}` : label
+        return next
+      })
+    }
 
     return (
-      <div className="flex min-h-0 flex-1 flex-col gap-3">
+      <div
+        className={clsx(
+          'flex min-h-0 flex-1 flex-col',
+          embedSplit ? 'h-full min-h-0 gap-0' : 'gap-3',
+        )}
+      >
         {showChatDock ? (
           <div
             className={clsx(
-              'flex flex-col overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm',
-              compactChat ? 'max-h-[min(38vh,340px)] flex-shrink-0' : 'min-h-[280px] flex-1',
+              'flex flex-col overflow-hidden bg-white',
+              embedSplit
+                ? 'rounded-none border-0 shadow-none'
+                : 'rounded-2xl border border-slate-200 shadow-sm',
+              compactChat
+                ? embedSplit
+                  ? 'max-h-[min(42vh,380px)] flex-shrink-0 border-b border-slate-200'
+                  : 'max-h-[min(38vh,340px)] flex-shrink-0'
+                : embedSplit
+                  ? 'min-h-0 flex-1'
+                  : 'min-h-[280px] flex-1',
             )}
           >
-            <div className="flex flex-shrink-0 items-start justify-between gap-2 border-b border-slate-100 bg-white px-3 py-2.5 sm:px-4">
+            <div
+              className={clsx(
+                'flex flex-shrink-0 items-start justify-between gap-2 bg-white',
+                embedSplit
+                  ? 'border-b border-slate-200 px-4 py-3'
+                  : 'border-b border-slate-100 px-3 py-2.5 sm:px-4',
+              )}
+            >
               <div className="min-w-0">
-                <p className="text-xs font-semibold text-slate-900">{title}</p>
-                <p className="mt-0.5 text-[11px] leading-relaxed text-slate-500">{description}</p>
+                <p
+                  className={clsx(
+                    embedSplit ? 'text-[13px] font-medium text-slate-900' : 'text-xs font-semibold text-slate-900',
+                  )}
+                >
+                  {title}
+                </p>
+                <p
+                  className={clsx(
+                    embedSplit
+                      ? 'mt-1 text-[11px] leading-snug text-slate-500'
+                      : 'mt-0.5 text-[11px] leading-relaxed text-slate-500',
+                  )}
+                >
+                  {description}
+                </p>
               </div>
               {showPastePanel ? (
                 <button
@@ -141,7 +190,8 @@ export function MacroPasteGate({
             <div
               ref={scrollRef}
               className={clsx(
-                'min-h-0 flex-1 space-y-3 overflow-y-auto bg-slate-50/40 px-3 py-3 sm:px-4',
+                'min-h-0 flex-1 space-y-3 overflow-y-auto px-3 py-3 sm:px-4',
+                embedSplit ? 'bg-slate-50/60' : 'bg-slate-50/40',
               )}
             >
               {chatMessages.map((m, i) => (
@@ -165,6 +215,20 @@ export function MacroPasteGate({
 
             {showPastePanel ? (
               <div className="flex-shrink-0 border-t border-slate-200 bg-white p-3 sm:p-4">
+                {quickChipLabels && quickChipLabels.length > 0 ? (
+                  <div className="mb-2 flex flex-wrap gap-1.5">
+                    {quickChipLabels.map((chip) => (
+                      <button
+                        key={chip}
+                        type="button"
+                        onClick={() => appendQuickChip(chip)}
+                        className="rounded-full border border-slate-200 bg-slate-50 px-2.5 py-1 text-[11px] font-medium text-slate-600 transition hover:bg-slate-100"
+                      >
+                        {chip}
+                      </button>
+                    ))}
+                  </div>
+                ) : null}
                 <div className="flex gap-2">
                   <label className="sr-only">메시지 입력</label>
                   <textarea
@@ -199,15 +263,26 @@ export function MacroPasteGate({
         ) : null}
 
         {wizardOpen ? (
-          <div className="flex min-h-0 flex-1 flex-col overflow-hidden">
+          <div
+            className={clsx(
+              'flex min-h-0 flex-1 flex-col overflow-hidden',
+              embedSplit && 'min-h-0 border-t border-slate-100 bg-white',
+            )}
+          >
             {compactChat ? (
-              <p className="mb-1 flex-shrink-0 text-[11px] font-medium text-slate-500">
+              <p
+                className={clsx(
+                  'flex-shrink-0 text-[11px] font-medium text-slate-500',
+                  embedSplit ? 'border-b border-slate-100 px-3 py-2 sm:px-4' : 'mb-1',
+                )}
+              >
                 아래에서 세부 내용만 확인·수정하면 돼요. 위 대화는 그대로 남아 있어요.
               </p>
             ) : null}
             <div
               className={clsx(
                 'min-h-0 flex-1 overflow-y-auto',
+                embedSplit && 'px-3 pb-4 pt-2 sm:px-4',
                 !compactChat && 'min-h-[240px]',
               )}
               data-testid="macro-paste-wizard-panel"
