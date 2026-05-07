@@ -2,6 +2,7 @@
 import { useEffect, useState, useCallback } from 'react'
 import { GNB, GNB_MOBILE_MAIN_COLUMN_PADDING } from '@/components/GNB'
 import { Button, Toast } from '@/components/ui'
+import { ErrorState, LoadingState } from '@/components/ui/AsyncState'
 import type { HistoryRecord } from '@/lib/types'
 import { fmtKRW } from '@/lib/calc'
 import { apiFetch } from '@/lib/api/client'
@@ -9,17 +10,31 @@ import { toUserMessage } from '@/lib/errors/toUserMessage'
 
 export default function HistoryPage() {
   const [history, setHistory] = useState<HistoryRecord[]>([])
+  const [loading, setLoading] = useState(true)
+  const [fetchError, setFetchError] = useState<string | null>(null)
   const [toast, setToast] = useState('')
 
   const showToast = useCallback((m: string) => {
     setToast(m); setTimeout(() => setToast(''), 2500)
   }, [])
 
-  useEffect(() => {
-    apiFetch<HistoryRecord[]>('/api/history')
-      .then((d) => setHistory([...d].reverse()))
-      .catch(() => setHistory([]))
+  const loadHistory = useCallback(async () => {
+    setLoading(true)
+    setFetchError(null)
+    try {
+      const d = await apiFetch<HistoryRecord[]>('/api/history')
+      setHistory([...d].reverse())
+    } catch (e) {
+      setHistory([])
+      setFetchError(toUserMessage(e, '이력을 불러오지 못했습니다.'))
+    } finally {
+      setLoading(false)
+    }
   }, [])
+
+  useEffect(() => {
+    void loadHistory()
+  }, [loadHistory])
 
   async function delOne(id: string) {
     if (!confirm('삭제할까요?')) return
@@ -60,11 +75,24 @@ export default function HistoryPage() {
             <h1 className="text-base font-semibold text-gray-900">작업 이력</h1>
             <p className="text-xs text-gray-500 mt-0.5">생성한 견적서가 자동으로 기록됩니다</p>
           </div>
-          <Button size="sm" variant="danger" onClick={clearAll}>전체 삭제</Button>
+          <Button
+            size="sm"
+            variant="danger"
+            onClick={clearAll}
+            disabled={loading || !!fetchError || history.length === 0}
+          >
+            전체 삭제
+          </Button>
         </header>
 
         <div className="flex-1 overflow-y-auto p-6 space-y-6">
-          {total > 0 && (
+          {loading ? <LoadingState label="이력을 불러오는 중…" /> : null}
+
+          {!loading && fetchError ? (
+            <ErrorState message={fetchError} onRetry={() => void loadHistory()} />
+          ) : null}
+
+          {!loading && !fetchError && total > 0 && (
             <div className="grid grid-cols-4 gap-3">
               {[
                 { label: '총 견적 건수', value: `${total}건` },
@@ -80,7 +108,7 @@ export default function HistoryPage() {
             </div>
           )}
 
-          {history.length === 0 ? (
+          {!loading && !fetchError && history.length === 0 ? (
             <div className="flex flex-col items-center justify-center min-h-64 rounded-2xl border-2 border-dashed border-primary-200 bg-white py-16">
               <div className="w-14 h-14 rounded-xl bg-primary-100 flex items-center justify-center mb-4">
                 <span className="text-lg font-medium text-primary-600">이력</span>
@@ -88,7 +116,9 @@ export default function HistoryPage() {
               <p className="text-sm font-medium text-gray-700">견적 이력이 없습니다</p>
               <p className="text-xs text-gray-500 mt-1">견적서를 생성하면 자동으로 기록됩니다</p>
             </div>
-          ) : (
+          ) : null}
+
+          {!loading && !fetchError && history.length > 0 ? (
             <div className="space-y-2">
               {history.map(h => (
                 <div key={h.id}
@@ -115,7 +145,7 @@ export default function HistoryPage() {
                 </div>
               ))}
             </div>
-          )}
+          ) : null}
         </div>
       </div>
       {toast && <Toast message={toast} onClose={() => setToast('')} />}
