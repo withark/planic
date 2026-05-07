@@ -1042,8 +1042,9 @@ function EstimateGeneratorContent() {
           </p>
         </header>
 
-        <div className="flex min-h-0 flex-1 flex-col lg:flex-row">
-          <div className="flex min-h-0 w-full flex-col overflow-hidden border-slate-200 lg:w-[340px] lg:min-w-[340px] lg:max-w-[340px] lg:flex-none lg:border-r lg:bg-white">
+        {/* md부터 좌 340px 고정 — lg(1024)만 쓰면 창이 좁을 때 좌열이 전체 너비로 보임 */}
+        <div className="flex min-h-0 flex-1 flex-col md:flex-row">
+          <div className="flex min-h-0 w-full flex-col overflow-hidden border-slate-200 md:w-[340px] md:min-w-[340px] md:max-w-[340px] md:flex-none md:border-r md:bg-white">
             <div id="estimate-wizard-top" className="flex min-h-0 flex-1 flex-col overflow-hidden">
               {me ? (
                 <div className="flex-shrink-0 border-b border-slate-100 bg-white px-3 py-2 text-[11px] text-slate-500 tabular-nums">
