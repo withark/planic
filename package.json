@@ -20,6 +20,7 @@
     "test:generation-speed-mock": "tsx scripts/test-generation-speed-mock.ts",
     "test:db-fallback": "tsx scripts/test-db-fallback.ts",
     "test:e2e": "playwright test",
+    "test:e2e:smoke": "playwright test e2e/smoke.spec.ts",
     "test:pdf-kind": "tsx scripts/test-pdf-export-kind.ts",
     "smoke:docx": "tsx scripts/smoke-docx-templates.ts",
     "verify:release": "npm run typecheck && npm run build && npm run test:db-fallback && npm run test:admin-auth-security && npm run test:pdf-kind && npm run test:ai-quality && npm run test:generation-speed-mock && npm run smoke:docx && npm audit --audit-level=high --omit=dev",

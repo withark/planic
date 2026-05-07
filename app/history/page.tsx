@@ -93,7 +93,7 @@ export default function HistoryPage() {
           ) : null}
 
           {!loading && !fetchError && total > 0 && (
-            <div className="grid grid-cols-4 gap-3">
+            <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
               {[
                 { label: '총 견적 건수', value: `${total}건` },
                 { label: '누적 견적액',  value: `${fmtKRW(totalAmt)}원` },

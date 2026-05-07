@@ -19,7 +19,7 @@ test.describe('public marketing', () => {
   test('plans page shows comparison table', async ({ page }) => {
     await page.goto('/plans')
     await expect(page.getByRole('heading', { name: '플랜 핵심 비교' })).toBeVisible()
-    await expect(page.getByRole('table', { name: '무료, 베이직, 프리미엄 플랜 비교' })).toBeVisible()
+    await expect(page.getByRole('table', { name: '무료, 베이직, 프로 플랜 비교' })).toBeVisible()
   })
 
   test('terms page loads', async ({ page }) => {

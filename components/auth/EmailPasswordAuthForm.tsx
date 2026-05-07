@@ -33,6 +33,8 @@ export function EmailPasswordAuthForm({ tab, callbackUrl }: Props) {
         const data = (await res.json().catch(() => ({}))) as { error?: string }
         if (!res.ok) {
           if (data.error === 'duplicate') setError('이미 사용 중인 아이디예요.')
+          else if (data.error === 'disabled') setError('아이디·비밀번호 로그인이 비활성화되어 있어요.')
+          else if (data.error === 'validation_failed') setError('입력 정보를 확인해 주세요. (비밀번호 6자 이상)')
           else setError('가입에 실패했어요. 잠시 후 다시 시도해 주세요.')
           return
         }
