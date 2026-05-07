@@ -6,7 +6,7 @@ import { useSearchParams } from 'next/navigation'
 import { GNB } from '@/components/GNB'
 import QuoteResult from '@/components/quote/QuoteResult'
 import SimpleGeneratorWizard, { type WizardMode } from '@/components/generators/SimpleGeneratorWizard'
-import { MacroPasteGate } from '@/components/generators/MacroPasteGate'
+import { MacroPasteGate, type MacroPasteBottomStep } from '@/components/generators/MacroPasteGate'
 import { looksLikeVendorQuoteBlock, parseLooseBrief } from '@/lib/brief-text-parse'
 import { CalendarPicker, Input, Textarea, Toast } from '@/components/ui'
 import type { CompanySettings, HistoryRecord, PriceCategory, QuoteDoc, TaskOrderDoc } from '@/lib/types'
@@ -736,6 +736,50 @@ function EstimateGeneratorContent() {
     eventType,
   ])
 
+  /** 목업(ai_quote_saas_mockup) state-bar 단계 — 생성·미리보기 상태와 연동 */
+  const macroPasteBottomSteps = useMemo((): MacroPasteBottomStep[] => {
+    if (generating) {
+      return [
+        { label: '파싱', status: 'done' },
+        { label: '구조화', status: 'done' },
+        { label: '생성 중', status: 'active' },
+        { label: '미리보기', status: 'idle' },
+      ]
+    }
+    if (doc && generatedDocId) {
+      return [
+        { label: '파싱', status: 'done' },
+        { label: '구조화', status: 'done' },
+        { label: '검토', status: 'done' },
+        { label: '미리보기', status: 'active' },
+      ]
+    }
+    if (generateDisabled) {
+      return [
+        { label: '파싱', status: 'done' },
+        { label: '구조화', status: 'active' },
+        { label: '생성', status: 'idle' },
+        { label: '미리보기', status: 'idle' },
+      ]
+    }
+    return [
+      { label: '파싱', status: 'done' },
+      { label: '구조화', status: 'done' },
+      { label: '생성', status: 'active' },
+      { label: '미리보기', status: 'idle' },
+    ]
+  }, [generating, doc, generatedDocId, generateDisabled])
+
+  const handleQuickPdfExport = useCallback(async () => {
+    if (!doc) return
+    try {
+      await exportToPdf(doc, companySettings ?? undefined)
+      showToast('PDF 저장 완료!')
+    } catch (e) {
+      showToast(toUserMessage(e, '저장 실패'))
+    }
+  }, [doc, companySettings, showToast])
+
   const applyPastedBrief = useCallback(
     (text: string) => {
       const trimmed = text.trim()
@@ -1061,9 +1105,19 @@ function EstimateGeneratorContent() {
                 skipStorageKey="planic:skip-paste-gate:estimate"
                 layout="chat"
                 chatPanelStyle="split"
-                quickChipLabels={['VAT 별도', '만원 단위', '행사일 미정']}
-                title="행사 제안서 입력"
-                description="카톡·메일·메모에 있는 내용을 그대로 넣어도 됩니다. 다음 단계에서 상호·금액·일정을 확인한 뒤 문서를 만듭니다."
+                quickChipLabels={['VAT 포함으로', '만원 단위', '행사일 미정']}
+                bottomSteps={macroPasteBottomSteps}
+                onFollowUpSend={(text) => {
+                  const t = text.trim()
+                  if (!t) return
+                  setNotes((n) => (n.trim() ? `${n.trim()}\n${t}` : t))
+                  showToast('추가 요청을 메모에 넣었어요.')
+                }}
+                title="행사 제안서"
+                description="카톡처럼 말하면 초안이 만들어져요."
+                chatWelcome={`안녕하세요! 행사·견적 내용을 자유롭게 말씀해 주세요.
+
+공급자·일정·인원·금액을 넣어 주시면 오른쪽에서 제안서 초안을 만들 수 있어요.`}
                 placeholder={`예)\n공급자 : (주)OOO 대표이사 홍길동\n사업자번호 : 000-00-00000\n연락처 : 010-0000-0000\n사회자 1명 330만원 · VAT 별도\n붐어 MC 4명 …`}
                 onApplyPaste={applyPastedBrief}
                 onSkipPaste={() => {}}
@@ -1161,25 +1215,51 @@ function EstimateGeneratorContent() {
 
           <div className="flex min-h-0 min-w-0 flex-1 flex-col overflow-hidden bg-slate-50">
             <div className="flex flex-shrink-0 flex-wrap items-center gap-2 border-b border-slate-200 bg-white px-4 py-2.5">
-              <h2 className="text-sm font-medium text-slate-900">문서 미리보기</h2>
+              <h2 className="min-w-0 flex-1 text-[13px] font-medium text-slate-900">행사 제안서 미리보기</h2>
               {doc && generatedDocId ? (
-                <span className="rounded-full bg-emerald-50 px-2 py-0.5 text-[10.5px] font-medium text-emerald-800">
-                  미리보기 준비됨
+                <span className="rounded-full border border-emerald-200 bg-emerald-50 px-2 py-0.5 text-[10.5px] font-medium text-emerald-800">
+                  확인됨
                 </span>
               ) : generating ? (
-                <span className="rounded-full bg-amber-50 px-2 py-0.5 text-[10.5px] font-medium text-amber-800">
+                <span className="rounded-full border border-amber-200 bg-amber-50 px-2 py-0.5 text-[10.5px] font-medium text-amber-900">
                   생성 중…
                 </span>
               ) : (
-                <span className="rounded-full bg-slate-100 px-2 py-0.5 text-[10.5px] font-medium text-slate-600">
-                  입력 대기
+                <span className="rounded-full border border-amber-200 bg-[#fef9c3] px-2 py-0.5 text-[10.5px] font-medium text-[#854d0e]">
+                  초안
                 </span>
               )}
-              <span className="ml-auto hidden text-[11px] text-slate-500 md:inline">
-                {proposalLabel} · 단가표 반영
-              </span>
+              <div className="flex flex-shrink-0 items-center gap-2">
+                <button
+                  type="button"
+                  onClick={() => {
+                    document.getElementById('estimate-wizard-top')?.scrollIntoView({ behavior: 'smooth', block: 'start' })
+                  }}
+                  className="rounded-md border border-slate-200 bg-white px-2.5 py-1 text-[11.5px] font-medium text-slate-600 hover:bg-slate-50"
+                >
+                  입력으로
+                </button>
+                {doc && generatedDocId ? (
+                  <button
+                    type="button"
+                    onClick={() => void handleQuickPdfExport()}
+                    className="rounded-md border border-primary-600 bg-primary-600 px-2.5 py-1 text-[11.5px] font-medium text-white hover:bg-primary-700"
+                  >
+                    PDF
+                  </button>
+                ) : null}
+              </div>
             </div>
             <div className="min-h-0 flex-1 overflow-y-auto p-4 sm:p-5">
+              {generating ? (
+                <div className="mb-3 flex items-center gap-2 rounded-lg border border-primary-200 bg-primary-50 px-3 py-2 text-[11.5px] text-slate-700">
+                  <span
+                    className="inline-block h-3 w-3 shrink-0 animate-spin rounded-full border-2 border-primary-200 border-t-primary-600"
+                    aria-hidden
+                  />
+                  AI가 행사 제안서를 구성하고 있습니다…
+                </div>
+              ) : null}
               {doc && generatedDocId ? (
                 <div className="min-w-0 rounded-2xl border border-slate-200/80 bg-white shadow-sm">
                   {totalsForHeader && docSummary ? (
