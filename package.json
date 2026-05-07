@@ -12,6 +12,8 @@
     "verify:real-model-quality": "tsx scripts/verify-real-model-quality.ts",
     "verify:real-all-docs": "tsx scripts/verify-real-all-docs.ts",
     "verify:production-runtime": "tsx scripts/verify-production-runtime.ts",
+    "verify:production": "tsx scripts/verify-production-runtime.ts",
+    "smoke:production-health": "tsx scripts/smoke-production-health.ts",
     "test:admin-auth-security": "tsx scripts/test-admin-auth-security.ts",
     "test:ai-quality": "tsx scripts/test-ai-quality.ts",
     "test:ai-quality:repeat": "node scripts/repeat-ai-quality.mjs",

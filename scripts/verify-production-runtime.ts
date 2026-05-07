@@ -1,3 +1,22 @@
+/**
+ * 운영(프로덕션) 배포 검증 — 로컬 개발 서버를 기본 대상으로 하지 않습니다.
+ *
+ * 필수:
+ *   PLANIC_ADMIN_PASSWORD — 관리자 비밀번호
+ *
+ * 선택:
+ *   PLANIC_BASE_URL — 기본 https://www.planic.cloud (localhost·127.0.0.1 차단, 예외: PLANIC_ALLOW_LOCALHOST=1)
+ *   PLANIC_ADMIN_USERNAME — 기본 admin
+ *   PLANIC_EXPECT_PROVIDER — 예: anthropic
+ *   PLANIC_CHECK_DEFAULT_ADMIN — 기본 admin/admin 차단 검사 (0으로 끔)
+ *   PLANIC_CHECK_ADMIN_QUALITY_BUNDLE — 관리자 generation-logs 번들 검사 (0으로 끔)
+ *   PLANIC_CHECK_RECENT_GENERATION_FAILURES — 최근 생성 실패 검사 (0으로 끔)
+ *
+ * 실행: npm run verify:production-runtime 또는 npm run verify:production
+ */
+
+import { assertProductionBaseUrl } from './production-url-guard'
+
 type HealthPayload = {
   status?: string
   service?: string
@@ -198,6 +217,7 @@ function assertRecentGenerationFailures(
 
 async function main() {
   const baseUrl = (process.env.PLANIC_BASE_URL || 'https://www.planic.cloud').replace(/\/$/, '')
+  assertProductionBaseUrl(baseUrl)
   const adminUsername = process.env.PLANIC_ADMIN_USERNAME || 'admin'
   const adminPassword = process.env.PLANIC_ADMIN_PASSWORD || ''
   const expectProvider = (process.env.PLANIC_EXPECT_PROVIDER || '').trim() || undefined
