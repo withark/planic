@@ -16,6 +16,7 @@ import { EVENT_TYPE_GROUPS } from '@/lib/estimate/event-types'
 import { exportToExcel } from '@/lib/exportExcel'
 import { exportToPdf } from '@/lib/exportPdf'
 import { isPaidPlan, type PlanType } from '@/lib/plans'
+import { isFeatureAllowedForPlan } from '@/lib/plan-access'
 import { isExcludedSupplyLineItem } from '@/lib/quote/supply-line-filter'
 import { calcTotals, normalizeQuoteUnitPricesToThousand } from '@/lib/calc'
 import { saveAs } from 'file-saver'
@@ -153,12 +154,17 @@ function EstimateGeneratorContent() {
     [prices],
   )
 
+  /** 베이직 이상만 저장형 단가표가 열리며, 이때는 생성 전 단가표에 최소 1품목 필요 */
+  const pricingSheetRequired = isFeatureAllowedForPlan(me?.subscription?.planType ?? 'FREE', 'pricingTable')
+
   const modes: WizardMode[] = useMemo(
     () => [
       {
         id: 'fromTopic',
         title: '주제만 입력',
-        desc: `수신처·행사 정보를 채우면 단가표와 맞춰 ${proposalLabel} 초안을 만듭니다.`,
+        desc: pricingSheetRequired
+          ? `수신처·행사 정보를 채우면 단가표와 맞춰 ${proposalLabel} 초안을 만듭니다.`
+          : `수신처·행사 정보를 채우면 시장 단가를 참고해 ${proposalLabel} 초안을 만듭니다. (저장형 단가표는 베이직부터)`,
       },
       {
         id: 'fromPrompt',
@@ -176,7 +182,7 @@ function EstimateGeneratorContent() {
         desc: '이전에 저장한 문서를 불러와 수정·재발행합니다.',
       },
     ],
-    [],
+    [pricingSheetRequired, proposalLabel],
   )
   /** 무료: 주제·업체 원문만 사용 가능 / 유료: 과업지시서·저장 견적 포함 전체 */
   const modesForWizard = useMemo(() => {
@@ -690,7 +696,7 @@ function EstimateGeneratorContent() {
   }, [historyList, loadPickerId, showToast])
 
   const generateDisabled = useMemo(() => {
-    if (priceItemCount === 0) return true
+    if (pricingSheetRequired && priceItemCount === 0) return true
     if (!eventType.trim()) return true
     if (sourceMode === 'fromPrompt') {
       return vendorBrief.trim().length < 40
@@ -709,6 +715,7 @@ function EstimateGeneratorContent() {
     if (sourceMode === 'fromTaskOrder') return !selectedTaskOrderId || !selectedTaskOrder || !commonValid
     return !commonValid
   }, [
+    pricingSheetRequired,
     priceItemCount,
     selectedEstimateId,
     selectedHistoryDoc,
@@ -729,7 +736,7 @@ function EstimateGeneratorContent() {
 
   const validationMessage = useMemo(() => {
     if (!generateDisabled) return null
-    if (priceItemCount === 0) {
+    if (pricingSheetRequired && priceItemCount === 0) {
       return '단가표에 항목이 없습니다. 단가표 메뉴에서 항목을 입력하거나 .xlsx를 업로드한 뒤 다시 시도해 주세요.'
     }
     if (!eventType.trim()) return '행사 종류를 선택해 주세요. (체육대회·워크숍·팀빌딩 등)'
@@ -757,6 +764,7 @@ function EstimateGeneratorContent() {
     return null
   }, [
     generateDisabled,
+    pricingSheetRequired,
     priceItemCount,
     sourceMode,
     topic,

@@ -36,6 +36,7 @@ const NAVS: NavItem[] = [
       '/cue-sheet-generator',
       '/emcee-script-generator',
       '/task-order-summary',
+      '/documents',
     ],
     icon: ({ className }) => (
       <svg viewBox="0 0 24 24" fill="none" className={className} aria-hidden>

@@ -30,7 +30,7 @@ import { deriveProgramHintsFromQuoteDoc } from '@/lib/ai/prompts/existing-doc-co
 import { trackEvent } from '@/lib/analytics'
 import { applyFixedEstimateTemplateV2 } from '@/lib/estimate/fixed-template-v2'
 import { anthropicFallbackRepairQuoteDoc } from '@/lib/ai/quote-doc-anthropic-fallback'
-import type { AppDocumentType } from '@/lib/plan-access'
+import { type AppDocumentType, isFeatureAllowedForPlan } from '@/lib/plan-access'
 
 export class GeneratePipelineError extends Error {
   constructor(
@@ -213,9 +213,12 @@ export async function executeGeneratePipeline(
   const pricesForPrompt: PriceCategory[] = prices
   const priceItemCount = prices.reduce((count, category) => count + (Array.isArray(category.items) ? category.items.length : 0), 0)
 
-  // 견적서: 단가표가 있으면 동일 품목명은 단가표 단가로 고정하고, 단가표에 없는 AI 품목은 시장가로 유지한다.
-  // 단가표가 비어 있으면 생성하지 않고 실패(단가표 먼저 등록).
-  if (documentTarget === 'estimate' && priceItemCount === 0) {
+  // 견적서: 베이직 이상(저장형 단가표 사용)은 품목이 있어야 함. 무료 플랜은 단가표 없이 시장가 중심 생성.
+  if (
+    documentTarget === 'estimate' &&
+    priceItemCount === 0 &&
+    isFeatureAllowedForPlan(plan, 'pricingTable')
+  ) {
     throw new GeneratePipelineError(
       400,
       'PRICE_TABLE_REQUIRED',

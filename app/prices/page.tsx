@@ -1,5 +1,6 @@
 'use client'
 
+import Link from 'next/link'
 import { useEffect, useState, useCallback, useRef } from 'react'
 import { GNB } from '@/components/GNB'
 import { Button, Toast } from '@/components/ui'
@@ -245,11 +246,24 @@ export default function PricesPage() {
 
         <div className="flex-1 overflow-y-auto p-6 space-y-4">
           {isLocked ? (
-            <PlanLockedNotice
-              title="단가표는 베이직부터 사용할 수 있어요."
-              message="무료 플랜에서는 문서 생성 핵심 흐름을 먼저 경험할 수 있습니다. 베이직 업그레이드 시 단가표 저장/재사용이 열립니다."
-              ctaLabel="베이직으로 업그레이드"
-            />
+            <div className="space-y-4">
+              <div className="rounded-xl border border-slate-200 bg-slate-50 px-4 py-3 text-sm text-slate-700">
+                <p className="font-semibold text-slate-900">이 메뉴는 「요금제」 페이지가 아닙니다</p>
+                <p className="mt-1 leading-relaxed">
+                  여기는 <strong className="text-slate-900">내 업체 단가를 표로 저장·재사용</strong>하는 화면입니다. 무료 플랜에서는 이 저장 기능만 제한되며,{' '}
+                  <strong className="text-slate-900">견적·문서 생성은 단가표 없이도</strong> 진행할 수 있습니다. 플랜·요금 비교는{' '}
+                  <Link href="/plans" className="font-semibold text-primary-700 underline-offset-2 hover:underline">
+                    요금제 페이지
+                  </Link>
+                  에서 확인하세요.
+                </p>
+              </div>
+              <PlanLockedNotice
+                title="저장형 단가표는 베이직 플랜부터 이용할 수 있어요."
+                message="베이직 이상에서는 아래 표에 직접 입력하거나 .xlsx를 올려 단가를 유지할 수 있습니다. 무료 플랜 사용자는 견적 생성 시 AI가 시장 단가를 참고합니다."
+                ctaLabel="베이직으로 업그레이드"
+              />
+            </div>
           ) : null}
 
           {!isLocked ? (
