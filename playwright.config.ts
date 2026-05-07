@@ -2,6 +2,9 @@ import { defineConfig, devices } from '@playwright/test'
 
 const baseURL = process.env.PLAYWRIGHT_BASE_URL ?? 'http://127.0.0.1:3000'
 
+/** CI·verify:prelaunch 시 기존 로컬 dev(환경 불일치) 재사용으로 E2E가 실패하는 것을 막음 */
+const forceNewWebServer = Boolean(process.env.CI) || process.env.PLAYWRIGHT_NO_REUSE === '1'
+
 export default defineConfig({
   testDir: './e2e',
   fullyParallel: true,
@@ -18,7 +21,7 @@ export default defineConfig({
     command:
       'DATA_DIR=.playwright-data NEXTAUTH_URL=${PLAYWRIGHT_BASE_URL:-http://127.0.0.1:3000} NEXTAUTH_SECRET=playwright-nextauth-secret DEV_AUTH=1 DEV_AUTH_SECRET=playwright-secret ENABLE_EMAIL_PASSWORD_AUTH=1 NEXT_PUBLIC_ENABLE_CREDENTIAL_AUTH=1 AI_MODE=${PLAYWRIGHT_AI_MODE:-${AI_MODE:-mock}} npm run dev',
     url: baseURL,
-    reuseExistingServer: !process.env.CI,
+    reuseExistingServer: !forceNewWebServer,
     timeout: 120_000,
   },
 })

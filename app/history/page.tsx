@@ -113,8 +113,8 @@ export default function HistoryPage() {
               <div className="w-14 h-14 rounded-xl bg-primary-100 flex items-center justify-center mb-4">
                 <span className="text-lg font-medium text-primary-600">이력</span>
               </div>
-              <p className="text-sm font-medium text-gray-700">견적 이력이 없습니다</p>
-              <p className="text-xs text-gray-500 mt-1">견적서를 생성하면 자동으로 기록됩니다</p>
+              <p className="text-sm font-medium text-gray-700">아직 저장된 견적이 없어요</p>
+              <p className="text-xs text-gray-500 mt-1">제안서나 견적을 만들면 여기에 자동으로 모여요.</p>
             </div>
           ) : null}
 

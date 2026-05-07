@@ -2,6 +2,9 @@
 /**
  * 서비스 오픈 직전 통합 게이트:
  * Build → prod next start → Health/API/Admin 응답 → 관리자 보안 스크립트 → Playwright → npm audit high
+ *
+ * DB는 Neon Postgres(DATABASE_URL)이며 Supabase 미사용. Playwright 단계는 PLAYWRIGHT_NO_REUSE=1로
+ * 기존 로컬 dev 서버(DEV_AUTH 불일치) 재사용으로 인한 E2E 플레이크를 방지합니다.
  */
 import { spawn, spawnSync } from 'child_process'
 
@@ -90,7 +93,12 @@ async function main() {
   const pw = spawnSync(
     'npx',
     ['playwright', 'test', 'e2e/smoke.spec.ts', 'e2e/mobile-public.spec.ts', 'e2e/authenticated-flow.spec.ts'],
-    { stdio: 'inherit', cwd: process.cwd(), shell: false },
+    {
+      stdio: 'inherit',
+      cwd: process.cwd(),
+      shell: false,
+      env: { ...process.env, PLAYWRIGHT_NO_REUSE: '1' },
+    },
   )
   if (pw.status !== 0) process.exit(pw.status ?? 1)
 

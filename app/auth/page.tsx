@@ -61,12 +61,12 @@ export default async function AuthPage({
           socialProviders={socialProviders}
           hint={
             isSignupInduction
-              ? '바로 시작하기 — 가입·로그인 후 견적 생성 화면으로 돌아가요.'
+              ? '가입하거나 로그인을 마치면, 방금 보시던 화면으로 이어집니다.'
               : undefined
           }
           loginRequiredNote={
             needSessionNote
-              ? '이 페이지는 로그인 후 이용할 수 있어요. 로그인하면 원래 화면으로 이동합니다.'
+              ? '로그인이 필요한 페이지예요. 로그인하면 원래 화면으로 돌아갑니다.'
               : undefined
           }
         />
