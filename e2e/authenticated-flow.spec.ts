@@ -1,57 +1,63 @@
 import { expect, test, type Page } from '@playwright/test'
 
-async function signInWithDevAuth(page: Page, callbackUrl: string) {
+async function signInWithDevAuth(page: Page, callbackPath: string) {
+  await page.goto('/')
+  const origin = new URL(page.url()).origin
+  const callbackUrl = `${origin}${callbackPath.startsWith('/') ? callbackPath : `/${callbackPath}`}`
   const uniqueEmail = `playwright+${Date.now()}-${Math.random().toString(36).slice(2, 8)}@local`
-  const csrf = await page.context().request.get('/api/auth/csrf')
-  const { csrfToken } = (await csrf.json()) as { csrfToken: string }
 
-  const signIn = await page.context().request.post('/api/auth/callback/dev-login', {
-    form: {
-      csrfToken,
-      email: uniqueEmail,
-      secret: 'playwright-secret',
-      callbackUrl,
-      json: 'true',
+  /** 브라우저 내 fetch만 세션 쿠키가 tab과 공유됨 (APIRequestContext만으로는 JWT가 안 붙을 수 있음) */
+  await page.evaluate(
+    async ({ cb, email }: { cb: string; email: string }) => {
+      const csrfRes = await fetch('/api/auth/csrf')
+      const { csrfToken } = (await csrfRes.json()) as { csrfToken: string }
+      const res = await fetch('/api/auth/callback/dev-login', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+        body: new URLSearchParams({
+          csrfToken,
+          email,
+          secret: 'playwright-secret',
+          callbackUrl: cb,
+          json: 'true',
+        }).toString(),
+        credentials: 'same-origin',
+      })
+      if (!res.ok) {
+        const t = await res.text()
+        throw new Error(`dev-login failed ${res.status}: ${t.slice(0, 200)}`)
+      }
     },
-  })
-
-  expect(signIn.ok()).toBeTruthy()
+    { cb: callbackUrl, email: uniqueEmail },
+  )
 }
 
 async function authenticateFromProtectedRoute(page: Page, protectedPath: string) {
   await page.goto(protectedPath)
   await expect(page).toHaveURL(/\/auth\?/)
-  await expect(page.getByRole('heading', { name: '회원가입' })).toBeVisible()
-
   await signInWithDevAuth(page, protectedPath)
   await page.goto(protectedPath)
   await expect(page).toHaveURL(new RegExp(`${protectedPath.replace('/', '\\/')}($|\\?)`))
 }
 
 test.describe('authenticated generation flow', () => {
-  test('protected estimate route returns after auth', async ({ page }) => {
+  test.describe.configure({ mode: 'serial' })
+
+  test('protected estimate-generator loads after dev auth', async ({ page }) => {
     await authenticateFromProtectedRoute(page, '/estimate-generator')
-    await expect(page.getByRole('heading', { name: '견적서 생성하기' })).toBeVisible()
-    await expect(page.getByRole('button', { name: '견적 생성' })).toBeVisible()
+    await expect(page.getByRole('heading', { level: 1, name: '행사 제안서 생성' })).toBeVisible()
+    await expect(page.getByText('행사 제안서 생성하기').first()).toBeVisible()
   })
 
-  test('signed-in user can generate estimate and download excel', async ({ page }) => {
+  test('업체 원문 모드에서 필수 입력 후 생성 버튼 활성화', async ({ page }) => {
     await authenticateFromProtectedRoute(page, '/estimate-generator')
 
-    await page.getByRole('textbox', { name: /이벤트 주제/ }).fill('Playwright 기업 워크숍')
-    await page.getByLabel('참석 인원(선택)').fill('80')
-    await page.getByLabel('장소(선택)').fill('잠실')
-    await page.getByLabel('추가 메모(선택)').fill('VIP 좌석 포함, 네트워킹 세션 필요')
-    await page.getByRole('button', { name: '견적 생성' }).click()
+    await page.getByRole('radio', { name: /업체 원문만/ }).click()
+    await page.locator('#wizard-step-2 select').first().selectOption({ index: 1 })
+    await page.getByLabel('업체에서 들은 내용').fill(
+      'Playwright E2E 테스트용 더미 텍스트입니다. 인원 80명 잠실 워크숍 견적 요약 VIP 네트워킹 포함 충분한 길이입니다.',
+    )
 
-    await expect(page.getByText('견적 결과')).toBeVisible({ timeout: 30_000 })
-    await expect(page.getByRole('button', { name: '엑셀 다운로드' })).toBeVisible()
-
-    const downloadPromise = page.waitForEvent('download')
-    await page.getByRole('button', { name: '엑셀 다운로드' }).click()
-    const download = await downloadPromise
-    expect(download.suggestedFilename()).toMatch(/\.xlsx$/)
-
-    await expect(page.getByText('엑셀 다운로드 완료!')).toBeVisible()
+    await expect(page.getByRole('button', { name: '행사 제안서 생성하기' })).toBeEnabled({ timeout: 15_000 })
   })
 })

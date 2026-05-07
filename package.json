@@ -13,6 +13,7 @@
     "verify:real-all-docs": "tsx scripts/verify-real-all-docs.ts",
     "verify:production-runtime": "tsx scripts/verify-production-runtime.ts",
     "verify:production": "tsx scripts/verify-production-runtime.ts",
+    "verify:prelaunch": "node scripts/prelaunch-verify.mjs",
     "smoke:production-health": "tsx scripts/smoke-production-health.ts",
     "test:admin-auth-security": "tsx scripts/test-admin-auth-security.ts",
     "test:ai-quality": "tsx scripts/test-ai-quality.ts",
