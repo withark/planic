@@ -22,7 +22,7 @@ export type MarketingDocumentItem = {
 }
 
 export const CORE_DOCUMENT_COUNT = 4
-export const TOTAL_DOCUMENT_COUNT = 7
+export const TOTAL_DOCUMENT_COUNT = 8
 
 export const CORE_DOCUMENT_HREFS = [
   '/estimate-generator',
@@ -82,6 +82,13 @@ export const MARKETING_DOCUMENTS: MarketingDocumentItem[] = [
     desc: '시간 흐름과 진행 멘트까지 포함한 실행 시나리오를 생성합니다.',
     category: '운영·정리',
     hubIcon: 'scenario',
+  },
+  {
+    href: '/documents',
+    title: '템플릿 제안서 (Word)',
+    desc: 'AI 없이 폼 데이터만 넣어 고정 레이아웃 .docx를 바로 받습니다. (기획·세부·견적 단계)',
+    category: '기획·제안',
+    hubIcon: 'estimate',
   },
 ]
 
