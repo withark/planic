@@ -51,6 +51,16 @@ async function dismissEstimatePasteGateIfPresent(page: Page) {
 test.describe('authenticated generation flow', () => {
   test.describe.configure({ mode: 'serial' })
 
+  test.beforeEach(async ({ page }) => {
+    await page.addInitScript(() => {
+      try {
+        sessionStorage.removeItem('planic:skip-paste-gate:estimate')
+      } catch {
+        /* ignore */
+      }
+    })
+  })
+
   test('protected estimate-generator loads after dev auth', async ({ page }) => {
     await authenticateFromProtectedRoute(page, '/estimate-generator')
     await dismissEstimatePasteGateIfPresent(page)
