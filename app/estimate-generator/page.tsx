@@ -1045,8 +1045,8 @@ function EstimateGeneratorContent() {
         </header>
 
         <div className="flex min-h-0 flex-1 flex-col lg:flex-row">
-          <div className="min-h-0 min-w-0 flex-1 overflow-y-auto border-slate-200 lg:max-w-[min(100%,520px)] lg:flex-none lg:border-r lg:bg-white">
-            <div id="estimate-wizard-top" className="p-4 sm:p-6">
+          <div className="flex min-h-0 min-w-0 flex-1 flex-col overflow-hidden border-slate-200 lg:max-w-[min(100%,440px)] lg:flex-none lg:border-r lg:bg-white">
+            <div id="estimate-wizard-top" className="flex min-h-0 flex-1 flex-col overflow-hidden p-4 sm:p-6">
               {me ? (
                 <p className="mb-3 text-[11px] text-slate-500 tabular-nums">
                   {me.subscription.planType}
@@ -1057,10 +1057,11 @@ function EstimateGeneratorContent() {
                     : ''}
                 </p>
               ) : null}
-            <section className="min-w-0">
+            <section className="flex min-h-0 min-w-0 flex-1 flex-col">
               <MacroPasteGate
                 skipStorageKey="planic:skip-paste-gate:estimate"
-                title="견적·행사 정보를 한 번에 붙여 넣기"
+                layout="chat"
+                title="행사 제안서 입력"
                 description="카톡·메일·메모에 있는 내용을 그대로 넣어도 됩니다. 다음 단계에서 상호·금액·일정을 확인한 뒤 문서를 만듭니다."
                 placeholder={`예)\n공급자 : (주)OOO 대표이사 홍길동\n사업자번호 : 000-00-00000\n연락처 : 010-0000-0000\n사회자 1명 330만원 · VAT 별도\n붐어 MC 4명 …`}
                 onApplyPaste={applyPastedBrief}
