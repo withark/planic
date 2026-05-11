@@ -5,7 +5,7 @@ import Link from 'next/link'
 import { AdminCard, AdminSection } from '@/components/admin/AdminCard'
 import { ErrorState, LoadingState } from '@/components/ui/AsyncState'
 import { adminJson } from '@/lib/admin-client'
-import { ADMIN_USER_APP_GNB_LINKS, adminUserAppGeneratorLinks } from '@/lib/admin-user-app-mirror'
+import { ADMIN_USER_APP_MIRROR_GROUPS } from '@/lib/admin-user-app-mirror'
 
 const ADMIN_LINKS = [
   { href: '/admin/samples', label: '기준 양식 관리', desc: '참고 양식 등록·반영 방식' },
@@ -310,40 +310,32 @@ export function AdminDashboard() {
 
         {/* 사용자 앱과 동일한 기능(경로) */}
         <AdminSection
-          title="사용자 앱과 동일한 메뉴"
-          description="GNB·문서 생성 허브와 같은 URL입니다. 사용자 계정으로 로그인한 브라우저에서 재현·검수할 때 사용하세요."
+          title="사용자 앱 전체 경로"
+          description="GNB·문서 허브·결제·참고·구 URL·랜딩까지, 서비스에 존재하는 사용자용 URL을 한곳에서 열 수 있습니다."
         >
-          <p className="text-xs text-slate-500 mb-3">
-            관리자 쿠키와 사용자 세션은 별개입니다. 링크는 서비스 프론트와 동일합니다.
+          <p className="text-xs text-slate-500 mb-4">
+            관리자 쿠키와 사용자 세션은 별개입니다. 사용자 화면 검수 시 해당 계정으로 로그인한 탭에서 확인하세요.
           </p>
-          <p className="text-[11px] font-semibold uppercase tracking-wide text-slate-400 mb-2">GNB 메뉴</p>
-          <ul className="grid gap-2 sm:grid-cols-2 lg:grid-cols-3 mb-4">
-            {ADMIN_USER_APP_GNB_LINKS.map(({ href, label, desc }) => (
-              <li key={href}>
-                <Link
-                  href={href}
-                  className="block p-3 rounded-lg border border-slate-200 bg-white hover:border-primary-300 hover:bg-slate-50/50"
-                >
-                  <span className="font-medium text-gray-900">{label}</span>
-                  {desc ? <p className="text-xs text-slate-500 mt-0.5">{desc}</p> : null}
-                </Link>
-              </li>
+          <div className="space-y-6">
+            {ADMIN_USER_APP_MIRROR_GROUPS.map((group) => (
+              <div key={group.label}>
+                <p className="text-[11px] font-semibold uppercase tracking-wide text-slate-400 mb-2">{group.label}</p>
+                <ul className="grid gap-2 sm:grid-cols-2 lg:grid-cols-3">
+                  {group.items.map(({ href, label, desc }) => (
+                    <li key={href}>
+                      <Link
+                        href={href}
+                        className="block p-3 rounded-lg border border-slate-200 bg-white hover:border-primary-300 hover:bg-slate-50/50"
+                      >
+                        <span className="font-medium text-gray-900">{label}</span>
+                        {desc ? <p className="text-xs text-slate-500 mt-0.5 line-clamp-3">{desc}</p> : null}
+                      </Link>
+                    </li>
+                  ))}
+                </ul>
+              </div>
             ))}
-          </ul>
-          <p className="text-[11px] font-semibold uppercase tracking-wide text-slate-400 mb-2">문서 생성(허브 목록과 동일)</p>
-          <ul className="grid gap-2 sm:grid-cols-2 lg:grid-cols-3">
-            {adminUserAppGeneratorLinks().map(({ href, label, desc }) => (
-              <li key={href}>
-                <Link
-                  href={href}
-                  className="block p-3 rounded-lg border border-slate-200 bg-white hover:border-primary-300 hover:bg-slate-50/50"
-                >
-                  <span className="font-medium text-gray-900">{label}</span>
-                  {desc ? <p className="text-xs text-slate-500 mt-0.5 line-clamp-2">{desc}</p> : null}
-                </Link>
-              </li>
-            ))}
-          </ul>
+          </div>
         </AdminSection>
 
         {/* 운영 바로가기 */}

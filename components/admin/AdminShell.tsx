@@ -3,7 +3,12 @@
 import Link from 'next/link'
 import { usePathname } from 'next/navigation'
 import clsx from 'clsx'
-import { ADMIN_USER_APP_GNB_LINKS, adminUserAppGeneratorLinks } from '@/lib/admin-user-app-mirror'
+import { ADMIN_USER_APP_MIRROR_GROUPS } from '@/lib/admin-user-app-mirror'
+
+const USER_APP_SHELL_NAV_GROUPS = ADMIN_USER_APP_MIRROR_GROUPS.map((g) => ({
+  label: `사용자 앱 · ${g.label}`,
+  items: g.items,
+}))
 
 /** 운영 백오피스: 문서 생성 운영 / 비즈니스 운영 / 시스템 */
 export const ADMIN_NAV_GROUPS: {
@@ -14,10 +19,7 @@ export const ADMIN_NAV_GROUPS: {
     label: '운영 개요',
     items: [{ href: '/admin', label: '대시보드', desc: '서비스 상태 요약' }],
   },
-  {
-    label: '사용자 앱 (프론트 동일)',
-    items: [...ADMIN_USER_APP_GNB_LINKS, ...adminUserAppGeneratorLinks()],
-  },
+  ...USER_APP_SHELL_NAV_GROUPS,
   {
     label: '문서 생성 운영',
     items: [
