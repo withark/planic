@@ -1,6 +1,6 @@
 'use client'
 
-import { useCallback, useEffect, useMemo, useState } from 'react'
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { GNB } from '@/components/GNB'
 import QuoteResult from '@/components/quote/QuoteResult'
 import SimpleGeneratorWizard, { type WizardMode } from '@/components/generators/SimpleGeneratorWizard'
@@ -12,6 +12,7 @@ import type { CompanySettings, PriceCategory, QuoteDoc } from '@/lib/types'
 import type { PlanType } from '@/lib/plans'
 import { apiFetch, apiGenerateStream } from '@/lib/api/client'
 import { toUserMessage } from '@/lib/errors/toUserMessage'
+import { useStreamGenerationGuard } from '@/lib/hooks/useStreamGenerationGuard'
 import { exportToExcel } from '@/lib/exportExcel'
 import { exportToPdf, pdfKindFromQuoteTab } from '@/lib/exportPdf'
 import { buildTopicSeedDoc } from '@/lib/topic-seed-doc'
@@ -38,14 +39,44 @@ type SourceMode = 'fromScenario' | 'fromProgram' | 'fromTopic'
 
 export default function CueSheetGeneratorPage() {
   const [toast, setToast] = useState<string | null>(null)
+  const toastTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
+  const { isMountedRef, startSession, clearAbortIfCurrent, stillCurrent } = useStreamGenerationGuard()
+
+  const dismissToast = useCallback(() => {
+    if (toastTimerRef.current) {
+      clearTimeout(toastTimerRef.current)
+      toastTimerRef.current = null
+    }
+    setToast(null)
+  }, [])
+
   const showToast = useCallback((m: string) => {
     setToast(m)
-    setTimeout(() => setToast(null), 3000)
+    if (toastTimerRef.current) clearTimeout(toastTimerRef.current)
+    toastTimerRef.current = setTimeout(() => {
+      setToast(null)
+      toastTimerRef.current = null
+    }, 3000)
   }, [])
 
   const [me, setMe] = useState<MeLite | null>(null)
+  const [meLoadError, setMeLoadError] = useState<string | null>(null)
   const [companySettings, setCompanySettings] = useState<CompanySettings | null>(null)
   const [prices, setPrices] = useState<PriceCategory[]>([])
+
+  const refetchMe = useCallback(() => {
+    setMeLoadError(null)
+    apiFetch<MeLite>('/api/me')
+      .then((data) => {
+        if (!isMountedRef.current) return
+        setMe(data)
+        setMeLoadError(null)
+      })
+      .catch((e) => {
+        if (!isMountedRef.current) return
+        setMeLoadError(toUserMessage(e, '내 정보를 불러오지 못했습니다.'))
+      })
+  }, [isMountedRef])
 
   const [sourceMode, setSourceMode] = useState<SourceMode>('fromTopic')
 
@@ -81,8 +112,15 @@ export default function CueSheetGeneratorPage() {
     [],
   )
 
+  useEffect(
+    () => () => {
+      if (toastTimerRef.current) clearTimeout(toastTimerRef.current)
+    },
+    [],
+  )
+
   useEffect(() => {
-    apiFetch<MeLite>('/api/me').then(setMe).catch(() => {})
+    refetchMe()
     apiFetch<CompanySettings>('/api/settings').then(setCompanySettings).catch(() => {})
     apiFetch<PriceCategory[]>('/api/prices').then(setPrices).catch(() => setPrices([]))
 
@@ -92,7 +130,7 @@ export default function CueSheetGeneratorPage() {
     apiFetch<GeneratedDocListRow[]>('/api/generated-docs?docType=program&limit=20')
       .then(setProgramList)
       .catch(() => setProgramList([]))
-  }, [])
+  }, [refetchMe])
 
   useEffect(() => {
     if (sourceMode !== 'fromScenario') return
@@ -142,6 +180,7 @@ export default function CueSheetGeneratorPage() {
       showToast('생성에 필요한 문서 컨텍스트가 없습니다. 소스를 선택했는지 확인해 주세요.')
       return
     }
+    const { session, signal, ac } = startSession()
     setGenerating(true)
     setGenerationStageLog(['입력 확인 중'])
     setGenerationProgressLabel('입력 확인 중')
@@ -159,23 +198,33 @@ export default function CueSheetGeneratorPage() {
           cuesheetSampleIds: [],
         },
         {
+          signal,
           onStage: ({ label }) => {
+            if (!stillCurrent(session)) return
             setGenerationProgressLabel(label)
             setGenerationStageLog((prev) => appendStageLine(prev, label))
           },
         },
       )
+      if (!stillCurrent(session)) return
       setDoc(data.doc)
       setGeneratedDocId(data.id)
       setGenerationProgressLabel(null)
       showToast('큐시트 생성 완료!')
     } catch (e) {
+      if (e instanceof DOMException && e.name === 'AbortError') return
+      if (!stillCurrent(session)) return
       showToast(toUserMessage(e, '큐시트 생성에 실패했습니다.'))
       setGenerationProgressLabel('생성에 실패했습니다. 다시 시도해 주세요.')
     } finally {
-      setGenerating(false)
+      clearAbortIfCurrent(ac)
+      if (stillCurrent(session)) {
+        setGenerating(false)
+        setGenerationProgressLabel(null)
+        setGenerationStageLog([])
+      }
     }
-  }, [contextDoc, requestBaseFromDoc, showToast, sourceMode, topic, goal, notes, headcount, venue])
+  }, [contextDoc, requestBaseFromDoc, showToast, sourceMode, topic, goal, notes, headcount, venue, startSession, stillCurrent, clearAbortIfCurrent])
 
   const handleLoadSavedDoc = useCallback(
     ({ doc: nextDoc, id }: { doc: QuoteDoc; id: string }) => {
@@ -199,12 +248,13 @@ export default function CueSheetGeneratorPage() {
         })
         showToast('저장이 완료되었습니다.')
       } catch (e) {
+        if (!isMountedRef.current) return
         showToast(toUserMessage(e, '저장에 실패했습니다.'))
       } finally {
-        setSaving(false)
+        if (isMountedRef.current) setSaving(false)
       }
     },
-    [generatedDocId, showToast],
+    [generatedDocId, showToast, isMountedRef],
   )
 
   const generateDisabled =
@@ -268,6 +318,24 @@ export default function CueSheetGeneratorPage() {
             <span className="rounded-xl border border-amber-200 bg-amber-50 px-3 py-1.5 text-sm font-semibold text-amber-700">무료</span>
           )}
         </header>
+
+        {meLoadError ? (
+          <div
+            role="alert"
+            className="flex shrink-0 items-center justify-between gap-2 border-b border-amber-200 bg-amber-50 px-4 py-2 text-xs text-amber-950"
+          >
+            <p className="min-w-0 leading-snug">
+              {meLoadError} — 플랜·사용량 표시가 지연될 수 있어요.
+            </p>
+            <button
+              type="button"
+              onClick={() => void refetchMe()}
+              className="shrink-0 rounded-md border border-amber-300 bg-white px-2.5 py-1 text-[11px] font-semibold text-amber-900 hover:bg-amber-100"
+            >
+              다시 시도
+            </button>
+          </div>
+        ) : null}
 
         <div className="flex-1 overflow-hidden p-6">
           {isCuesheetLocked ? (
@@ -495,7 +563,7 @@ export default function CueSheetGeneratorPage() {
         onLoaded={handleLoadSavedDoc}
       />
 
-      {toast && <Toast message={toast} onClose={() => setToast('')} />}
+      {toast && <Toast message={toast} onClose={dismissToast} />}
     </div>
   )
 }

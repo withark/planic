@@ -23,6 +23,7 @@ import { isExcludedSupplyLineItem } from '@/lib/quote/supply-line-filter'
 import { calcTotals, normalizeQuoteUnitPricesToThousand } from '@/lib/calc'
 import { saveAs } from 'file-saver'
 import { generateProposal } from '@/src/lib/generateProposal'
+import { useStreamGenerationGuard } from '@/lib/hooks/useStreamGenerationGuard'
 
 type MeLite = {
   user?: { id?: string | null; email?: string | null } | null
@@ -90,21 +91,9 @@ function EstimateGeneratorContent() {
   const searchParams = useSearchParams()
   const [toast, setToast] = useState<string | null>(null)
   const toastTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
-
-  const isMountedRef = useRef(true)
-  const genSessionRef = useRef(0)
-  const generateAbortRef = useRef<AbortController | null>(null)
+  const { isMountedRef, startSession, clearAbortIfCurrent, stillCurrent } = useStreamGenerationGuard()
   const estimateBadLinkWarnedRef = useRef(false)
   const pdfExportingRef = useRef(false)
-
-  useEffect(() => {
-    isMountedRef.current = true
-    return () => {
-      isMountedRef.current = false
-      genSessionRef.current += 1
-      generateAbortRef.current?.abort()
-    }
-  }, [])
 
   const dismissToast = useCallback(() => {
     if (toastTimerRef.current) {
@@ -667,10 +656,7 @@ function EstimateGeneratorContent() {
       return
     }
 
-    const session = ++genSessionRef.current
-    generateAbortRef.current?.abort()
-    const ac = new AbortController()
-    generateAbortRef.current = ac
+    const { session, signal, ac } = startSession()
 
     setGenerating(true)
     setGenerationStageLog(['요청을 서버로 보내는 중…'])
@@ -679,12 +665,12 @@ function EstimateGeneratorContent() {
       const data = await apiGenerateStream(body, {
         signal: ac.signal,
         onStage: ({ label }) => {
-          if (!isMountedRef.current || genSessionRef.current !== session) return
+          if (!stillCurrent(session)) return
           setGenerationProgressLabel(label)
           setGenerationStageLog((prev) => (prev[prev.length - 1] === label ? prev : [...prev, label]))
         },
       })
-      if (!isMountedRef.current || genSessionRef.current !== session) return
+      if (!stillCurrent(session)) return
       setDoc(data.doc)
       setGeneratedDocId(data.id)
       if (isNarrowViewport) {
@@ -699,17 +685,17 @@ function EstimateGeneratorContent() {
       }
     } catch (e) {
       if (e instanceof DOMException && e.name === 'AbortError') return
-      if (!isMountedRef.current || genSessionRef.current !== session) return
+      if (!stillCurrent(session)) return
       showToast(toUserMessage(e, '행사 제안서 생성에 실패했습니다.'))
     } finally {
-      if (generateAbortRef.current === ac) generateAbortRef.current = null
-      if (isMountedRef.current && genSessionRef.current === session) {
+      clearAbortIfCurrent(ac)
+      if (stillCurrent(session)) {
         setGenerating(false)
         setGenerationProgressLabel(null)
         setGenerationStageLog([])
       }
     }
-  }, [requestBodyForEstimate, showToast, sourceMode, priceItemCount, isNarrowViewport])
+  }, [requestBodyForEstimate, showToast, sourceMode, priceItemCount, isNarrowViewport, startSession, stillCurrent, clearAbortIfCurrent])
 
   const handleSaveDoc = useCallback(
     async (nextDoc: QuoteDoc) => {
