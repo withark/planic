@@ -1,7 +1,7 @@
 'use client'
 
 import Link from 'next/link'
-import { Suspense, useCallback, useEffect, useMemo, useState } from 'react'
+import { Suspense, useCallback, useEffect, useMemo, useRef, useState, useSyncExternalStore } from 'react'
 import { useSearchParams } from 'next/navigation'
 import { GNB } from '@/components/GNB'
 import QuoteResult from '@/components/quote/QuoteResult'
@@ -33,6 +33,19 @@ type MeLite = {
 
 type SourceMode = 'fromEstimate' | 'fromTaskOrder' | 'fromTopic' | 'fromPrompt'
 const DRAFT_STORAGE_KEY = 'planic:estimate-generator:draft:v1'
+/** Tailwind `md`(768px) 미만 — `max-md`와 동일한 구간 */
+const ESTIMATE_NARROW_MQ = '(max-width: 767px)'
+
+function subscribeEstimateNarrowMq(onChange: () => void) {
+  if (typeof window === 'undefined') return () => {}
+  const mq = window.matchMedia(ESTIMATE_NARROW_MQ)
+  mq.addEventListener('change', onChange)
+  return () => mq.removeEventListener('change', onChange)
+}
+
+function estimateNarrowMatchesSnapshot() {
+  return typeof window !== 'undefined' && window.matchMedia(ESTIMATE_NARROW_MQ).matches
+}
 
 type TaskOrderSummaryParsed = {
   projectTitle?: string
@@ -76,10 +89,22 @@ function EstimateGeneratorContent() {
   const proposalLabel = '행사 제안서'
   const searchParams = useSearchParams()
   const [toast, setToast] = useState<string | null>(null)
+  const toastTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
   const showToast = useCallback((m: string) => {
     setToast(m)
-    setTimeout(() => setToast(null), 3000)
+    if (toastTimerRef.current) clearTimeout(toastTimerRef.current)
+    toastTimerRef.current = setTimeout(() => {
+      setToast(null)
+      toastTimerRef.current = null
+    }, 3000)
   }, [])
+
+  useEffect(
+    () => () => {
+      if (toastTimerRef.current) clearTimeout(toastTimerRef.current)
+    },
+    [],
+  )
 
   const [me, setMe] = useState<MeLite | null>(null)
   const [companySettings, setCompanySettings] = useState<CompanySettings | null>(null)
@@ -127,9 +152,14 @@ function EstimateGeneratorContent() {
   const generatingTabs = useMemo(() => ({ estimate: generating }), [generating])
   /** 붙여넣기 전송 또는 건너뛰기 이후 — 하단 state-bar 단계 표시용 */
   const [pasteFlowCommitted, setPasteFlowCommitted] = useState(false)
-  /** md 미만: 입력 / 미리보기 전환 */
-  const [isNarrowViewport, setIsNarrowViewport] = useState(false)
+  /** md 미만: 입력 / 미리보기 전환 — SSR 스냅샷 false, 클라이언트는 matchMedia와 동기(하이드레이션 안전) */
+  const isNarrowViewport = useSyncExternalStore(
+    subscribeEstimateNarrowMq,
+    estimateNarrowMatchesSnapshot,
+    () => false,
+  )
   const [mobileSheet, setMobileSheet] = useState<'chat' | 'preview'>('chat')
+  const [pdfExporting, setPdfExporting] = useState(false)
 
   const userDraftStorageKey = useMemo(() => {
     const userId = me?.user?.id
@@ -210,15 +240,6 @@ function EstimateGeneratorContent() {
   }, [])
 
   useEffect(() => {
-    if (typeof window === 'undefined') return
-    const mq = window.matchMedia('(max-width: 767px)')
-    const apply = () => setIsNarrowViewport(mq.matches)
-    apply()
-    mq.addEventListener('change', apply)
-    return () => mq.removeEventListener('change', apply)
-  }, [])
-
-  useEffect(() => {
     if (!isNarrowViewport) setMobileSheet('chat')
   }, [isNarrowViewport])
 
@@ -289,6 +310,14 @@ function EstimateGeneratorContent() {
     if (typeof draft.budget === 'string') setBudget(draft.budget)
     if (typeof draft.eventType === 'string') setEventType(draft.eventType)
     if (typeof draft.savedAt === 'string') setDraftSavedAt(draft.savedAt)
+
+    const hasMeaningful =
+      (typeof draft.topic === 'string' && draft.topic.trim().length > 0) ||
+      (typeof draft.vendorBrief === 'string' && draft.vendorBrief.trim().length > 0) ||
+      (typeof draft.clientName === 'string' && draft.clientName.trim().length > 0) ||
+      (typeof draft.eventType === 'string' && draft.eventType.trim().length > 0) ||
+      (typeof draft.notes === 'string' && draft.notes.trim().length > 0)
+    if (hasMeaningful) setPasteFlowCommitted(true)
   }, [userDraftStorageKey])
 
   useEffect(() => {
@@ -597,7 +626,7 @@ function EstimateGeneratorContent() {
       })
       setDoc(data.doc)
       setGeneratedDocId(data.id)
-      if (typeof window !== 'undefined' && window.matchMedia('(max-width: 767px)').matches) {
+      if (typeof window !== 'undefined' && window.matchMedia(ESTIMATE_NARROW_MQ).matches) {
         setMobileSheet('preview')
       }
       if (data.doc.quoteTemplate === 'fixed-v2' && priceItemCount > 0) {
@@ -801,24 +830,33 @@ function EstimateGeneratorContent() {
   }, [generating, doc, generatedDocId, generateDisabled, pasteFlowCommitted])
 
   const exportEstimatePdf = useCallback(async () => {
-    if (!doc) return
+    if (!doc || pdfExporting) return
+    setPdfExporting(true)
     try {
       await exportToPdf(doc, companySettings ?? undefined)
       showToast('PDF 저장 완료!')
     } catch (e) {
       showToast(toUserMessage(e, '저장 실패'))
+    } finally {
+      setPdfExporting(false)
     }
-  }, [doc, companySettings, showToast])
+  }, [doc, companySettings, showToast, pdfExporting])
 
   const scrollPreviewPanelTop = useCallback(() => {
     document.getElementById('estimate-preview-scroll')?.scrollTo({ top: 0, behavior: 'smooth' })
+    if (typeof window !== 'undefined' && window.matchMedia(ESTIMATE_NARROW_MQ).matches) {
+      setMobileSheet('preview')
+    }
   }, [])
 
   const focusEstimateTable = useCallback(() => {
     const root = document.getElementById('estimate-result-body')
     root?.scrollIntoView({ behavior: 'smooth', block: 'start' })
     window.setTimeout(() => {
-      root?.querySelector('textarea')?.focus()
+      const first =
+        root?.querySelector<HTMLTextAreaElement>('tr.group textarea') ??
+        root?.querySelector<HTMLTextAreaElement>('textarea')
+      first?.focus()
     }, 450)
   }, [])
 
@@ -826,6 +864,7 @@ function EstimateGeneratorContent() {
     document.getElementById('estimate-wizard-top')?.scrollIntoView({ behavior: 'smooth', block: 'start' })
   }, [])
 
+  /** MacroPasteGate 세션 복원 effect가 참조하므로 useCallback으로 고정 */
   const markPasteFlowCommitted = useCallback(() => {
     setPasteFlowCommitted(true)
   }, [])
@@ -1139,9 +1178,17 @@ function EstimateGeneratorContent() {
         {/* md부터 좌 340px 고정 — lg(1024)만 쓰면 창이 좁을 때 좌열이 전체 너비로 보임 */}
         {/* md 미만: 한 화면에 입력 또는 미리보기 */}
         {isNarrowViewport ? (
-          <div className="flex shrink-0 gap-1 border-b border-slate-200 bg-white px-2 py-1.5 md:hidden">
+          <div
+            className="flex shrink-0 gap-1 border-b border-slate-200 bg-white px-2 py-1.5 md:hidden"
+            role="tablist"
+            aria-label="입력과 미리보기 전환"
+          >
             <button
               type="button"
+              role="tab"
+              id="estimate-tab-chat"
+              aria-controls="estimate-panel-chat"
+              aria-selected={mobileSheet === 'chat'}
               onClick={() => setMobileSheet('chat')}
               className={`min-h-9 flex-1 rounded-lg px-2 text-xs font-semibold ${
                 mobileSheet === 'chat' ? 'bg-primary-600 text-white' : 'bg-slate-100 text-slate-700'
@@ -1151,6 +1198,10 @@ function EstimateGeneratorContent() {
             </button>
             <button
               type="button"
+              role="tab"
+              id="estimate-tab-preview"
+              aria-controls="estimate-panel-preview"
+              aria-selected={mobileSheet === 'preview'}
               onClick={() => setMobileSheet('preview')}
               className={`min-h-9 flex-1 rounded-lg px-2 text-xs font-semibold ${
                 mobileSheet === 'preview' ? 'bg-primary-600 text-white' : 'bg-slate-100 text-slate-700'
@@ -1163,9 +1214,11 @@ function EstimateGeneratorContent() {
 
         <div className="flex min-h-0 flex-1 flex-col md:flex-row">
           <div
-            className={`flex min-h-0 w-full flex-col overflow-hidden border-slate-200 md:w-[340px] md:min-w-[340px] md:max-w-[340px] md:flex-none md:border-r md:bg-white ${
-              isNarrowViewport && mobileSheet !== 'chat' ? 'max-md:hidden' : ''
-            }`}
+            id="estimate-panel-chat"
+            role={isNarrowViewport ? 'tabpanel' : undefined}
+            aria-labelledby={isNarrowViewport ? 'estimate-tab-chat' : undefined}
+            hidden={isNarrowViewport && mobileSheet !== 'chat'}
+            className="flex min-h-0 w-full flex-col overflow-hidden border-slate-200 md:w-[340px] md:min-w-[340px] md:max-w-[340px] md:flex-none md:border-r md:bg-white"
           >
             <div id="estimate-wizard-top" className="flex min-h-0 flex-1 flex-col overflow-hidden">
               {me ? (
@@ -1188,10 +1241,19 @@ function EstimateGeneratorContent() {
                 onFollowUpSend={(text) => {
                   const t = text.trim()
                   if (!t) return
-                  setNotes((n) => (n.trim() ? `${n.trim()}\n${t}` : t))
-                  showToast('추가 요청을 메모에 넣었어요. 표에 반영하려면 왼쪽에서 다시 생성해 주세요.')
+                  if (sourceMode === 'fromPrompt') {
+                    setVendorBrief((v) => (v.trim() ? `${v.trim()}\n${t}` : t))
+                    showToast('업체 원문에 이어 붙였어요. 표에 반영하려면 다시 생성해 주세요.')
+                  } else {
+                    setNotes((n) => (n.trim() ? `${n.trim()}\n${t}` : t))
+                    showToast('추가 요청을 메모에 넣었어요. 표에 반영하려면 왼쪽에서 다시 생성해 주세요.')
+                  }
                 }}
-                followUpAssistantReply="메모에 반영했어요. AI가 표를 바꾸려면 왼쪽의 「행사 제안서 생성하기」로 다시 생성해야 해요."
+                followUpAssistantReply={
+                  sourceMode === 'fromPrompt'
+                    ? '업체 원문에 이어 붙였어요. 표를 바꾸려면 「행사 제안서 생성하기」로 다시 생성해야 해요.'
+                    : '메모에 반영했어요. AI가 표를 바꾸려면 왼쪽의 「행사 제안서 생성하기」로 다시 생성해야 해요.'
+                }
                 title="행사 제안서"
                 description="카톡처럼 말하면 초안이 만들어져요."
                 chatWelcome={`안녕하세요! 행사·견적 내용을 자유롭게 말씀해 주세요.
@@ -1293,9 +1355,11 @@ function EstimateGeneratorContent() {
           </div>
 
           <div
-            className={`flex min-h-0 min-w-0 flex-1 flex-col overflow-hidden bg-slate-50 ${
-              isNarrowViewport && mobileSheet !== 'preview' ? 'max-md:hidden' : ''
-            }`}
+            id="estimate-panel-preview"
+            role={isNarrowViewport ? 'tabpanel' : undefined}
+            aria-labelledby={isNarrowViewport ? 'estimate-tab-preview' : undefined}
+            hidden={isNarrowViewport && mobileSheet !== 'preview'}
+            className="flex min-h-0 min-w-0 flex-1 flex-col overflow-hidden bg-slate-50"
           >
               <div className="flex flex-shrink-0 flex-wrap items-center gap-2 border-b border-slate-200 bg-white px-4 py-2.5">
               <h2 className="min-w-0 flex-1 text-[13px] font-medium text-slate-900">행사 제안서 미리보기</h2>
@@ -1335,10 +1399,11 @@ function EstimateGeneratorContent() {
                   <button
                     type="button"
                     data-testid="estimate-header-pdf"
+                    disabled={pdfExporting}
                     onClick={() => void exportEstimatePdf()}
-                    className="rounded-md border border-primary-600 bg-primary-600 px-2.5 py-1 text-[11.5px] font-medium text-white hover:bg-primary-700"
+                    className="rounded-md border border-primary-600 bg-primary-600 px-2.5 py-1 text-[11.5px] font-medium text-white hover:bg-primary-700 disabled:opacity-60"
                   >
-                    PDF
+                    {pdfExporting ? 'PDF…' : 'PDF'}
                   </button>
                 ) : null}
               </div>
@@ -1436,16 +1501,20 @@ function EstimateGeneratorContent() {
                       {generationProgressLabel ?? 'AI가 행사 제안서를 구성하고 있습니다…'}
                     </span>
                   </div>
-                  <details className="mt-2 group">
-                    <summary className="cursor-pointer text-[11px] font-medium text-slate-600 hover:text-slate-900">
-                      단계 로그 펼치기
-                    </summary>
-                    <ol className="mt-2 max-h-48 list-decimal space-y-1 overflow-y-auto pl-5 text-[11px] text-slate-600">
-                      {generationStageLog.map((line, i) => (
-                        <li key={`${i}-${line}`}>{line}</li>
-                      ))}
-                    </ol>
-                  </details>
+                  {generationStageLog.length > 0 ? (
+                    <details className="mt-2 group">
+                      <summary className="cursor-pointer text-[11px] font-medium text-slate-600 hover:text-slate-900">
+                        단계 로그 펼치기
+                      </summary>
+                      <ol className="mt-2 max-h-48 list-decimal space-y-1 overflow-y-auto pl-5 text-[11px] text-slate-600">
+                        {generationStageLog.map((line, i) => (
+                          <li key={`${i}-${line}`}>{line}</li>
+                        ))}
+                      </ol>
+                    </details>
+                  ) : (
+                    <p className="mt-2 text-[11px] text-slate-500">단계 로그가 곧 여기에 쌓입니다.</p>
+                  )}
                 </div>
               ) : (
                 <div className="flex flex-1 flex-col gap-3">
