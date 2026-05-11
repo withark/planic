@@ -2,6 +2,8 @@
 
 import { useEffect, useState } from 'react'
 import Link from 'next/link'
+import { ErrorState, LoadingState } from '@/components/ui/AsyncState'
+import { adminJson } from '@/lib/admin-client'
 
 type EnginesData = {
   effective: { provider: string; model: string; maxTokens: number }
@@ -44,41 +46,47 @@ export default function AdminEnginesPage() {
   const [sampleStrengthPreset, setSampleStrengthPreset] = useState<'low' | 'medium' | 'strong' | ''>('')
   const [outputFormatPreset, setOutputFormatPreset] = useState<string>('')
 
-  function load() {
-    fetch('/api/admin/engines')
-      .then((r) => r.json())
-      .then((res) => {
-        if (res?.ok && res?.data) {
-          setData(res.data)
-          const ov = res.data.overlay || {}
-          setOverlay({
-            provider: res.data.effective?.provider ?? '',
-            model: res.data.effective?.model ?? '',
-            maxTokens: res.data.effective?.maxTokens ?? 8192,
-            structureFirst: !!ov.structureFirst,
-            toneFirst: !!ov.toneFirst,
-            outputFormatTemplate: String(ov.outputFormatTemplate ?? ''),
-            sampleWeightNote: String(ov.sampleWeightNote ?? ''),
-            qualityBoost: String(ov.qualityBoost ?? ''),
-          })
-          const sn = String(ov.sampleWeightNote ?? '')
-          if (/약하게|참고만/.test(sn)) setSampleStrengthPreset('low')
-          else if (/강하게|최대한/.test(sn)) setSampleStrengthPreset('strong')
-          else if (sn.trim()) setSampleStrengthPreset('medium')
-          else setSampleStrengthPreset('')
-          const of = String(ov.outputFormatTemplate ?? '')
-          if (/문단/.test(of)) setOutputFormatPreset('paragraph')
-          else if (/표 위주|표형/.test(of)) setOutputFormatPreset('table')
-          else if (/혼합/.test(of)) setOutputFormatPreset('mixed')
-          else if (/운영/.test(of)) setOutputFormatPreset('operational')
-          else setOutputFormatPreset('')
-        } else setError(res?.error?.message || '조회 실패')
+  async function load() {
+    setLoading(true)
+    setError(null)
+    const out = await adminJson<EnginesData>('/api/admin/engines')
+    if (!out.ok) {
+      setData(null)
+      setError(out.message)
+    } else if (out.data) {
+      setData(out.data)
+      const ov = (out.data.overlay || {}) as Record<string, unknown>
+      setOverlay({
+        provider: out.data.effective?.provider ?? '',
+        model: out.data.effective?.model ?? '',
+        maxTokens: out.data.effective?.maxTokens ?? 8192,
+        structureFirst: !!ov.structureFirst,
+        toneFirst: !!ov.toneFirst,
+        outputFormatTemplate: String(ov.outputFormatTemplate ?? ''),
+        sampleWeightNote: String(ov.sampleWeightNote ?? ''),
+        qualityBoost: String(ov.qualityBoost ?? ''),
       })
-      .catch(() => setError('요청 실패'))
-      .finally(() => setLoading(false))
+      const sn = String(ov.sampleWeightNote ?? '')
+      if (/약하게|참고만/.test(sn)) setSampleStrengthPreset('low')
+      else if (/강하게|최대한/.test(sn)) setSampleStrengthPreset('strong')
+      else if (sn.trim()) setSampleStrengthPreset('medium')
+      else setSampleStrengthPreset('')
+      const of = String(ov.outputFormatTemplate ?? '')
+      if (/문단/.test(of)) setOutputFormatPreset('paragraph')
+      else if (/표 위주|표형/.test(of)) setOutputFormatPreset('table')
+      else if (/혼합/.test(of)) setOutputFormatPreset('mixed')
+      else if (/운영/.test(of)) setOutputFormatPreset('operational')
+      else setOutputFormatPreset('')
+    } else {
+      setData(null)
+      setError('조회 실패')
+    }
+    setLoading(false)
   }
 
-  useEffect(() => { load() }, [])
+  useEffect(() => {
+    void load()
+  }, [])
 
   async function save() {
     setSaving(true)
@@ -94,7 +102,7 @@ export default function AdminEnginesPage() {
       else if (outputFormatPreset === 'mixed') outputFormatTemplate = '문단과 표를 상황에 맞게 혼합.'
       else if (outputFormatPreset === 'operational') outputFormatTemplate = '시간/담당/준비물 등 운영문서형 열 구성.'
 
-      const res = await fetch('/api/admin/engines', {
+      const out = await adminJson<unknown>('/api/admin/engines', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -108,9 +116,10 @@ export default function AdminEnginesPage() {
           qualityBoost: overlay.qualityBoost,
         }),
       })
-      const result = await res.json().catch(() => ({}))
-      if (res.ok && result?.ok) load()
-      else setError(result?.error?.message || '저장 실패')
+      if (out.ok) {
+        setError(null)
+        void load()
+      } else setError(out.message)
     } catch {
       setError('저장 요청 실패')
     } finally {
@@ -118,12 +127,17 @@ export default function AdminEnginesPage() {
     }
   }
 
-  if (loading) return <p className="text-sm text-gray-500">로딩 중…</p>
-  if (error && !data) return <p className="text-sm text-red-600">{error}</p>
+  if (loading) return <LoadingState label="엔진 설정을 불러오는 중…" />
+  if (error && !data) return <ErrorState message={error} onRetry={() => void load()} />
   if (!data) return null
 
   return (
     <div className="space-y-6">
+      {error && data ? (
+        <div role="alert" className="rounded-lg border border-red-200 bg-red-50 px-4 py-2 text-sm text-red-800">
+          {error}
+        </div>
+      ) : null}
       <div>
         <h1 className="text-lg font-semibold text-gray-900">생성 규칙 설정</h1>
         <p className="text-sm text-gray-600 mt-1 max-w-2xl">

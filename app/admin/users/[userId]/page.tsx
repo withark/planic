@@ -4,6 +4,8 @@ import { useEffect, useState } from 'react'
 import Link from 'next/link'
 import { useParams } from 'next/navigation'
 import { AdminSection } from '@/components/admin/AdminCard'
+import { ErrorState, LoadingState } from '@/components/ui/AsyncState'
+import { adminJson } from '@/lib/admin-client'
 
 type User = {
   userId: string
@@ -38,16 +40,14 @@ export default function AdminUserDetailPage() {
     if (!userId) return
     setLoading(true)
     setError(null)
-    try {
-      const r = await fetch(`/api/admin/users/${userId}`)
-      const res = await r.json()
-      if (res?.ok && res?.data) setUser(res.data)
-      else setError(res?.error?.message || '조회 실패')
-    } catch {
-      setError('요청 실패')
-    } finally {
-      setLoading(false)
+    const out = await adminJson<User>(`/api/admin/users/${userId}`)
+    if (!out.ok) {
+      setUser(null)
+      setError(out.message)
+    } else {
+      setUser(out.data ?? null)
     }
+    setLoading(false)
   }
 
   useEffect(() => {
@@ -60,14 +60,13 @@ export default function AdminUserDetailPage() {
     if (!userId) return
     setResetting(true)
     try {
-      const res = await fetch('/api/admin/users', {
+      const out = await adminJson<unknown>('/api/admin/users', {
         method: 'PATCH',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ userId, action: 'reset_free_trial_quota' }),
       })
-      const data = await res.json().catch(() => ({}))
-      if (!res.ok || data?.ok === false) {
-        alert(data?.error?.message ?? '무료 체험 횟수 초기화 실패')
+      if (!out.ok) {
+        alert(out.message)
         return
       }
       alert('무료 체험 횟수를 초기화했습니다.')
@@ -80,21 +79,20 @@ export default function AdminUserDetailPage() {
   async function setActive(isActive: boolean) {
     setSaving(true)
     try {
-      const res = await fetch('/api/admin/users', {
+      const out = await adminJson<unknown>('/api/admin/users', {
         method: 'PATCH',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ userId, isActive }),
       })
-      const data = await res.json().catch(() => ({}))
-      if (res.ok && data?.ok !== false) setUser((u) => (u ? { ...u, isActive } : null))
-      else alert(data?.error?.message ?? '저장 실패')
+      if (out.ok) setUser((u) => (u ? { ...u, isActive } : null))
+      else alert(out.message)
     } finally {
       setSaving(false)
     }
   }
 
-  if (loading) return <p className="text-sm text-slate-500">로딩 중…</p>
-  if (error || !user) return <p className="text-sm text-red-600">{error || '사용자 없음'}</p>
+  if (loading) return <LoadingState label="사용자 정보를 불러오는 중…" />
+  if (error || !user) return <ErrorState message={error || '사용자 없음'} onRetry={() => void reloadUser()} />
 
   return (
     <div className="space-y-6">

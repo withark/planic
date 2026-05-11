@@ -2,6 +2,8 @@
 
 import { useEffect, useState } from 'react'
 import Link from 'next/link'
+import { ErrorState, LoadingState } from '@/components/ui/AsyncState'
+import { adminJson } from '@/lib/admin-client'
 
 type UsageData = {
   totalGenerations: number
@@ -15,19 +17,25 @@ export default function AdminUsagePage() {
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
 
+  async function load() {
+    setLoading(true)
+    setError(null)
+    const out = await adminJson<UsageData>('/api/admin/usage')
+    if (!out.ok) {
+      setData(null)
+      setError(out.message)
+    } else {
+      setData(out.data ?? null)
+    }
+    setLoading(false)
+  }
+
   useEffect(() => {
-    fetch('/api/admin/usage')
-      .then((r) => r.json())
-      .then((res) => {
-        if (res?.ok && res?.data) setData(res.data)
-        else setError(res?.error?.message || '조회 실패')
-      })
-      .catch(() => setError('요청 실패'))
-      .finally(() => setLoading(false))
+    void load()
   }, [])
 
-  if (loading) return <p className="text-sm text-gray-500">로딩 중...</p>
-  if (error) return <p className="text-sm text-red-600">{error}</p>
+  if (loading) return <LoadingState label="사용량을 불러오는 중…" />
+  if (error) return <ErrorState message={error} onRetry={() => void load()} />
   if (!data) return <p className="text-sm text-slate-500">표시할 사용량 데이터가 없습니다.</p>
 
   return (

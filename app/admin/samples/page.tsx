@@ -58,21 +58,24 @@ export default function AdminSamplesPage() {
   }, [])
 
   async function patch(id: string, body: Record<string, unknown>) {
-    await fetch('/api/admin/samples', {
+    const out = await adminJson<unknown>('/api/admin/samples', {
       method: 'PATCH',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ id, ...body }),
     })
-    load()
+    if (!out.ok) {
+      alert(out.message)
+      return
+    }
+    void load()
   }
 
   async function runParse(id: string) {
     setParsingId(id)
     try {
-      const res = await fetch(`/api/admin/samples/${id}/parse`, { method: 'POST' })
-      const data = await res.json().catch(() => ({}))
-      if (res.ok && data?.ok) load()
-      else alert(data?.error?.message ?? '파싱 실패')
+      const out = await adminJson<unknown>(`/api/admin/samples/${id}/parse`, { method: 'POST' })
+      if (!out.ok) alert(out.message)
+      else void load()
     } finally {
       setParsingId(null)
     }
@@ -84,14 +87,13 @@ export default function AdminSamplesPage() {
     try {
       const fd = new FormData()
       fd.append('file', file)
-      const res = await fetch('/api/admin/samples', { method: 'POST', body: fd })
-      const data = await res.json().catch(() => ({}))
-      if (res.ok && data?.ok) {
-        load()
-        alert('기준 양식이 등록되었습니다.')
-      } else {
-        alert(data?.error?.message ?? '업로드에 실패했습니다.')
+      const out = await adminJson<unknown>('/api/admin/samples', { method: 'POST', body: fd })
+      if (!out.ok) {
+        alert(out.message)
+        return
       }
+      void load()
+      alert('기준 양식이 등록되었습니다.')
     } finally {
       setRefUploading(false)
     }

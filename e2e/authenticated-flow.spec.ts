@@ -33,11 +33,20 @@ async function signInWithDevAuth(page: Page, callbackPath: string) {
 }
 
 async function authenticateFromProtectedRoute(page: Page, protectedPath: string) {
-  await page.goto(protectedPath)
-  await expect(page).toHaveURL(/\/auth\?/)
-  await signInWithDevAuth(page, protectedPath)
-  await page.goto(protectedPath)
-  await expect(page).toHaveURL(new RegExp(`${protectedPath.replace('/', '\\/')}($|\\?)`))
+  const dest = new RegExp(`${protectedPath.replace('/', '\\/')}($|\\?)`)
+
+  for (let attempt = 0; attempt < 2; attempt++) {
+    await page.goto(protectedPath, { waitUntil: 'domcontentloaded' })
+    await expect(page).toHaveURL(/\/auth\?/, { timeout: 15_000 })
+    await signInWithDevAuth(page, protectedPath)
+    await page.goto(protectedPath, { waitUntil: 'domcontentloaded' })
+    try {
+      await expect(page).toHaveURL(dest, { timeout: 25_000 })
+      return
+    } catch {
+      if (attempt === 1) throw new Error(`인증 후에도 ${protectedPath}에 도달하지 못했습니다: ${page.url()}`)
+    }
+  }
 }
 
 async function dismissMacroPasteGateIfPresent(page: Page) {

@@ -4,6 +4,7 @@ import { useEffect, useState, useMemo } from 'react'
 import Link from 'next/link'
 import { AdminCard, AdminSection } from '@/components/admin/AdminCard'
 import { ErrorState, LoadingState } from '@/components/ui/AsyncState'
+import { adminJson } from '@/lib/admin-client'
 
 type UserRow = {
   userId: string
@@ -38,16 +39,14 @@ export default function AdminUsersPage() {
   async function loadUsers() {
     setLoading(true)
     setError(null)
-    try {
-      const r = await fetch('/api/admin/users')
-      const res = await r.json()
-      if (res?.ok && Array.isArray(res?.data)) setList(res.data)
-      else setError(res?.error?.message || '조회 실패')
-    } catch {
-      setError('요청 실패')
-    } finally {
-      setLoading(false)
+    const out = await adminJson<UserRow[]>('/api/admin/users')
+    if (!out.ok) {
+      setList([])
+      setError(out.message)
+    } else {
+      setList(Array.isArray(out.data) ? out.data : [])
     }
+    setLoading(false)
   }
 
   useEffect(() => {
@@ -266,14 +265,13 @@ export default function AdminUsersPage() {
               setResetting(true)
               try {
                 for (const id of selectedUserIds) {
-                  const res = await fetch('/api/admin/users', {
+                  const out = await adminJson<unknown>('/api/admin/users', {
                     method: 'PATCH',
                     headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify({ userId: id, action: 'reset_free_trial_quota' }),
                   })
-                  const data = await res.json().catch(() => ({}))
-                  if (!res.ok || data?.ok === false) {
-                    throw new Error(data?.error?.message ?? `초기화 실패: ${id}`)
+                  if (!out.ok) {
+                    throw new Error(`${id}: ${out.message}`)
                   }
                 }
                 alert('선택한 사용자 무료 체험 횟수를 초기화했습니다.')

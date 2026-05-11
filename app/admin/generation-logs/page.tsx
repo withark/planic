@@ -3,6 +3,7 @@
 import { useEffect, useState } from 'react'
 import Link from 'next/link'
 import { AdminSection } from '@/components/admin/AdminCard'
+import { adminJson } from '@/lib/admin-client'
 
 type Run = {
   id: string
@@ -158,26 +159,39 @@ export default function AdminGenerationLogsPage() {
   const [aiRuntime, setAiRuntime] = useState<AiRuntimePayload | null>(null)
   const [loading, setLoading] = useState(true)
   const [hasLoadedOnce, setHasLoadedOnce] = useState(false)
+  const [loadError, setLoadError] = useState<string | null>(null)
   const [refreshKey, setRefreshKey] = useState(0)
   const [lastUpdatedAt, setLastUpdatedAt] = useState<string>('')
   const [lastInsertAt, setLastInsertAt] = useState<string | null>(null)
 
   useEffect(() => {
     setLoading(true)
-    Promise.all([fetch('/api/admin/generation-runs'), fetch('/api/admin/ai-runtime')])
-      .then(async ([runsRes, rtRes]) => {
-        const runsJson = await runsRes.json()
-        const rtJson = await rtRes.json()
-        if (runsJson?.ok) {
-          setRuns(runsJson.data?.runs ?? [])
-          setPersistenceEnabled(runsJson.data?.persistenceEnabled !== false)
-          setLastInsertAt(runsJson.data?.lastInsertAt ?? null)
-        }
-        if (rtJson?.ok && rtJson.data) {
-          setAiRuntime(rtJson.data as AiRuntimePayload)
+    setLoadError(null)
+    void Promise.all([
+      adminJson<{ runs?: Run[]; persistenceEnabled?: boolean; lastInsertAt?: string | null }>(
+        '/api/admin/generation-runs',
+      ),
+      adminJson<AiRuntimePayload | null>('/api/admin/ai-runtime'),
+    ])
+      .then(([runsOut, rtOut]) => {
+        const parts: string[] = []
+        if (!runsOut.ok) {
+          parts.push(`생성 이력: ${runsOut.message}`)
+          setRuns([])
+          setPersistenceEnabled(true)
+          setLastInsertAt(null)
         } else {
-          setAiRuntime(null)
+          setRuns(runsOut.data?.runs ?? [])
+          setPersistenceEnabled(runsOut.data?.persistenceEnabled !== false)
+          setLastInsertAt(runsOut.data?.lastInsertAt ?? null)
         }
+        if (!rtOut.ok) {
+          parts.push(`런타임: ${rtOut.message}`)
+          setAiRuntime(null)
+        } else {
+          setAiRuntime(rtOut.data ?? null)
+        }
+        setLoadError(parts.length ? parts.join(' · ') : null)
         setLastUpdatedAt(new Date().toISOString())
       })
       .finally(() => {
@@ -232,6 +246,15 @@ export default function AdminGenerationLogsPage() {
           {loading ? '불러오는 중…' : '목록 새로고침'}
         </button>
       </header>
+
+      {loadError ? (
+        <div
+          role="alert"
+          className="rounded-lg border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-950"
+        >
+          {loadError}
+        </div>
+      ) : null}
 
       {!persistenceEnabled && (
         <div className="rounded-lg border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-950">

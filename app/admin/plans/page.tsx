@@ -2,6 +2,8 @@
 
 import { useEffect, useState } from 'react'
 import Link from 'next/link'
+import { ErrorState, LoadingState } from '@/components/ui/AsyncState'
+import { adminJson } from '@/lib/admin-client'
 
 type Plan = {
   id: string
@@ -19,32 +21,35 @@ export default function AdminPlansPage() {
   const [error, setError] = useState<string | null>(null)
   const [saving, setSaving] = useState(false)
 
-  function load() {
-    fetch('/api/admin/plans')
-      .then((r) => r.json())
-      .then((res) => {
-        if (res?.ok && Array.isArray(res?.data)) setList(res.data)
-        else setError(res?.error?.message || '조회 실패')
-      })
-      .catch(() => setError('요청 실패'))
-      .finally(() => setLoading(false))
+  async function load() {
+    setLoading(true)
+    setError(null)
+    const out = await adminJson<Plan[]>('/api/admin/plans')
+    if (!out.ok) {
+      setList([])
+      setError(out.message)
+    } else {
+      setList(Array.isArray(out.data) ? out.data : [])
+    }
+    setLoading(false)
   }
 
-  useEffect(() => { load() }, [])
+  useEffect(() => {
+    void load()
+  }, [])
 
   async function save() {
     setSaving(true)
     try {
-      const res = await fetch('/api/admin/plans', {
+      const out = await adminJson<unknown>('/api/admin/plans', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(list),
       })
-      const data = await res.json().catch(() => ({}))
-      if (res.ok && data?.ok) {
-        load()
+      if (out.ok) {
+        await load()
       } else {
-        setError(data?.error?.message || '저장 실패')
+        setError(out.message)
       }
     } catch {
       setError('저장 요청 실패')
@@ -53,11 +58,16 @@ export default function AdminPlansPage() {
     }
   }
 
-  if (loading) return <p className="text-sm text-gray-500">로딩 중...</p>
-  if (error && list.length === 0) return <p className="text-sm text-red-600">{error}</p>
+  if (loading) return <LoadingState label="플랜 목록을 불러오는 중…" />
+  if (error && list.length === 0) return <ErrorState message={error} onRetry={() => void load()} />
 
   return (
     <div className="space-y-4">
+      {error && list.length > 0 ? (
+        <div role="alert" className="rounded-lg border border-red-200 bg-red-50 px-4 py-2 text-sm text-red-800">
+          {error}
+        </div>
+      ) : null}
       <div className="flex items-center justify-between">
         <h1 className="text-lg font-semibold text-gray-900">플랜 관리</h1>
         <div className="flex items-center gap-2">

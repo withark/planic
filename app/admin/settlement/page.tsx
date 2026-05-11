@@ -1,6 +1,8 @@
 'use client'
 
 import { useEffect, useState } from 'react'
+import { ErrorState, LoadingState } from '@/components/ui/AsyncState'
+import { adminJson } from '@/lib/admin-client'
 
 export default function AdminSettlementPage() {
   const [data, setData] = useState<{
@@ -10,19 +12,29 @@ export default function AdminSettlementPage() {
   } | null>(null)
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
+  async function load() {
+    setLoading(true)
+    setError(null)
+    const out = await adminJson<{
+      months: { month: string; gross: number; approved: number; canceled: number }[]
+      planShare: { plan: string; amount: number; count: number; pct: number }[]
+      note?: string
+    }>('/api/admin/settlement?months=6')
+    if (!out.ok) {
+      setData(null)
+      setError(out.message)
+    } else {
+      setData(out.data ?? null)
+    }
+    setLoading(false)
+  }
+
   useEffect(() => {
-    fetch('/api/admin/settlement?months=6')
-      .then((r) => r.json())
-      .then((res) => {
-        if (res?.ok) setData(res.data)
-        else setError(res?.error?.message || '정산 데이터를 불러오지 못했습니다.')
-      })
-      .catch(() => setError('정산 데이터를 불러오지 못했습니다.'))
-      .finally(() => setLoading(false))
+    void load()
   }, [])
 
-  if (loading) return <p className="text-sm text-gray-500">로딩 중...</p>
-  if (error) return <p className="text-sm text-red-600">{error}</p>
+  if (loading) return <LoadingState label="정산 데이터를 불러오는 중…" />
+  if (error) return <ErrorState message={error} onRetry={() => void load()} />
   if (!data) return <p className="text-sm text-slate-500">표시할 정산 데이터가 없습니다.</p>
 
   return (

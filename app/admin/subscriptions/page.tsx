@@ -4,6 +4,7 @@ import { useEffect, useState } from 'react'
 import Link from 'next/link'
 import { AdminCard, AdminSection } from '@/components/admin/AdminCard'
 import { ErrorState, LoadingState } from '@/components/ui/AsyncState'
+import { adminJson } from '@/lib/admin-client'
 
 type SubStats = {
   paidSubscribersActive?: number
@@ -50,18 +51,16 @@ export default function AdminSubscriptionsPage() {
   async function loadSubscriptions() {
     setLoading(true)
     setError(null)
-    try {
-      const r = await fetch('/api/admin/subscriptions')
-      const res = await r.json()
-      if (res?.ok && res?.data) {
-        setStats(res.data.stats ?? null)
-        setRows(Array.isArray(res.data.rows) ? res.data.rows : [])
-      } else setError(res?.error?.message || '조회 실패')
-    } catch {
-      setError('요청 실패')
-    } finally {
-      setLoading(false)
+    const out = await adminJson<{ stats?: SubStats; rows?: SubRow[] }>('/api/admin/subscriptions')
+    if (!out.ok) {
+      setStats(null)
+      setRows([])
+      setError(out.message)
+    } else {
+      setStats(out.data?.stats ?? null)
+      setRows(Array.isArray(out.data?.rows) ? out.data.rows : [])
     }
+    setLoading(false)
   }
 
   useEffect(() => {

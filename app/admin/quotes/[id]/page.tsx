@@ -3,6 +3,8 @@
 import { useEffect, useState } from 'react'
 import Link from 'next/link'
 import { useParams } from 'next/navigation'
+import { ErrorState, LoadingState } from '@/components/ui/AsyncState'
+import { adminJson } from '@/lib/admin-client'
 
 type HistoryRecord = {
   id: string
@@ -26,22 +28,32 @@ export default function AdminQuoteDetailPage() {
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
 
-  useEffect(() => {
+  async function load() {
     if (!id) return
-    fetch(`/api/admin/quotes/${id}`)
-      .then((r) => r.json())
-      .then((res) => {
-        if (res?.ok && res?.data) {
-          setQuote(res.data.quote)
-          setUserId(res.data.userId)
-        } else setError(res?.error?.message || '조회 실패')
-      })
-      .catch(() => setError('요청 실패'))
-      .finally(() => setLoading(false))
+    setLoading(true)
+    setError(null)
+    const out = await adminJson<{ quote: HistoryRecord; userId: string }>(`/api/admin/quotes/${id}`)
+    if (!out.ok) {
+      setQuote(null)
+      setUserId(null)
+      setError(out.message)
+    } else if (out.data?.quote) {
+      setQuote(out.data.quote)
+      setUserId(out.data.userId ?? null)
+    } else {
+      setQuote(null)
+      setUserId(null)
+      setError('견적 없음')
+    }
+    setLoading(false)
+  }
+
+  useEffect(() => {
+    void load()
   }, [id])
 
-  if (loading) return <p className="text-sm text-slate-500">로딩 중…</p>
-  if (error || !quote) return <p className="text-sm text-red-600">{error || '견적 없음'}</p>
+  if (loading) return <LoadingState label="견적을 불러오는 중…" />
+  if (error || !quote) return <ErrorState message={error || '견적 없음'} onRetry={() => void load()} />
 
   return (
     <div className="space-y-6">

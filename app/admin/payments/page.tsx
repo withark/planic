@@ -1,6 +1,9 @@
 'use client'
 
-import { useEffect, useState } from 'react'
+import { useCallback, useEffect, useState } from 'react'
+import Link from 'next/link'
+import { ErrorState, LoadingState } from '@/components/ui/AsyncState'
+import { adminJson } from '@/lib/admin-client'
 
 type Order = {
   id: string
@@ -25,30 +28,80 @@ type BillingStats = {
   recentCanceledOrders?: { orderId: string; userId: string; amount: number; updatedAt: string }[]
 }
 
+type PaymentsPayload = {
+  orders?: Order[]
+  webhookByOrder?: Record<string, { count: number; lastAt: string }>
+}
+
 export default function AdminPaymentsPage() {
   const [orders, setOrders] = useState<Order[]>([])
   const [webhookByOrder, setWebhookByOrder] = useState<Record<string, { count: number; lastAt: string }>>({})
   const [billing, setBilling] = useState<BillingStats | null>(null)
-  useEffect(() => {
-    fetch('/api/admin/payments')
-      .then((r) => r.json())
-      .then((res) => {
-        if (res?.ok) {
-          setOrders(res.data?.orders ?? [])
-          setWebhookByOrder(res.data?.webhookByOrder ?? {})
-        }
-      })
-    fetch('/api/admin/billing')
-      .then((r) => r.json())
-      .then((res) => {
-        if (res?.ok && res?.data) setBilling(res.data)
-      })
-      .catch(() => {})
+  const [loading, setLoading] = useState(true)
+  const [error, setError] = useState<string | null>(null)
+
+  const loadAll = useCallback(async () => {
+    setLoading(true)
+    setError(null)
+    const [payOut, billOut] = await Promise.all([
+      adminJson<PaymentsPayload>('/api/admin/payments'),
+      adminJson<BillingStats | null>('/api/admin/billing'),
+    ])
+    const parts: string[] = []
+    if (!payOut.ok) {
+      setOrders([])
+      setWebhookByOrder({})
+      parts.push(`주문 목록: ${payOut.message}`)
+    } else {
+      setOrders(payOut.data?.orders ?? [])
+      setWebhookByOrder(payOut.data?.webhookByOrder ?? {})
+    }
+    if (!billOut.ok) {
+      setBilling(null)
+      parts.push(`요약 지표: ${billOut.message}`)
+    } else {
+      setBilling(billOut.data ?? null)
+    }
+    setError(parts.length ? parts.join(' ') : null)
+    setLoading(false)
   }, [])
+
+  useEffect(() => {
+    void loadAll()
+  }, [loadAll])
+
+  if (loading) return <LoadingState label="결제·정산 데이터를 불러오는 중…" />
+  if (error && orders.length === 0 && !billing)
+    return <ErrorState message={error} onRetry={() => void loadAll()} />
 
   return (
     <div className="space-y-4">
-      <h1 className="text-lg font-bold text-gray-900">결제·정산</h1>
+      <div className="flex flex-wrap items-center justify-between gap-2">
+        <h1 className="text-lg font-bold text-gray-900">결제·정산</h1>
+        <div className="flex items-center gap-2">
+          <button
+            type="button"
+            onClick={() => void loadAll()}
+            disabled={loading}
+            className="rounded-lg border border-slate-200 bg-white px-3 py-1.5 text-sm font-medium text-slate-700 shadow-sm hover:bg-slate-50 disabled:opacity-50"
+          >
+            {loading ? '불러오는 중…' : '다시 불러오기'}
+          </button>
+          <Link href="/admin" className="text-sm text-primary-600 hover:text-primary-700">
+            ← 대시보드
+          </Link>
+        </div>
+      </div>
+
+      {error ? (
+        <div
+          role="status"
+          className="rounded-lg border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-950"
+        >
+          {error}
+        </div>
+      ) : null}
+
       {billing && (
         <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 text-sm">
           <div className="p-3 rounded border bg-white">
@@ -65,7 +118,9 @@ export default function AdminPaymentsPage() {
           </div>
           <div className="p-3 rounded border bg-white">
             <p className="text-xs text-gray-500">실패 최근</p>
-            <p className="font-mono text-[10px]">{(billing.recentFailures ?? []).slice(0, 2).map((f) => f.orderId).join(', ') || '—'}</p>
+            <p className="font-mono text-[10px]">
+              {(billing.recentFailures ?? []).slice(0, 2).map((f) => f.orderId).join(', ') || '—'}
+            </p>
           </div>
           <div className="p-3 rounded border bg-white">
             <p className="text-xs text-gray-500">30일 환불/취소 건</p>
@@ -120,36 +175,42 @@ export default function AdminPaymentsPage() {
             </tr>
           </thead>
           <tbody>
-            {orders.map((o) => {
-              const wh = webhookByOrder[o.orderId]
-              return (
-                <tr key={o.id} className="border-t">
-                  <td className="p-2 font-mono text-xs">{o.orderId}</td>
-                  <td className="p-2 font-mono text-xs">{o.userId.slice(0, 12)}…</td>
-                  <td className="p-2">
-                    {o.planType} / {o.billingCycle}
-                  </td>
-                  <td className="p-2 text-right tabular-nums">₩{o.amount.toLocaleString()}</td>
-                  <td className="p-2">
-                    <span
-                      className={
-                        o.status === 'approved'
-                          ? 'text-green-700'
-                          : o.status === 'pending'
-                            ? 'text-amber-700'
-                            : 'text-red-600'
-                      }
-                    >
-                      {o.status}
-                    </span>
-                  </td>
-                  <td className="p-2 text-xs whitespace-nowrap">{o.approvedAt || '—'}</td>
-                  <td className="p-2 text-xs">
-                    {wh ? `${wh.count}회 · ${wh.lastAt}` : '—'}
-                  </td>
-                </tr>
-              )
-            })}
+            {orders.length === 0 ? (
+              <tr>
+                <td colSpan={7} className="p-6 text-center text-gray-500">
+                  등록된 주문이 없거나 아직 불러오지 못했습니다.
+                </td>
+              </tr>
+            ) : (
+              orders.map((o) => {
+                const wh = webhookByOrder[o.orderId]
+                return (
+                  <tr key={o.id} className="border-t">
+                    <td className="p-2 font-mono text-xs">{o.orderId}</td>
+                    <td className="p-2 font-mono text-xs">{o.userId.slice(0, 12)}…</td>
+                    <td className="p-2">
+                      {o.planType} / {o.billingCycle}
+                    </td>
+                    <td className="p-2 text-right tabular-nums">₩{o.amount.toLocaleString()}</td>
+                    <td className="p-2">
+                      <span
+                        className={
+                          o.status === 'approved'
+                            ? 'text-green-700'
+                            : o.status === 'pending'
+                              ? 'text-amber-700'
+                              : 'text-red-600'
+                        }
+                      >
+                        {o.status}
+                      </span>
+                    </td>
+                    <td className="p-2 text-xs whitespace-nowrap">{o.approvedAt || '—'}</td>
+                    <td className="p-2 text-xs">{wh ? `${wh.count}회 · ${wh.lastAt}` : '—'}</td>
+                  </tr>
+                )
+              })
+            )}
           </tbody>
         </table>
       </div>

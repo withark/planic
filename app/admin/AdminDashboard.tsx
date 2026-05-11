@@ -4,6 +4,7 @@ import { useState, useEffect } from 'react'
 import Link from 'next/link'
 import { AdminCard, AdminSection } from '@/components/admin/AdminCard'
 import { ErrorState, LoadingState } from '@/components/ui/AsyncState'
+import { adminJson } from '@/lib/admin-client'
 
 const ADMIN_LINKS = [
   { href: '/admin/samples', label: '기준 양식 관리', desc: '참고 양식 등록·반영 방식' },
@@ -63,26 +64,14 @@ export function AdminDashboard() {
   async function loadStats() {
     setStatsLoading(true)
     setStatsError(null)
-    try {
-      const r = await fetch('/api/admin/stats')
-      const res = await r.json().catch(() => ({}))
-      if (r.status === 401) {
-        setStats(null)
-        setStatsError('세션이 만료되었거나 권한이 없습니다. 다시 로그인해 주세요.')
-        return
-      }
-      if (res?.ok && res?.data) {
-        setStats(res.data)
-      } else {
-        setStats(null)
-        setStatsError(res?.error?.message || res?.error || '통계를 불러오지 못했습니다.')
-      }
-    } catch {
+    const out = await adminJson<Stats>('/api/admin/stats')
+    if (!out.ok) {
       setStats(null)
-      setStatsError('통계 요청 중 오류가 발생했습니다.')
-    } finally {
-      setStatsLoading(false)
+      setStatsError(out.message)
+    } else {
+      setStats(out.data ?? null)
     }
+    setStatsLoading(false)
   }
 
   useEffect(() => {
