@@ -3,6 +3,7 @@
 import Link from 'next/link'
 import { usePathname } from 'next/navigation'
 import clsx from 'clsx'
+import { ADMIN_USER_APP_GNB_LINKS, adminUserAppGeneratorLinks } from '@/lib/admin-user-app-mirror'
 
 /** 운영 백오피스: 문서 생성 운영 / 비즈니스 운영 / 시스템 */
 export const ADMIN_NAV_GROUPS: {
@@ -14,9 +15,12 @@ export const ADMIN_NAV_GROUPS: {
     items: [{ href: '/admin', label: '대시보드', desc: '서비스 상태 요약' }],
   },
   {
+    label: '사용자 앱 (프론트 동일)',
+    items: [...ADMIN_USER_APP_GNB_LINKS, ...adminUserAppGeneratorLinks()],
+  },
+  {
     label: '문서 생성 운영',
     items: [
-      { href: '/admin/references-collect', label: '참고 수집', desc: '기준 양식 관리로 연결(레거시 경로)' },
       { href: '/admin/samples', label: '기준 양식 관리', desc: '참고 양식 등록·연결·반영 방식' },
       { href: '/admin/engines', label: '생성 규칙 설정', desc: '탭별 규칙·샘플 강도·출력 형식' },
       { href: '/admin/generation-logs', label: '생성 로그', desc: '샘플·엔진 반영 추적' },
@@ -70,10 +74,11 @@ export function AdminShell({ children }: { children: React.ReactNode }) {
                 {group.label}
               </p>
               <ul className="space-y-0.5">
-                {group.items.map(({ href, label }) => (
+                {group.items.map(({ href, label, desc }) => (
                   <li key={href}>
                     <Link
                       href={href}
+                      title={desc}
                       className={clsx(
                         'block px-2.5 py-1.5 rounded-md text-sm font-medium transition-colors',
                         isActive(href)

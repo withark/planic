@@ -5,6 +5,7 @@ import Link from 'next/link'
 import { AdminCard, AdminSection } from '@/components/admin/AdminCard'
 import { ErrorState, LoadingState } from '@/components/ui/AsyncState'
 import { adminJson } from '@/lib/admin-client'
+import { ADMIN_USER_APP_GNB_LINKS, adminUserAppGeneratorLinks } from '@/lib/admin-user-app-mirror'
 
 const ADMIN_LINKS = [
   { href: '/admin/samples', label: '기준 양식 관리', desc: '참고 양식 등록·반영 방식' },
@@ -306,6 +307,44 @@ export function AdminDashboard() {
             </button>
           </AdminSection>
         )}
+
+        {/* 사용자 앱과 동일한 기능(경로) */}
+        <AdminSection
+          title="사용자 앱과 동일한 메뉴"
+          description="GNB·문서 생성 허브와 같은 URL입니다. 사용자 계정으로 로그인한 브라우저에서 재현·검수할 때 사용하세요."
+        >
+          <p className="text-xs text-slate-500 mb-3">
+            관리자 쿠키와 사용자 세션은 별개입니다. 링크는 서비스 프론트와 동일합니다.
+          </p>
+          <p className="text-[11px] font-semibold uppercase tracking-wide text-slate-400 mb-2">GNB 메뉴</p>
+          <ul className="grid gap-2 sm:grid-cols-2 lg:grid-cols-3 mb-4">
+            {ADMIN_USER_APP_GNB_LINKS.map(({ href, label, desc }) => (
+              <li key={href}>
+                <Link
+                  href={href}
+                  className="block p-3 rounded-lg border border-slate-200 bg-white hover:border-primary-300 hover:bg-slate-50/50"
+                >
+                  <span className="font-medium text-gray-900">{label}</span>
+                  {desc ? <p className="text-xs text-slate-500 mt-0.5">{desc}</p> : null}
+                </Link>
+              </li>
+            ))}
+          </ul>
+          <p className="text-[11px] font-semibold uppercase tracking-wide text-slate-400 mb-2">문서 생성(허브 목록과 동일)</p>
+          <ul className="grid gap-2 sm:grid-cols-2 lg:grid-cols-3">
+            {adminUserAppGeneratorLinks().map(({ href, label, desc }) => (
+              <li key={href}>
+                <Link
+                  href={href}
+                  className="block p-3 rounded-lg border border-slate-200 bg-white hover:border-primary-300 hover:bg-slate-50/50"
+                >
+                  <span className="font-medium text-gray-900">{label}</span>
+                  {desc ? <p className="text-xs text-slate-500 mt-0.5 line-clamp-2">{desc}</p> : null}
+                </Link>
+              </li>
+            ))}
+          </ul>
+        </AdminSection>
 
         {/* 운영 바로가기 */}
         <AdminSection title="운영 바로가기" description="문서 품질·비즈니스·시스템">
