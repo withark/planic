@@ -1,11 +1,11 @@
 'use client'
 
-import { useEffect, useRef, useState } from 'react'
+import { useEffect, useRef, useState, useCallback } from 'react'
 import clsx from 'clsx'
 
 type Phase = 'paste' | 'wizard'
 
-type ChatMsg = { role: 'user' | 'assistant'; text: string }
+type ChatMsg = { id: number; role: 'user' | 'assistant'; text: string }
 
 export type MacroPasteBottomStep = { label: string; status: 'done' | 'active' | 'idle' }
 
@@ -64,6 +64,12 @@ export function MacroPasteGate({
   const [chatMessages, setChatMessages] = useState<ChatMsg[]>([])
   const scrollRef = useRef<HTMLDivElement>(null)
   const composerRef = useRef<HTMLTextAreaElement>(null)
+  const msgIdRef = useRef(0)
+
+  const nextMsgId = useCallback(() => {
+    msgIdRef.current += 1
+    return msgIdRef.current
+  }, [])
 
   const defaultWelcome =
     chatWelcome ??
@@ -86,8 +92,8 @@ export function MacroPasteGate({
 
   useEffect(() => {
     if (layout !== 'chat' || phase !== 'paste') return
-    setChatMessages((prev) => (prev.length > 0 ? prev : [{ role: 'assistant', text: defaultWelcome }]))
-  }, [layout, phase, defaultWelcome])
+    setChatMessages((prev) => (prev.length > 0 ? prev : [{ id: nextMsgId(), role: 'assistant', text: defaultWelcome }]))
+  }, [layout, phase, defaultWelcome, nextMsgId])
 
   /** 건너뛰기 재방문 시 빈 채팅 방지 — 목업처럼 좌열 항상 유지 */
   useEffect(() => {
@@ -100,6 +106,7 @@ export function MacroPasteGate({
           ? prev
           : [
               {
+                id: nextMsgId(),
                 role: 'assistant',
                 text: '건너뛰기로 마법사만 열었어요. 필요하면 아래 입력란에 추가 요청을 적어 주세요.',
               },
@@ -108,7 +115,7 @@ export function MacroPasteGate({
     } catch {
       /* ignore */
     }
-  }, [skipStorageKey, layout, chatPanelStyle])
+  }, [skipStorageKey, layout, chatPanelStyle, nextMsgId])
 
   useEffect(() => {
     if (layout !== 'chat') return
@@ -131,8 +138,9 @@ export function MacroPasteGate({
     if (layout === 'chat') {
       setChatMessages((prev) => [
         ...prev,
-        { role: 'user', text: t },
+        { id: nextMsgId(), role: 'user', text: t },
         {
+          id: nextMsgId(),
           role: 'assistant',
           text: '반영했습니다. 아래에서 상호·일정·금액을 확인한 뒤 생성해 주세요.',
         },
@@ -149,8 +157,8 @@ export function MacroPasteGate({
     if (!t) return
     setChatMessages((prev) => [
       ...prev,
-      { role: 'user', text: t },
-      { role: 'assistant', text: defaultFollowUpReply },
+      { id: nextMsgId(), role: 'user', text: t },
+      { id: nextMsgId(), role: 'assistant', text: defaultFollowUpReply },
     ])
     onFollowUpSend?.(t)
     setDraft('')
@@ -165,7 +173,7 @@ export function MacroPasteGate({
       setChatMessages((prev) =>
         prev.length > 0
           ? prev
-          : [{ role: 'assistant', text: '단계별 입력으로 진행할게요. 필요하면 아래 입력란에 추가 요청을 적을 수 있어요.' }],
+          : [{ id: nextMsgId(), role: 'assistant', text: '단계별 입력으로 진행할게요. 필요하면 아래 입력란에 추가 요청을 적을 수 있어요.' }],
       )
     }
   }
@@ -230,9 +238,9 @@ export function MacroPasteGate({
                 'bg-slate-50/60',
               )}
             >
-              {chatMessages.map((m, i) => (
+              {chatMessages.map((m) => (
                 <div
-                  key={`${m.role}-${i}`}
+                  key={m.id}
                   className={clsx('flex', m.role === 'user' ? 'justify-end' : 'justify-start')}
                 >
                   <div
@@ -391,9 +399,9 @@ export function MacroPasteGate({
                 'min-h-0 flex-1 space-y-3 overflow-y-auto bg-slate-50/40 px-3 py-3 sm:px-4',
               )}
             >
-              {chatMessages.map((m, i) => (
+              {chatMessages.map((m) => (
                 <div
-                  key={`${m.role}-${i}`}
+                  key={m.id}
                   className={clsx('flex', m.role === 'user' ? 'justify-end' : 'justify-start')}
                 >
                   <div

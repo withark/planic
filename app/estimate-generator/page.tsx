@@ -1,7 +1,7 @@
 'use client'
 
 import Link from 'next/link'
-import { Suspense, useCallback, useEffect, useMemo, useRef, useState, useSyncExternalStore } from 'react'
+import { Suspense, useCallback, useEffect, useMemo, useRef, useState, useSyncExternalStore, type KeyboardEvent } from 'react'
 import { useSearchParams } from 'next/navigation'
 import { GNB } from '@/components/GNB'
 import QuoteResult from '@/components/quote/QuoteResult'
@@ -90,6 +90,30 @@ function EstimateGeneratorContent() {
   const searchParams = useSearchParams()
   const [toast, setToast] = useState<string | null>(null)
   const toastTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
+
+  const isMountedRef = useRef(true)
+  const genSessionRef = useRef(0)
+  const generateAbortRef = useRef<AbortController | null>(null)
+  const estimateBadLinkWarnedRef = useRef(false)
+  const pdfExportingRef = useRef(false)
+
+  useEffect(() => {
+    isMountedRef.current = true
+    return () => {
+      isMountedRef.current = false
+      genSessionRef.current += 1
+      generateAbortRef.current?.abort()
+    }
+  }, [])
+
+  const dismissToast = useCallback(() => {
+    if (toastTimerRef.current) {
+      clearTimeout(toastTimerRef.current)
+      toastTimerRef.current = null
+    }
+    setToast(null)
+  }, [])
+
   const showToast = useCallback((m: string) => {
     setToast(m)
     if (toastTimerRef.current) clearTimeout(toastTimerRef.current)
@@ -97,6 +121,20 @@ function EstimateGeneratorContent() {
       setToast(null)
       toastTimerRef.current = null
     }, 3000)
+  }, [])
+
+  const refetchMe = useCallback(() => {
+    setMeLoadError(null)
+    apiFetch<MeLite>('/api/me')
+      .then((data) => {
+        if (!isMountedRef.current) return
+        setMe(data)
+        setMeLoadError(null)
+      })
+      .catch((e) => {
+        if (!isMountedRef.current) return
+        setMeLoadError(toUserMessage(e, '내 정보를 불러오지 못했습니다.'))
+      })
   }, [])
 
   useEffect(
@@ -107,6 +145,7 @@ function EstimateGeneratorContent() {
   )
 
   const [me, setMe] = useState<MeLite | null>(null)
+  const [meLoadError, setMeLoadError] = useState<string | null>(null)
   const [companySettings, setCompanySettings] = useState<CompanySettings | null>(null)
   const [prices, setPrices] = useState<PriceCategory[]>([])
 
@@ -234,10 +273,10 @@ function EstimateGeneratorContent() {
   }, [modes, me?.subscription?.planType])
 
   useEffect(() => {
-    apiFetch<MeLite>('/api/me').then(setMe).catch(() => {})
+    refetchMe()
     apiFetch<CompanySettings>('/api/settings').then(setCompanySettings).catch(() => {})
     apiFetch<PriceCategory[]>('/api/prices').then(setPrices).catch(() => setPrices([]))
-  }, [])
+  }, [refetchMe])
 
   useEffect(() => {
     if (!isNarrowViewport) setMobileSheet('chat')
@@ -360,17 +399,31 @@ function EstimateGeneratorContent() {
 
   useEffect(() => {
     const q = searchParams.get('estimate')
-    if (!q || historyList.length === 0) return
+    if (!q) return
+    if (historyList.length === 0) return
+
     const found = historyList.some((h) => h.id === q)
-    if (!found) return
-    setSourceMode('fromEstimate')
-    setSelectedEstimateId(q)
+    if (found) {
+      setSourceMode('fromEstimate')
+      setSelectedEstimateId(q)
+      try {
+        window.history.replaceState({}, '', '/estimate-generator')
+      } catch {
+        /* ignore */
+      }
+      return
+    }
+
     try {
       window.history.replaceState({}, '', '/estimate-generator')
     } catch {
       /* ignore */
     }
-  }, [searchParams, historyList])
+    if (!estimateBadLinkWarnedRef.current) {
+      estimateBadLinkWarnedRef.current = true
+      showToast('링크에 적힌 문서를 목록에서 찾지 못했어요. 작업 이력에서 확인해 주세요.')
+    }
+  }, [searchParams, historyList, showToast])
 
   useEffect(() => {
     setDoc(null)
@@ -614,19 +667,27 @@ function EstimateGeneratorContent() {
       return
     }
 
+    const session = ++genSessionRef.current
+    generateAbortRef.current?.abort()
+    const ac = new AbortController()
+    generateAbortRef.current = ac
+
     setGenerating(true)
     setGenerationStageLog(['요청을 서버로 보내는 중…'])
     setGenerationProgressLabel('입력 확인 중')
     try {
       const data = await apiGenerateStream(body, {
+        signal: ac.signal,
         onStage: ({ label }) => {
+          if (!isMountedRef.current || genSessionRef.current !== session) return
           setGenerationProgressLabel(label)
           setGenerationStageLog((prev) => (prev[prev.length - 1] === label ? prev : [...prev, label]))
         },
       })
+      if (!isMountedRef.current || genSessionRef.current !== session) return
       setDoc(data.doc)
       setGeneratedDocId(data.id)
-      if (typeof window !== 'undefined' && window.matchMedia(ESTIMATE_NARROW_MQ).matches) {
+      if (isNarrowViewport) {
         setMobileSheet('preview')
       }
       if (data.doc.quoteTemplate === 'fixed-v2' && priceItemCount > 0) {
@@ -637,13 +698,18 @@ function EstimateGeneratorContent() {
         showToast('행사 제안서 생성 완료!')
       }
     } catch (e) {
+      if (e instanceof DOMException && e.name === 'AbortError') return
+      if (!isMountedRef.current || genSessionRef.current !== session) return
       showToast(toUserMessage(e, '행사 제안서 생성에 실패했습니다.'))
     } finally {
-      setGenerating(false)
-      setGenerationProgressLabel(null)
-      setGenerationStageLog([])
+      if (generateAbortRef.current === ac) generateAbortRef.current = null
+      if (isMountedRef.current && genSessionRef.current === session) {
+        setGenerating(false)
+        setGenerationProgressLabel(null)
+        setGenerationStageLog([])
+      }
     }
-  }, [requestBodyForEstimate, showToast, sourceMode, priceItemCount])
+  }, [requestBodyForEstimate, showToast, sourceMode, priceItemCount, isNarrowViewport])
 
   const handleSaveDoc = useCallback(
     async (nextDoc: QuoteDoc) => {
@@ -665,15 +731,17 @@ function EstimateGeneratorContent() {
         setHistoryList([...updatedHistory].reverse().slice(0, 20))
         showToast('저장이 완료되었습니다.')
       } catch (e) {
+        if (!isMountedRef.current) return
         showToast(toUserMessage(e, '저장에 실패했습니다.'))
       } finally {
-        setSaving(false)
+        if (isMountedRef.current) setSaving(false)
       }
     },
     [generatedDocId, showToast],
   )
 
   const handleProposalDownload = useCallback(async () => {
+    if (proposalGenerating) return
     const proposalSource = doc ?? selectedHistoryDoc
     if (!proposalSource) {
       showToast('제안서로 내보낼 문서 정보가 없습니다.')
@@ -704,15 +772,19 @@ function EstimateGeneratorContent() {
         notes: noteText,
       })
 
+      if (!isMountedRef.current) return
+
       const filename = `제안서_${(proposalSource.clientName || clientName || '고객').trim()}_${(proposalSource.eventDate || requestBody?.eventDate || '미정').trim()}.docx`
       saveAs(blob, filename)
       showToast('제안서 다운로드를 시작했습니다.')
     } catch (e) {
+      if (!isMountedRef.current) return
       showToast(toUserMessage(e, '제안서 생성에 실패했습니다.'))
     } finally {
-      setProposalGenerating(false)
+      if (isMountedRef.current) setProposalGenerating(false)
     }
   }, [
+    proposalGenerating,
     budget,
     clientName,
     clientTel,
@@ -830,7 +902,8 @@ function EstimateGeneratorContent() {
   }, [generating, doc, generatedDocId, generateDisabled, pasteFlowCommitted])
 
   const exportEstimatePdf = useCallback(async () => {
-    if (!doc || pdfExporting) return
+    if (!doc || pdfExportingRef.current) return
+    pdfExportingRef.current = true
     setPdfExporting(true)
     try {
       await exportToPdf(doc, companySettings ?? undefined)
@@ -838,16 +911,17 @@ function EstimateGeneratorContent() {
     } catch (e) {
       showToast(toUserMessage(e, '저장 실패'))
     } finally {
+      pdfExportingRef.current = false
       setPdfExporting(false)
     }
-  }, [doc, companySettings, showToast, pdfExporting])
+  }, [doc, companySettings, showToast])
 
   const scrollPreviewPanelTop = useCallback(() => {
     document.getElementById('estimate-preview-scroll')?.scrollTo({ top: 0, behavior: 'smooth' })
-    if (typeof window !== 'undefined' && window.matchMedia(ESTIMATE_NARROW_MQ).matches) {
+    if (isNarrowViewport) {
       setMobileSheet('preview')
     }
-  }, [])
+  }, [isNarrowViewport])
 
   const focusEstimateTable = useCallback(() => {
     const root = document.getElementById('estimate-result-body')
@@ -1164,6 +1238,57 @@ function EstimateGeneratorContent() {
     return calcTotals(doc)
   }, [doc])
 
+  const emptyStateInputLead = useMemo(() => {
+    if (!isNarrowViewport) return '왼쪽에서'
+    if (mobileSheet === 'preview') return '「입력·채팅」 탭에서'
+    return '아래 입력란에서'
+  }, [isNarrowViewport, mobileSheet])
+
+  const toastRegenerateLocation = useMemo(
+    () => (isNarrowViewport ? '「입력·채팅」 탭에서' : '왼쪽에서'),
+    [isNarrowViewport],
+  )
+
+  const followUpRegenerateWhere = useMemo(
+    () =>
+      isNarrowViewport
+        ? '「입력·채팅」 탭의 「행사 제안서 생성하기」'
+        : '왼쪽의 「행사 제안서 생성하기」',
+    [isNarrowViewport],
+  )
+
+  useEffect(() => {
+    if (!isNarrowViewport || mobileSheet !== 'preview') return
+    const id = requestAnimationFrame(() => {
+      document.getElementById('estimate-preview-heading')?.focus()
+    })
+    return () => cancelAnimationFrame(id)
+  }, [mobileSheet, isNarrowViewport])
+
+  const onEstimateMobileTabKeyDown = useCallback(
+    (e: KeyboardEvent<HTMLDivElement>) => {
+      if (!isNarrowViewport) return
+      if (e.key === 'ArrowRight' || e.key === 'ArrowDown') {
+        e.preventDefault()
+        setMobileSheet('preview')
+        requestAnimationFrame(() => document.getElementById('estimate-tab-preview')?.focus())
+      } else if (e.key === 'ArrowLeft' || e.key === 'ArrowUp') {
+        e.preventDefault()
+        setMobileSheet('chat')
+        requestAnimationFrame(() => document.getElementById('estimate-tab-chat')?.focus())
+      } else if (e.key === 'Home') {
+        e.preventDefault()
+        setMobileSheet('chat')
+        requestAnimationFrame(() => document.getElementById('estimate-tab-chat')?.focus())
+      } else if (e.key === 'End') {
+        e.preventDefault()
+        setMobileSheet('preview')
+        requestAnimationFrame(() => document.getElementById('estimate-tab-preview')?.focus())
+      }
+    },
+    [isNarrowViewport],
+  )
+
   return (
     <div className="flex h-screen overflow-hidden bg-gray-50/50">
       <GNB />
@@ -1175,6 +1300,24 @@ function EstimateGeneratorContent() {
           </p>
         </header>
 
+        {meLoadError ? (
+          <div
+            role="alert"
+            className="flex shrink-0 items-center justify-between gap-2 border-b border-amber-200 bg-amber-50 px-4 py-2 text-xs text-amber-950"
+          >
+            <p className="min-w-0 leading-snug">
+              {meLoadError} — 플랜·사용량 표시가 지연될 수 있어요.
+            </p>
+            <button
+              type="button"
+              onClick={() => void refetchMe()}
+              className="shrink-0 rounded-md border border-amber-300 bg-white px-2.5 py-1 text-[11px] font-semibold text-amber-900 hover:bg-amber-100"
+            >
+              다시 시도
+            </button>
+          </div>
+        ) : null}
+
         {/* md부터 좌 340px 고정 — lg(1024)만 쓰면 창이 좁을 때 좌열이 전체 너비로 보임 */}
         {/* md 미만: 한 화면에 입력 또는 미리보기 */}
         {isNarrowViewport ? (
@@ -1182,6 +1325,7 @@ function EstimateGeneratorContent() {
             className="flex shrink-0 gap-1 border-b border-slate-200 bg-white px-2 py-1.5 md:hidden"
             role="tablist"
             aria-label="입력과 미리보기 전환"
+            onKeyDown={onEstimateMobileTabKeyDown}
           >
             <button
               type="button"
@@ -1189,6 +1333,7 @@ function EstimateGeneratorContent() {
               id="estimate-tab-chat"
               aria-controls="estimate-panel-chat"
               aria-selected={mobileSheet === 'chat'}
+              tabIndex={mobileSheet === 'chat' ? 0 : -1}
               onClick={() => setMobileSheet('chat')}
               className={`min-h-9 flex-1 rounded-lg px-2 text-xs font-semibold ${
                 mobileSheet === 'chat' ? 'bg-primary-600 text-white' : 'bg-slate-100 text-slate-700'
@@ -1202,6 +1347,7 @@ function EstimateGeneratorContent() {
               id="estimate-tab-preview"
               aria-controls="estimate-panel-preview"
               aria-selected={mobileSheet === 'preview'}
+              tabIndex={mobileSheet === 'preview' ? 0 : -1}
               onClick={() => setMobileSheet('preview')}
               className={`min-h-9 flex-1 rounded-lg px-2 text-xs font-semibold ${
                 mobileSheet === 'preview' ? 'bg-primary-600 text-white' : 'bg-slate-100 text-slate-700'
@@ -1243,16 +1389,16 @@ function EstimateGeneratorContent() {
                   if (!t) return
                   if (sourceMode === 'fromPrompt') {
                     setVendorBrief((v) => (v.trim() ? `${v.trim()}\n${t}` : t))
-                    showToast('업체 원문에 이어 붙였어요. 표에 반영하려면 다시 생성해 주세요.')
+                    showToast(`업체 원문에 이어 붙였어요. 표에 반영하려면 ${toastRegenerateLocation} 다시 생성해 주세요.`)
                   } else {
                     setNotes((n) => (n.trim() ? `${n.trim()}\n${t}` : t))
-                    showToast('추가 요청을 메모에 넣었어요. 표에 반영하려면 왼쪽에서 다시 생성해 주세요.')
+                    showToast(`추가 요청을 메모에 넣었어요. 표에 반영하려면 ${toastRegenerateLocation} 다시 생성해 주세요.`)
                   }
                 }}
                 followUpAssistantReply={
                   sourceMode === 'fromPrompt'
-                    ? '업체 원문에 이어 붙였어요. 표를 바꾸려면 「행사 제안서 생성하기」로 다시 생성해야 해요.'
-                    : '메모에 반영했어요. AI가 표를 바꾸려면 왼쪽의 「행사 제안서 생성하기」로 다시 생성해야 해요.'
+                    ? `업체 원문에 이어 붙였어요. 표를 바꾸려면 ${followUpRegenerateWhere}로 다시 생성해야 해요.`
+                    : `메모에 반영했어요. AI가 표를 바꾸려면 ${followUpRegenerateWhere}로 다시 생성해야 해요.`
                 }
                 title="행사 제안서"
                 description="카톡처럼 말하면 초안이 만들어져요."
@@ -1362,7 +1508,13 @@ function EstimateGeneratorContent() {
             className="flex min-h-0 min-w-0 flex-1 flex-col overflow-hidden bg-slate-50"
           >
               <div className="flex flex-shrink-0 flex-wrap items-center gap-2 border-b border-slate-200 bg-white px-4 py-2.5">
-              <h2 className="min-w-0 flex-1 text-[13px] font-medium text-slate-900">행사 제안서 미리보기</h2>
+              <h2
+                id="estimate-preview-heading"
+                tabIndex={-1}
+                className="min-w-0 flex-1 rounded-sm text-[13px] font-medium text-slate-900 outline-none focus-visible:ring-2 focus-visible:ring-primary-400 focus-visible:ring-offset-2"
+              >
+                행사 제안서 미리보기
+              </h2>
               {doc && generatedDocId ? (
                 <span className="rounded-full border border-emerald-200 bg-emerald-50 px-2 py-0.5 text-[10.5px] font-medium text-emerald-800">
                   확인됨
@@ -1521,7 +1673,7 @@ function EstimateGeneratorContent() {
                     <div className="flex flex-1 flex-col justify-center gap-3">
                       <div className="bubble-tip relative rounded-2xl border border-primary-100 bg-gradient-to-br from-primary-50/90 to-white px-4 py-3 text-sm leading-relaxed text-slate-800 shadow-sm">
                         <span className="absolute -left-1 top-4 h-3 w-3 rotate-45 border-l border-b border-primary-100 bg-primary-50/90" aria-hidden />
-                        왼쪽에서{' '}
+                        {emptyStateInputLead}{' '}
                         <strong className="text-primary-800">
                           {sourceMode === 'fromPrompt' ? '업체 원문·예산' : '주제·예산'}
                         </strong>
@@ -1583,7 +1735,7 @@ function EstimateGeneratorContent() {
         </div>
       </div>
 
-      {toast && <Toast message={toast} onClose={() => setToast('')} />}
+      {toast && <Toast message={toast} onClose={dismissToast} />}
     </div>
   )
 }

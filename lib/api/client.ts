@@ -81,22 +81,35 @@ export type GenerateStreamCallbacks = {
   onStage?: (info: { stage: string; label: string }) => void
 }
 
+export type GenerateStreamOptions = GenerateStreamCallbacks & {
+  /** 페이지 이탈·재요청 시 fetch·스트림 읽기 중단 */
+  signal?: AbortSignal
+}
+
 /**
  * POST /api/generate + `streamProgress: true` — NDJSON으로 단계 이벤트 후 최종 문서 수신.
  * 일반 JSON(`ok` 봉투)과 달리 스트림 본문을 직접 파싱합니다.
  */
 export async function apiGenerateStream(
   body: object,
-  callbacks?: GenerateStreamCallbacks,
+  options?: GenerateStreamOptions,
 ): Promise<{ doc: QuoteDoc; totals: Record<string, number>; id: string }> {
-  const postGenerate = async (streamProgress: boolean) =>
-    fetch('/api/generate', {
+  const signal = options?.signal
+  const onStage = options?.onStage
+
+  const postGenerate = async (streamProgress: boolean) => {
+    if (signal?.aborted) {
+      throw new DOMException('Aborted', 'AbortError')
+    }
+    return fetch('/api/generate', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       credentials: 'include',
       cache: 'no-store',
+      signal,
       body: JSON.stringify({ ...body, streamProgress }),
     })
+  }
 
   const parseJsonGenerateResponse = async (res: Response) => {
     const payload = await parseResponsePayload(res)
@@ -141,6 +154,7 @@ export async function apiGenerateStream(
   try {
     res = await postGenerate(true)
   } catch (e) {
+    if (signal?.aborted || (e instanceof DOMException && e.name === 'AbortError')) throw e
     // 일부 환경에서 NDJSON 스트림 연결이 차단될 수 있어 일반 JSON 요청으로 1회 폴백
     if (e instanceof TypeError || isTimeoutLike(e)) return runFallbackJson()
     throw e
@@ -160,6 +174,14 @@ export async function apiGenerateStream(
   let buffer = ''
   try {
     while (true) {
+      if (signal?.aborted) {
+        try {
+          await reader.cancel()
+        } catch {
+          /* ignore */
+        }
+        throw new DOMException('Aborted', 'AbortError')
+      }
       const { done, value } = await reader.read()
       if (done) break
       buffer += decoder.decode(value, { stream: true })
@@ -176,7 +198,7 @@ export async function apiGenerateStream(
         }
         if (obj.type === 'stage' && typeof obj.stage === 'string') {
           const label = mapGenerationStageToKorean(obj.stage)
-          callbacks?.onStage?.({ stage: obj.stage, label })
+          onStage?.({ stage: obj.stage, label })
         }
         if (obj.type === 'error') {
           const status = typeof obj.status === 'number' ? obj.status : 500
@@ -193,12 +215,14 @@ export async function apiGenerateStream(
       }
     }
   } catch (e) {
+    if (signal?.aborted || (e instanceof DOMException && e.name === 'AbortError')) throw e
     // 스트림 파싱/연결 문제 시 1회 JSON 폴백
     if (e instanceof TypeError || isTimeoutLike(e)) return runFallbackJson()
     throw e
   }
 
-  return runFallbackJson().catch(() => {
+  return runFallbackJson().catch((e) => {
+    if (e instanceof DOMException && e.name === 'AbortError') throw e
     throw new ApiError(
       '생성 응답이 끝나기 전에 연결이 끊겼습니다. 네트워크·VPN을 확인하거나 잠시 후 다시 시도해 주세요.',
       500,
