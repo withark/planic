@@ -12,6 +12,7 @@ import type { CompanySettings, PriceCategory, QuoteDoc } from '@/lib/types'
 import { apiFetch, apiGenerateStream } from '@/lib/api/client'
 import { toUserMessage } from '@/lib/errors/toUserMessage'
 import { useStreamGenerationGuard } from '@/lib/hooks/useStreamGenerationGuard'
+import { warnDevFetchFailure } from '@/lib/log-dev-fetch-failure'
 import { exportToExcel } from '@/lib/exportExcel'
 import { exportToPdf, pdfKindFromQuoteTab } from '@/lib/exportPdf'
 import type { PlanType } from '@/lib/plans'
@@ -104,7 +105,9 @@ export default function EmceeScriptGeneratorPage() {
 
   useEffect(() => {
     refetchMe()
-    apiFetch<CompanySettings>('/api/settings').then(setCompanySettings).catch(() => {})
+    apiFetch<CompanySettings>('/api/settings')
+      .then(setCompanySettings)
+      .catch((e) => warnDevFetchFailure('GET /api/settings (emcee-script-generator)', e))
     apiFetch<PriceCategory[]>('/api/prices').then(setPrices).catch(() => setPrices([]))
   }, [refetchMe])
 

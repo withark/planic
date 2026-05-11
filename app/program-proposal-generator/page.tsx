@@ -12,6 +12,7 @@ import type { CompanySettings, HistoryRecord, PriceCategory, QuoteDoc, TaskOrder
 import { apiFetch, apiGenerateStream } from '@/lib/api/client'
 import { toUserMessage } from '@/lib/errors/toUserMessage'
 import { useStreamGenerationGuard } from '@/lib/hooks/useStreamGenerationGuard'
+import { warnDevFetchFailure } from '@/lib/log-dev-fetch-failure'
 import { exportToExcel } from '@/lib/exportExcel'
 import { exportToPdf, pdfKindFromQuoteTab } from '@/lib/exportPdf'
 import type { PlanType } from '@/lib/plans'
@@ -103,7 +104,9 @@ export default function ProgramProposalGeneratorPage() {
 
   const fetchInit = useCallback(async () => {
     refetchMe()
-    apiFetch<CompanySettings>('/api/settings').then(setCompanySettings).catch(() => {})
+    apiFetch<CompanySettings>('/api/settings')
+      .then(setCompanySettings)
+      .catch((e) => warnDevFetchFailure('GET /api/settings (program-proposal-generator)', e))
     apiFetch<PriceCategory[]>('/api/prices').then(setPrices).catch(() => setPrices([]))
     apiFetch<HistoryRecord[]>('/api/history').then(d => setHistoryList([...d].reverse())).catch(() => setHistoryList([]))
     apiFetch<TaskOrderDoc[]>('/api/task-order-references').then(setTaskOrderRefs).catch(() => setTaskOrderRefs([]))

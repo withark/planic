@@ -24,6 +24,7 @@ import { calcTotals, normalizeQuoteUnitPricesToThousand } from '@/lib/calc'
 import { saveAs } from 'file-saver'
 import { generateProposal } from '@/src/lib/generateProposal'
 import { useStreamGenerationGuard } from '@/lib/hooks/useStreamGenerationGuard'
+import { warnDevFetchFailure } from '@/lib/log-dev-fetch-failure'
 
 type MeLite = {
   user?: { id?: string | null; email?: string | null } | null
@@ -94,6 +95,7 @@ function EstimateGeneratorContent() {
   const { isMountedRef, startSession, clearAbortIfCurrent, stillCurrent } = useStreamGenerationGuard()
   const estimateBadLinkWarnedRef = useRef(false)
   const pdfExportingRef = useRef(false)
+  const proposalAbortRef = useRef<AbortController | null>(null)
 
   const dismissToast = useCallback(() => {
     if (toastTimerRef.current) {
@@ -129,6 +131,8 @@ function EstimateGeneratorContent() {
   useEffect(
     () => () => {
       if (toastTimerRef.current) clearTimeout(toastTimerRef.current)
+      proposalAbortRef.current?.abort()
+      proposalAbortRef.current = null
     },
     [],
   )
@@ -263,7 +267,9 @@ function EstimateGeneratorContent() {
 
   useEffect(() => {
     refetchMe()
-    apiFetch<CompanySettings>('/api/settings').then(setCompanySettings).catch(() => {})
+    apiFetch<CompanySettings>('/api/settings')
+      .then(setCompanySettings)
+      .catch((e) => warnDevFetchFailure('GET /api/settings (estimate-generator)', e))
     apiFetch<PriceCategory[]>('/api/prices').then(setPrices).catch(() => setPrices([]))
   }, [refetchMe])
 
@@ -735,6 +741,9 @@ function EstimateGeneratorContent() {
     }
 
     setProposalGenerating(true)
+    proposalAbortRef.current?.abort()
+    const ac = new AbortController()
+    proposalAbortRef.current = ac
     try {
       const requestBody = requestBodyForEstimate()
       const requirementsText =
@@ -744,19 +753,22 @@ function EstimateGeneratorContent() {
       const followUpText = notes.trim()
       const noteText = proposalSource.notes?.trim() || ''
 
-      const blob = await generateProposal({
-        clientName: proposalSource.clientName || clientName.trim(),
-        contact: proposalSource.clientTel || clientTel.trim(),
-        eventName: proposalSource.eventName || topic.trim(),
-        eventDate: proposalSource.eventDate || (requestBody?.eventDate ?? ''),
-        eventPlace: proposalSource.venue || venue.trim(),
-        headcount: proposalSource.headcount || headcount.trim(),
-        budget: requestBody?.budget || budget,
-        eventType: proposalSource.eventType || eventType.trim(),
-        requirements: requirementsText,
-        followUp: followUpText,
-        notes: noteText,
-      })
+      const blob = await generateProposal(
+        {
+          clientName: proposalSource.clientName || clientName.trim(),
+          contact: proposalSource.clientTel || clientTel.trim(),
+          eventName: proposalSource.eventName || topic.trim(),
+          eventDate: proposalSource.eventDate || (requestBody?.eventDate ?? ''),
+          eventPlace: proposalSource.venue || venue.trim(),
+          headcount: proposalSource.headcount || headcount.trim(),
+          budget: requestBody?.budget || budget,
+          eventType: proposalSource.eventType || eventType.trim(),
+          requirements: requirementsText,
+          followUp: followUpText,
+          notes: noteText,
+        },
+        { signal: ac.signal },
+      )
 
       if (!isMountedRef.current) return
 
@@ -765,8 +777,12 @@ function EstimateGeneratorContent() {
       showToast('제안서 다운로드를 시작했습니다.')
     } catch (e) {
       if (!isMountedRef.current) return
+      if (e instanceof Error && e.name === 'AbortError') return
       showToast(toUserMessage(e, '제안서 생성에 실패했습니다.'))
     } finally {
+      if (proposalAbortRef.current === ac) {
+        proposalAbortRef.current = null
+      }
       if (isMountedRef.current) setProposalGenerating(false)
     }
   }, [

@@ -88,7 +88,16 @@ function formatWon(value) {
   return Number(value || 0).toLocaleString('ko-KR')
 }
 
-export async function generateProposal(data) {
+export async function generateProposal(data, options = {}) {
+  const { signal } = options
+  const throwIfAborted = () => {
+    if (signal?.aborted) {
+      throw new DOMException('The operation was aborted.', 'AbortError')
+    }
+  }
+
+  throwIfAborted()
+
   const safeData = {
     clientName: data?.clientName?.trim() || '–',
     contact: data?.contact?.trim() || '–',
@@ -500,5 +509,8 @@ export async function generateProposal(data) {
     },
   })
 
-  return Packer.toBlob(doc)
+  throwIfAborted()
+  const blob = await Packer.toBlob(doc)
+  throwIfAborted()
+  return blob
 }

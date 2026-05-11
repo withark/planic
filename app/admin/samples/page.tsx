@@ -2,6 +2,8 @@
 
 import { useEffect, useState } from 'react'
 import Link from 'next/link'
+import { LoadingState, ErrorState } from '@/components/ui/AsyncState'
+import { adminJson } from '@/lib/admin-client'
 
 type Sample = {
   id: string
@@ -34,20 +36,25 @@ const DOCUMENT_TYPES = [
 export default function AdminSamplesPage() {
   const [samples, setSamples] = useState<Sample[]>([])
   const [loading, setLoading] = useState(true)
+  const [loadError, setLoadError] = useState<string | null>(null)
   const [parsingId, setParsingId] = useState<string | null>(null)
   const [refUploading, setRefUploading] = useState(false)
 
-  function load() {
-    fetch('/api/admin/samples')
-      .then((r) => r.json())
-      .then((res) => {
-        if (res?.ok) setSamples(res.data?.samples ?? [])
-      })
-      .finally(() => setLoading(false))
+  async function load() {
+    setLoading(true)
+    setLoadError(null)
+    const out = await adminJson<{ samples?: Sample[] }>('/api/admin/samples')
+    if (!out.ok) {
+      setSamples([])
+      setLoadError(out.message)
+    } else {
+      setSamples(out.data?.samples ?? [])
+    }
+    setLoading(false)
   }
 
   useEffect(() => {
-    load()
+    void load()
   }, [])
 
   async function patch(id: string, body: Record<string, unknown>) {
@@ -90,7 +97,8 @@ export default function AdminSamplesPage() {
     }
   }
 
-  if (loading) return <p className="text-sm text-gray-500">로딩…</p>
+  if (loading) return <LoadingState label="로딩 중…" />
+  if (loadError) return <ErrorState message={loadError} onRetry={() => void load()} />
 
   return (
     <div className="space-y-6">

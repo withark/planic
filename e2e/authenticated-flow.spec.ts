@@ -40,74 +40,119 @@ async function authenticateFromProtectedRoute(page: Page, protectedPath: string)
   await expect(page).toHaveURL(new RegExp(`${protectedPath.replace('/', '\\/')}($|\\?)`))
 }
 
-async function dismissEstimatePasteGateIfPresent(page: Page) {
+async function dismissMacroPasteGateIfPresent(page: Page) {
   const skip = page.getByRole('button', { name: '건너뛰고 단계별 입력' })
   if (await skip.isVisible().catch(() => false)) {
     await skip.click()
   }
-  await page.getByTestId('macro-paste-wizard-panel').waitFor({ state: 'visible', timeout: 15_000 })
+  await page.getByTestId('macro-paste-wizard-panel').waitFor({ state: 'visible', timeout: 25_000 })
 }
 
-test.describe('authenticated generation flow', () => {
-  test.describe.configure({ mode: 'serial' })
+/** 병렬 워커에서 dev 서버·세션 경쟁으로 마법사 패널 대기가 깨지는 것을 막기 위해 이 파일 전체를 순차 실행합니다. */
+test.describe.serial('authenticated app flows', () => {
+  test.describe('authenticated generation flow', () => {
+    test.describe.configure({ mode: 'serial' })
 
-  test.beforeEach(async ({ page }) => {
-    await page.addInitScript(() => {
-      try {
-        sessionStorage.removeItem('planic:skip-paste-gate:estimate')
-      } catch {
-        /* ignore */
-      }
+    test.beforeEach(async ({ page }) => {
+      await page.addInitScript(() => {
+        try {
+          sessionStorage.removeItem('planic:skip-paste-gate:estimate')
+        } catch {
+          /* ignore */
+        }
+      })
+    })
+
+    test('protected estimate-generator loads after dev auth', async ({ page }) => {
+      await authenticateFromProtectedRoute(page, '/estimate-generator')
+      await dismissMacroPasteGateIfPresent(page)
+      await expect(page.getByRole('heading', { level: 1, name: '행사 제안서 생성' })).toBeVisible()
+      await expect(page.getByText('행사 제안서 생성하기').first()).toBeVisible()
+    })
+
+    test('업체 원문 모드에서 필수 입력 후 생성 버튼 활성화', async ({ page }) => {
+      await authenticateFromProtectedRoute(page, '/estimate-generator')
+      await dismissMacroPasteGateIfPresent(page)
+
+      await page.getByRole('radio', { name: /업체 원문만/ }).click()
+      await page.locator('#wizard-step-2 select').first().selectOption({ index: 1 })
+      await page.getByLabel('업체에서 들은 내용').fill(
+        'Playwright E2E 테스트용 더미 텍스트입니다. 인원 80명 잠실 워크숍 견적 요약 VIP 네트워킹 포함 충분한 길이입니다.',
+      )
+
+      await expect(page.getByRole('button', { name: '행사 제안서 생성하기' })).toBeEnabled({ timeout: 15_000 })
+    })
+
+    test('퀵 칩 클릭 시 하단 작성란에 문구가 붙는다', async ({ page }) => {
+      await authenticateFromProtectedRoute(page, '/estimate-generator')
+      await dismissMacroPasteGateIfPresent(page)
+      await page.getByRole('button', { name: 'VAT 포함으로' }).click()
+      await expect(page.getByTestId('macro-paste-composer')).toHaveValue(/VAT 포함으로/)
+    })
+
+    test('미리보기 헤더 컨트롤: 미리보기로 표시·문서 없을 때 직접 편집 비활성', async ({ page }) => {
+      await authenticateFromProtectedRoute(page, '/estimate-generator')
+      await dismissMacroPasteGateIfPresent(page)
+      await expect(page.getByTestId('estimate-preview-scroll-top')).toBeVisible()
+      await expect(page.getByTestId('estimate-focus-table')).toBeDisabled()
+    })
+
+    test('모바일 폭에서 입력·미리보기 탭 전환', async ({ page }) => {
+      await page.setViewportSize({ width: 390, height: 820 })
+      await authenticateFromProtectedRoute(page, '/estimate-generator')
+      await dismissMacroPasteGateIfPresent(page)
+      await expect(page.getByRole('tab', { name: '미리보기' })).toBeVisible()
+      await page.getByRole('tab', { name: '미리보기' }).click()
+      await expect(page.locator('#estimate-panel-chat')).toHaveAttribute('hidden', '')
+      await expect(page.locator('#estimate-tab-preview')).toHaveAttribute('aria-selected', 'true')
+      await expect(page.locator('#estimate-panel-preview')).not.toHaveAttribute('hidden')
+      await page.getByRole('tab', { name: '입력·채팅' }).click()
+      await expect(page.locator('#estimate-panel-chat')).not.toHaveAttribute('hidden')
+      await expect(page.locator('#estimate-panel-preview')).toHaveAttribute('hidden', '')
+      await expect(page.locator('#estimate-tab-chat')).toHaveAttribute('aria-selected', 'true')
+      await expect(page.getByTestId('macro-paste-wizard-panel')).toBeVisible()
     })
   })
 
-  test('protected estimate-generator loads after dev auth', async ({ page }) => {
-    await authenticateFromProtectedRoute(page, '/estimate-generator')
-    await dismissEstimatePasteGateIfPresent(page)
-    await expect(page.getByRole('heading', { level: 1, name: '행사 제안서 생성' })).toBeVisible()
-    await expect(page.getByText('행사 제안서 생성하기').first()).toBeVisible()
+  test.describe('authenticated planning generator', () => {
+    test.describe.configure({ mode: 'serial' })
+
+    test.beforeEach(async ({ page }) => {
+      await page.addInitScript(() => {
+        try {
+          sessionStorage.removeItem('planic:skip-paste-gate:planning')
+        } catch {
+          /* ignore */
+        }
+      })
+    })
+
+    test('보호된 기획안 생성 화면이 로드된다', async ({ page }) => {
+      await authenticateFromProtectedRoute(page, '/planning-generator')
+      await dismissMacroPasteGateIfPresent(page)
+      await expect(page.getByRole('heading', { level: 1, name: '기획안 생성' })).toBeVisible()
+      await expect(page.getByTestId('macro-paste-wizard-panel')).toBeVisible()
+    })
   })
 
-  test('업체 원문 모드에서 필수 입력 후 생성 버튼 활성화', async ({ page }) => {
-    await authenticateFromProtectedRoute(page, '/estimate-generator')
-    await dismissEstimatePasteGateIfPresent(page)
+  test.describe('authenticated program proposal generator', () => {
+    test.describe.configure({ mode: 'serial' })
 
-    await page.getByRole('radio', { name: /업체 원문만/ }).click()
-    await page.locator('#wizard-step-2 select').first().selectOption({ index: 1 })
-    await page.getByLabel('업체에서 들은 내용').fill(
-      'Playwright E2E 테스트용 더미 텍스트입니다. 인원 80명 잠실 워크숍 견적 요약 VIP 네트워킹 포함 충분한 길이입니다.',
-    )
+    test.beforeEach(async ({ page }) => {
+      await page.addInitScript(() => {
+        try {
+          sessionStorage.removeItem('planic:skip-paste-gate:program')
+        } catch {
+          /* ignore */
+        }
+      })
+    })
 
-    await expect(page.getByRole('button', { name: '행사 제안서 생성하기' })).toBeEnabled({ timeout: 15_000 })
-  })
-
-  test('퀵 칩 클릭 시 하단 작성란에 문구가 붙는다', async ({ page }) => {
-    await authenticateFromProtectedRoute(page, '/estimate-generator')
-    await dismissEstimatePasteGateIfPresent(page)
-    await page.getByRole('button', { name: 'VAT 포함으로' }).click()
-    await expect(page.getByTestId('macro-paste-composer')).toHaveValue(/VAT 포함으로/)
-  })
-
-  test('미리보기 헤더 컨트롤: 미리보기로 표시·문서 없을 때 직접 편집 비활성', async ({ page }) => {
-    await authenticateFromProtectedRoute(page, '/estimate-generator')
-    await dismissEstimatePasteGateIfPresent(page)
-    await expect(page.getByTestId('estimate-preview-scroll-top')).toBeVisible()
-    await expect(page.getByTestId('estimate-focus-table')).toBeDisabled()
-  })
-
-  test('모바일 폭에서 입력·미리보기 탭 전환', async ({ page }) => {
-    await page.setViewportSize({ width: 390, height: 820 })
-    await authenticateFromProtectedRoute(page, '/estimate-generator')
-    await dismissEstimatePasteGateIfPresent(page)
-    await expect(page.getByRole('tab', { name: '미리보기' })).toBeVisible()
-    await page.getByRole('tab', { name: '미리보기' }).click()
-    await expect(page.locator('#estimate-panel-chat')).toHaveAttribute('hidden', '')
-    await expect(page.locator('#estimate-tab-preview')).toHaveAttribute('aria-selected', 'true')
-    await expect(page.locator('#estimate-panel-preview')).not.toHaveAttribute('hidden')
-    await page.getByRole('tab', { name: '입력·채팅' }).click()
-    await expect(page.locator('#estimate-panel-chat')).not.toHaveAttribute('hidden')
-    await expect(page.locator('#estimate-panel-preview')).toHaveAttribute('hidden', '')
-    await expect(page.locator('#estimate-tab-chat')).toHaveAttribute('aria-selected', 'true')
-    await expect(page.getByTestId('macro-paste-wizard-panel')).toBeVisible()
+    test('보호된 프로그램 제안서 생성 화면이 로드된다', async ({ page }) => {
+      await authenticateFromProtectedRoute(page, '/program-proposal-generator')
+      await dismissMacroPasteGateIfPresent(page)
+      await expect(page.getByRole('heading', { level: 1, name: '프로그램 제안서 생성' })).toBeVisible()
+      await expect(page.getByTestId('macro-paste-wizard-panel')).toBeVisible()
+    })
   })
 })

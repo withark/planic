@@ -13,6 +13,7 @@ import type { PlanType } from '@/lib/plans'
 import { apiFetch, apiGenerateStream } from '@/lib/api/client'
 import { toUserMessage } from '@/lib/errors/toUserMessage'
 import { useStreamGenerationGuard } from '@/lib/hooks/useStreamGenerationGuard'
+import { warnDevFetchFailure } from '@/lib/log-dev-fetch-failure'
 import { exportToExcel } from '@/lib/exportExcel'
 import { exportToPdf, pdfKindFromQuoteTab } from '@/lib/exportPdf'
 import { buildTopicSeedDoc } from '@/lib/topic-seed-doc'
@@ -121,7 +122,9 @@ export default function CueSheetGeneratorPage() {
 
   useEffect(() => {
     refetchMe()
-    apiFetch<CompanySettings>('/api/settings').then(setCompanySettings).catch(() => {})
+    apiFetch<CompanySettings>('/api/settings')
+      .then(setCompanySettings)
+      .catch((e) => warnDevFetchFailure('GET /api/settings (cue-sheet-generator)', e))
     apiFetch<PriceCategory[]>('/api/prices').then(setPrices).catch(() => setPrices([]))
 
     apiFetch<GeneratedDocListRow[]>('/api/generated-docs?docType=scenario&limit=20')

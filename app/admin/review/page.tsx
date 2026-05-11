@@ -1,6 +1,8 @@
 'use client'
 
 import { useEffect, useState } from 'react'
+import { LoadingState, ErrorState } from '@/components/ui/AsyncState'
+import { adminJson } from '@/lib/admin-client'
 
 type Item = {
   id: string
@@ -19,19 +21,26 @@ export default function AdminReviewPage() {
   const [items, setItems] = useState<Item[]>([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
+
+  async function load() {
+    setLoading(true)
+    setError(null)
+    const out = await adminJson<{ items?: Item[] }>('/api/admin/quotes-recent')
+    if (out.ok) {
+      setItems(out.data?.items ?? [])
+    } else {
+      setItems([])
+      setError(out.message)
+    }
+    setLoading(false)
+  }
+
   useEffect(() => {
-    fetch('/api/admin/quotes-recent')
-      .then((r) => r.json())
-      .then((res) => {
-        if (res?.ok) setItems(res.data?.items ?? [])
-        else setError(res?.error?.message || '목록을 불러오지 못했습니다.')
-      })
-      .catch(() => setError('목록을 불러오지 못했습니다.'))
-      .finally(() => setLoading(false))
+    void load()
   }, [])
 
-  if (loading) return <p className="text-sm text-gray-500">로딩 중...</p>
-  if (error) return <p className="text-sm text-red-600">{error}</p>
+  if (loading) return <LoadingState label="로딩 중…" />
+  if (error) return <ErrorState message={error} onRetry={() => void load()} />
 
   return (
     <div className="space-y-4">

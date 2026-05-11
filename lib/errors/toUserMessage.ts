@@ -73,6 +73,9 @@ export function toUserMessage(input: unknown, fallback = '요청을 처리하지
     return input
   }
   if (input instanceof Error) {
+    if (input.name === 'AbortError') {
+      return '요청이 중단되었습니다. 잠시 후 다시 시도해 주세요.'
+    }
     const classified = classify(input.message || '')
     return classified || input.message || fallback
   }
