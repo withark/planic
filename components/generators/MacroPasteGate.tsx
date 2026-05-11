@@ -38,6 +38,8 @@ type Props = {
   onFollowUpSend?: (text: string) => void
   /** 마법사 단계 후속 입력 안내 말풍선 기본 문구 */
   followUpAssistantReply?: string
+  /** 붙여넣기 전송·건너뛰기·세션 복원 등으로 마법사에 들어왔을 때(부모 단계 UI 동기화) */
+  onWizardEntered?: () => void
 }
 
 export function MacroPasteGate({
@@ -55,11 +57,13 @@ export function MacroPasteGate({
   bottomSteps,
   onFollowUpSend,
   followUpAssistantReply,
+  onWizardEntered,
 }: Props) {
   const [phase, setPhase] = useState<Phase>('paste')
   const [draft, setDraft] = useState('')
   const [chatMessages, setChatMessages] = useState<ChatMsg[]>([])
   const scrollRef = useRef<HTMLDivElement>(null)
+  const composerRef = useRef<HTMLTextAreaElement>(null)
 
   const defaultWelcome =
     chatWelcome ??
@@ -73,11 +77,12 @@ export function MacroPasteGate({
     try {
       if (typeof window !== 'undefined' && window.sessionStorage.getItem(skipStorageKey) === '1') {
         setPhase('wizard')
+        onWizardEntered?.()
       }
     } catch {
       /* ignore */
     }
-  }, [skipStorageKey])
+  }, [skipStorageKey, onWizardEntered])
 
   useEffect(() => {
     if (layout !== 'chat' || phase !== 'paste') return
@@ -136,6 +141,7 @@ export function MacroPasteGate({
     onApplyPaste(t)
     setDraft('')
     setPhase('wizard')
+    onWizardEntered?.()
   }
 
   const handleFollowUp = () => {
@@ -154,6 +160,7 @@ export function MacroPasteGate({
     onSkipPaste?.()
     setPhase('wizard')
     persistSkip()
+    onWizardEntered?.()
     if (layout === 'chat' && chatPanelStyle === 'split') {
       setChatMessages((prev) =>
         prev.length > 0
@@ -181,6 +188,7 @@ export function MacroPasteGate({
     const handleComposerSend = () => {
       if (showPastePanel) handleContinue()
       else handleFollowUp()
+      queueMicrotask(() => composerRef.current?.focus())
     }
 
     return (
@@ -213,6 +221,9 @@ export function MacroPasteGate({
 
             <div
               ref={scrollRef}
+              role="log"
+              aria-live="polite"
+              aria-relevant="additions"
               className={clsx(
                 'min-h-0 space-y-3 overflow-y-auto px-3 py-3 sm:px-4',
                 wizardOpen ? 'max-h-[min(34vh,300px)] flex-shrink-0 border-b border-slate-200' : 'flex-1',
@@ -268,10 +279,12 @@ export function MacroPasteGate({
               <div className="flex items-end gap-2 rounded-[10px] border border-slate-200 bg-slate-50/80 px-2 py-1.5">
                 <label className="sr-only">메시지 입력</label>
                 <textarea
+                  ref={composerRef}
                   value={draft}
                   onChange={(e) => setDraft(e.target.value)}
                   placeholder={wizardOpen ? '수정사항을 말씀해 주세요…' : placeholder}
                   rows={wizardOpen ? 2 : 3}
+                  data-testid="macro-paste-composer"
                   className={clsx(
                     'min-h-[44px] flex-1 resize-none border-0 bg-transparent px-1 py-1 text-[12.5px] text-slate-900 outline-none',
                     'placeholder:text-slate-400 focus:ring-0',
@@ -371,6 +384,9 @@ export function MacroPasteGate({
 
             <div
               ref={scrollRef}
+              role="log"
+              aria-live="polite"
+              aria-relevant="additions"
               className={clsx(
                 'min-h-0 flex-1 space-y-3 overflow-y-auto bg-slate-50/40 px-3 py-3 sm:px-4',
               )}

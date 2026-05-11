@@ -80,4 +80,29 @@ test.describe('authenticated generation flow', () => {
 
     await expect(page.getByRole('button', { name: '행사 제안서 생성하기' })).toBeEnabled({ timeout: 15_000 })
   })
+
+  test('퀵 칩 클릭 시 하단 작성란에 문구가 붙는다', async ({ page }) => {
+    await authenticateFromProtectedRoute(page, '/estimate-generator')
+    await dismissEstimatePasteGateIfPresent(page)
+    await page.getByRole('button', { name: 'VAT 포함으로' }).click()
+    await expect(page.getByTestId('macro-paste-composer')).toHaveValue(/VAT 포함으로/)
+  })
+
+  test('미리보기 헤더 컨트롤: 미리보기로 표시·문서 없을 때 직접 편집 비활성', async ({ page }) => {
+    await authenticateFromProtectedRoute(page, '/estimate-generator')
+    await dismissEstimatePasteGateIfPresent(page)
+    await expect(page.getByTestId('estimate-preview-scroll-top')).toBeVisible()
+    await expect(page.getByTestId('estimate-focus-table')).toBeDisabled()
+  })
+
+  test('모바일 폭에서 입력·미리보기 탭 전환', async ({ page }) => {
+    await page.setViewportSize({ width: 390, height: 820 })
+    await authenticateFromProtectedRoute(page, '/estimate-generator')
+    await dismissEstimatePasteGateIfPresent(page)
+    await expect(page.getByRole('button', { name: '미리보기' })).toBeVisible()
+    await page.getByRole('button', { name: '미리보기' }).click()
+    await expect(page.getByTestId('macro-paste-wizard-panel')).toBeHidden()
+    await page.getByRole('button', { name: '입력·채팅' }).click()
+    await expect(page.getByTestId('macro-paste-wizard-panel')).toBeVisible()
+  })
 })

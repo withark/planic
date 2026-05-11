@@ -125,6 +125,11 @@ function EstimateGeneratorContent() {
   const [saving, setSaving] = useState(false)
   const [proposalGenerating, setProposalGenerating] = useState(false)
   const generatingTabs = useMemo(() => ({ estimate: generating }), [generating])
+  /** 붙여넣기 전송 또는 건너뛰기 이후 — 하단 state-bar 단계 표시용 */
+  const [pasteFlowCommitted, setPasteFlowCommitted] = useState(false)
+  /** md 미만: 입력 / 미리보기 전환 */
+  const [isNarrowViewport, setIsNarrowViewport] = useState(false)
+  const [mobileSheet, setMobileSheet] = useState<'chat' | 'preview'>('chat')
 
   const userDraftStorageKey = useMemo(() => {
     const userId = me?.user?.id
@@ -203,6 +208,19 @@ function EstimateGeneratorContent() {
     apiFetch<CompanySettings>('/api/settings').then(setCompanySettings).catch(() => {})
     apiFetch<PriceCategory[]>('/api/prices').then(setPrices).catch(() => setPrices([]))
   }, [])
+
+  useEffect(() => {
+    if (typeof window === 'undefined') return
+    const mq = window.matchMedia('(max-width: 767px)')
+    const apply = () => setIsNarrowViewport(mq.matches)
+    apply()
+    mq.addEventListener('change', apply)
+    return () => mq.removeEventListener('change', apply)
+  }, [])
+
+  useEffect(() => {
+    if (!isNarrowViewport) setMobileSheet('chat')
+  }, [isNarrowViewport])
 
   useEffect(() => {
     apiFetch<HistoryRecord[]>('/api/history')
@@ -579,6 +597,9 @@ function EstimateGeneratorContent() {
       })
       setDoc(data.doc)
       setGeneratedDocId(data.id)
+      if (typeof window !== 'undefined' && window.matchMedia('(max-width: 767px)').matches) {
+        setMobileSheet('preview')
+      }
       if (data.doc.quoteTemplate === 'fixed-v2' && priceItemCount > 0) {
         showToast(
           `단가표 ${priceItemCount}개 품목 기준으로 맞췄고, 없는 항목은 시장가로 채웠습니다. (「단가표」에서 확인)`,
@@ -694,6 +715,7 @@ function EstimateGeneratorContent() {
     normalizeQuoteUnitPricesToThousand(next)
     setDoc(next)
     setGeneratedDocId(rec.id)
+    setPasteFlowCommitted(true)
     showToast('저장된 문서를 불러왔습니다. 수신처·항목만 수정한 뒤 저장하거나 보내세요.')
   }, [historyList, loadPickerId, showToast])
 
@@ -736,7 +758,7 @@ function EstimateGeneratorContent() {
     eventType,
   ])
 
-  /** 목업(ai_quote_saas_mockup) state-bar 단계 — 생성·미리보기 상태와 연동 */
+  /** 목업(ai_quote_saas_mockup) state-bar 단계 — 붙여넣기 여부·생성·미리보기와 연동 */
   const macroPasteBottomSteps = useMemo((): MacroPasteBottomStep[] => {
     if (generating) {
       return [
@@ -754,6 +776,14 @@ function EstimateGeneratorContent() {
         { label: '미리보기', status: 'active' },
       ]
     }
+    if (!pasteFlowCommitted) {
+      return [
+        { label: '붙여넣기', status: 'active' },
+        { label: '구조화', status: 'idle' },
+        { label: '생성', status: 'idle' },
+        { label: '미리보기', status: 'idle' },
+      ]
+    }
     if (generateDisabled) {
       return [
         { label: '파싱', status: 'done' },
@@ -768,9 +798,9 @@ function EstimateGeneratorContent() {
       { label: '생성', status: 'active' },
       { label: '미리보기', status: 'idle' },
     ]
-  }, [generating, doc, generatedDocId, generateDisabled])
+  }, [generating, doc, generatedDocId, generateDisabled, pasteFlowCommitted])
 
-  const handleQuickPdfExport = useCallback(async () => {
+  const exportEstimatePdf = useCallback(async () => {
     if (!doc) return
     try {
       await exportToPdf(doc, companySettings ?? undefined)
@@ -779,6 +809,26 @@ function EstimateGeneratorContent() {
       showToast(toUserMessage(e, '저장 실패'))
     }
   }, [doc, companySettings, showToast])
+
+  const scrollPreviewPanelTop = useCallback(() => {
+    document.getElementById('estimate-preview-scroll')?.scrollTo({ top: 0, behavior: 'smooth' })
+  }, [])
+
+  const focusEstimateTable = useCallback(() => {
+    const root = document.getElementById('estimate-result-body')
+    root?.scrollIntoView({ behavior: 'smooth', block: 'start' })
+    window.setTimeout(() => {
+      root?.querySelector('textarea')?.focus()
+    }, 450)
+  }, [])
+
+  const scrollToWizardTop = useCallback(() => {
+    document.getElementById('estimate-wizard-top')?.scrollIntoView({ behavior: 'smooth', block: 'start' })
+  }, [])
+
+  const markPasteFlowCommitted = useCallback(() => {
+    setPasteFlowCommitted(true)
+  }, [])
 
   const applyPastedBrief = useCallback(
     (text: string) => {
@@ -1087,8 +1137,36 @@ function EstimateGeneratorContent() {
         </header>
 
         {/* md부터 좌 340px 고정 — lg(1024)만 쓰면 창이 좁을 때 좌열이 전체 너비로 보임 */}
+        {/* md 미만: 한 화면에 입력 또는 미리보기 */}
+        {isNarrowViewport ? (
+          <div className="flex shrink-0 gap-1 border-b border-slate-200 bg-white px-2 py-1.5 md:hidden">
+            <button
+              type="button"
+              onClick={() => setMobileSheet('chat')}
+              className={`min-h-9 flex-1 rounded-lg px-2 text-xs font-semibold ${
+                mobileSheet === 'chat' ? 'bg-primary-600 text-white' : 'bg-slate-100 text-slate-700'
+              }`}
+            >
+              입력·채팅
+            </button>
+            <button
+              type="button"
+              onClick={() => setMobileSheet('preview')}
+              className={`min-h-9 flex-1 rounded-lg px-2 text-xs font-semibold ${
+                mobileSheet === 'preview' ? 'bg-primary-600 text-white' : 'bg-slate-100 text-slate-700'
+              }`}
+            >
+              미리보기
+            </button>
+          </div>
+        ) : null}
+
         <div className="flex min-h-0 flex-1 flex-col md:flex-row">
-          <div className="flex min-h-0 w-full flex-col overflow-hidden border-slate-200 md:w-[340px] md:min-w-[340px] md:max-w-[340px] md:flex-none md:border-r md:bg-white">
+          <div
+            className={`flex min-h-0 w-full flex-col overflow-hidden border-slate-200 md:w-[340px] md:min-w-[340px] md:max-w-[340px] md:flex-none md:border-r md:bg-white ${
+              isNarrowViewport && mobileSheet !== 'chat' ? 'max-md:hidden' : ''
+            }`}
+          >
             <div id="estimate-wizard-top" className="flex min-h-0 flex-1 flex-col overflow-hidden">
               {me ? (
                 <div className="flex-shrink-0 border-b border-slate-100 bg-white px-3 py-2 text-[11px] text-slate-500 tabular-nums">
@@ -1111,8 +1189,9 @@ function EstimateGeneratorContent() {
                   const t = text.trim()
                   if (!t) return
                   setNotes((n) => (n.trim() ? `${n.trim()}\n${t}` : t))
-                  showToast('추가 요청을 메모에 넣었어요.')
+                  showToast('추가 요청을 메모에 넣었어요. 표에 반영하려면 왼쪽에서 다시 생성해 주세요.')
                 }}
+                followUpAssistantReply="메모에 반영했어요. AI가 표를 바꾸려면 왼쪽의 「행사 제안서 생성하기」로 다시 생성해야 해요."
                 title="행사 제안서"
                 description="카톡처럼 말하면 초안이 만들어져요."
                 chatWelcome={`안녕하세요! 행사·견적 내용을 자유롭게 말씀해 주세요.
@@ -1120,7 +1199,7 @@ function EstimateGeneratorContent() {
 공급자·일정·인원·금액을 넣어 주시면 오른쪽에서 제안서 초안을 만들 수 있어요.`}
                 placeholder={`예)\n공급자 : (주)OOO 대표이사 홍길동\n사업자번호 : 000-00-00000\n연락처 : 010-0000-0000\n사회자 1명 330만원 · VAT 별도\n붐어 MC 4명 …`}
                 onApplyPaste={applyPastedBrief}
-                onSkipPaste={() => {}}
+                onWizardEntered={markPasteFlowCommitted}
               >
               <SimpleGeneratorWizard
             title="행사 제안서 생성하기"
@@ -1213,8 +1292,12 @@ function EstimateGeneratorContent() {
             </div>
           </div>
 
-          <div className="flex min-h-0 min-w-0 flex-1 flex-col overflow-hidden bg-slate-50">
-            <div className="flex flex-shrink-0 flex-wrap items-center gap-2 border-b border-slate-200 bg-white px-4 py-2.5">
+          <div
+            className={`flex min-h-0 min-w-0 flex-1 flex-col overflow-hidden bg-slate-50 ${
+              isNarrowViewport && mobileSheet !== 'preview' ? 'max-md:hidden' : ''
+            }`}
+          >
+              <div className="flex flex-shrink-0 flex-wrap items-center gap-2 border-b border-slate-200 bg-white px-4 py-2.5">
               <h2 className="min-w-0 flex-1 text-[13px] font-medium text-slate-900">행사 제안서 미리보기</h2>
               {doc && generatedDocId ? (
                 <span className="rounded-full border border-emerald-200 bg-emerald-50 px-2 py-0.5 text-[10.5px] font-medium text-emerald-800">
@@ -1229,20 +1312,30 @@ function EstimateGeneratorContent() {
                   초안
                 </span>
               )}
-              <div className="flex flex-shrink-0 items-center gap-2">
+              <div className="flex flex-shrink-0 flex-wrap items-center gap-2">
                 <button
                   type="button"
-                  onClick={() => {
-                    document.getElementById('estimate-wizard-top')?.scrollIntoView({ behavior: 'smooth', block: 'start' })
-                  }}
+                  data-testid="estimate-preview-scroll-top"
+                  onClick={() => scrollPreviewPanelTop()}
                   className="rounded-md border border-slate-200 bg-white px-2.5 py-1 text-[11.5px] font-medium text-slate-600 hover:bg-slate-50"
                 >
-                  입력으로
+                  미리보기로
+                </button>
+                <button
+                  type="button"
+                  data-testid="estimate-focus-table"
+                  disabled={!(doc && generatedDocId)}
+                  title={doc && generatedDocId ? '표 편집으로 이동' : '문서를 만든 뒤 사용할 수 있어요'}
+                  onClick={() => focusEstimateTable()}
+                  className="rounded-md border border-slate-200 bg-white px-2.5 py-1 text-[11.5px] font-medium text-slate-600 hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-40"
+                >
+                  직접 편집
                 </button>
                 {doc && generatedDocId ? (
                   <button
                     type="button"
-                    onClick={() => void handleQuickPdfExport()}
+                    data-testid="estimate-header-pdf"
+                    onClick={() => void exportEstimatePdf()}
                     className="rounded-md border border-primary-600 bg-primary-600 px-2.5 py-1 text-[11.5px] font-medium text-white hover:bg-primary-700"
                   >
                     PDF
@@ -1250,16 +1343,7 @@ function EstimateGeneratorContent() {
                 ) : null}
               </div>
             </div>
-            <div className="min-h-0 flex-1 overflow-y-auto p-4 sm:p-5">
-              {generating ? (
-                <div className="mb-3 flex items-center gap-2 rounded-lg border border-primary-200 bg-primary-50 px-3 py-2 text-[11.5px] text-slate-700">
-                  <span
-                    className="inline-block h-3 w-3 shrink-0 animate-spin rounded-full border-2 border-primary-200 border-t-primary-600"
-                    aria-hidden
-                  />
-                  AI가 행사 제안서를 구성하고 있습니다…
-                </div>
-              ) : null}
+            <div id="estimate-preview-scroll" className="min-h-0 flex-1 overflow-y-auto p-4 sm:p-5">
               {doc && generatedDocId ? (
                 <div className="min-w-0 rounded-2xl border border-slate-200/80 bg-white shadow-sm">
                   {totalsForHeader && docSummary ? (
@@ -1298,10 +1382,7 @@ function EstimateGeneratorContent() {
                         </button>
                         <button
                           type="button"
-                          onClick={() => {
-                            const el = document.getElementById('estimate-wizard-top')
-                            el?.scrollIntoView({ behavior: 'smooth', block: 'start' })
-                          }}
+                          onClick={() => scrollToWizardTop()}
                           className="rounded-lg border border-slate-200 bg-white px-2.5 py-1.5 text-xs font-semibold text-slate-700 hover:bg-slate-50 sm:text-sm"
                         >
                           입력으로
@@ -1339,81 +1420,32 @@ function EstimateGeneratorContent() {
                         }
                       }}
                       onPdf={async () => {
-                        try {
-                          await exportToPdf(doc, companySettings ?? undefined)
-                          showToast('PDF 저장 완료!')
-                        } catch (e) {
-                          showToast(toUserMessage(e, '저장 실패'))
-                        }
+                        await exportEstimatePdf()
                       }}
                     />
                   </div>
                 </div>
               ) : generating ? (
-                <div className="flex h-full min-h-[320px] flex-col gap-4">
-                  <div>
-                    <h2 className="text-sm font-semibold text-slate-800">행사 제안서 생성 진행</h2>
-                    <p className="mt-1 text-xs text-slate-500">
-                      단계가 순서대로 쌓이며, 완료되면 오른쪽에 행사 제안서가 열립니다.
-                    </p>
+                <div className="rounded-xl border border-primary-200 bg-primary-50/30 p-3 shadow-sm">
+                  <div className="flex items-center gap-2 text-[12px] text-slate-800">
+                    <span
+                      className="inline-block h-3 w-3 shrink-0 animate-spin rounded-full border-2 border-primary-200 border-t-primary-600"
+                      aria-hidden
+                    />
+                    <span className="font-medium">
+                      {generationProgressLabel ?? 'AI가 행사 제안서를 구성하고 있습니다…'}
+                    </span>
                   </div>
-                  <div className="flex min-h-0 flex-1 flex-col gap-2.5 overflow-y-auto rounded-2xl border border-primary-100/80 bg-gradient-to-b from-white to-primary-50/40 p-4 shadow-inner">
-                    <div className="flex gap-2">
-                      <div className="mt-0.5 flex h-8 w-8 flex-shrink-0 items-center justify-center rounded-full bg-primary-600 text-xs font-bold text-white">
-                        P
-                      </div>
-                      <div className="min-w-0 flex-1 rounded-2xl rounded-tl-sm border border-slate-200 bg-white px-3.5 py-2.5 text-sm leading-relaxed text-slate-800 shadow-sm">
-                        <span className="font-semibold text-primary-800">Planic</span>
-                        <span className="text-slate-600">
-                          {' '}
-                          — 입력하신{' '}
-                          {sourceMode === 'fromPrompt' ? '업체 원문·예산·단가표' : '주제·예산·단가표'}를 바탕으로 행사 제안서를 구성하고
-                          있어요.
-                        </span>
-                      </div>
-                    </div>
-                    {(sourceMode === 'fromPrompt' ? vendorBrief.trim() : notes.trim()) ? (
-                      <div className="ml-8 flex gap-2">
-                        <div className="mt-0.5 flex h-8 w-8 flex-shrink-0 items-center justify-center rounded-full border border-slate-200 bg-slate-100 text-[10px] font-bold text-slate-600">
-                          나
-                        </div>
-                        <div className="min-w-0 flex-1 rounded-2xl rounded-tl-sm border border-emerald-100 bg-emerald-50/80 px-3.5 py-2.5 text-sm text-slate-800 shadow-sm">
-                          <p className="text-[11px] font-semibold uppercase tracking-wide text-emerald-800">
-                            {sourceMode === 'fromPrompt' ? '업체 원문' : '프롬프트(추가 요청)'}
-                          </p>
-                          <p className="mt-1 whitespace-pre-wrap break-words">
-                            {(sourceMode === 'fromPrompt' ? vendorBrief : notes).trim()}
-                          </p>
-                        </div>
-                      </div>
-                    ) : null}
-                    {generationStageLog.map((line, i) => {
-                      const isLast = i === generationStageLog.length - 1
-                      return (
-                        <div key={`${line}-${i}`} className="flex gap-2">
-                          <div className="mt-0.5 flex h-8 w-8 flex-shrink-0 items-center justify-center rounded-full bg-primary-600 text-xs font-bold text-white">
-                            P
-                          </div>
-                          <div
-                            className={`min-w-0 flex-1 rounded-2xl rounded-tl-sm px-3.5 py-2.5 text-sm text-slate-800 shadow-sm ${
-                              isLast
-                                ? 'border border-dashed border-primary-200 bg-primary-50/70 font-medium text-primary-950'
-                                : 'border border-slate-200 bg-white'
-                            }`}
-                          >
-                            <span className="text-slate-400">{i + 1}.</span> {line}
-                            {isLast ? (
-                              <span className="ml-1.5 inline-flex gap-0.5 align-middle" aria-hidden>
-                                <span className="inline-block h-1.5 w-1.5 animate-bounce rounded-full bg-primary-500 [animation-delay:-0.2s]" />
-                                <span className="inline-block h-1.5 w-1.5 animate-bounce rounded-full bg-primary-500 [animation-delay:-0.1s]" />
-                                <span className="inline-block h-1.5 w-1.5 animate-bounce rounded-full bg-primary-500" />
-                              </span>
-                            ) : null}
-                          </div>
-                        </div>
-                      )
-                    })}
-                  </div>
+                  <details className="mt-2 group">
+                    <summary className="cursor-pointer text-[11px] font-medium text-slate-600 hover:text-slate-900">
+                      단계 로그 펼치기
+                    </summary>
+                    <ol className="mt-2 max-h-48 list-decimal space-y-1 overflow-y-auto pl-5 text-[11px] text-slate-600">
+                      {generationStageLog.map((line, i) => (
+                        <li key={`${i}-${line}`}>{line}</li>
+                      ))}
+                    </ol>
+                  </details>
                 </div>
               ) : (
                 <div className="flex flex-1 flex-col gap-3">
