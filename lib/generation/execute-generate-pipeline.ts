@@ -402,7 +402,20 @@ export async function executeGeneratePipeline(
   ;(doc as QuoteDoc).quoteTemplate = normalizeTemplateForPlan(plan, (doc as QuoteDoc).quoteTemplate as any)
 
   if (documentTarget === 'estimate') {
-    const userPromptText = [body.requirements, body.briefNotes].filter(Boolean).join('\n').trim()
+    // Stage 0가 사용자 입력을 풀어 쓴 경우(input.requirements/briefNotes에 expandedRequirements가 들어가 있을 수 있음)도
+    // 함께 keyword/품목 추론 텍스트로 넘긴다. 원본 body가 있으면 원본을 우선 사용해 사용자 표현이 사라지지 않도록 한다.
+    const enriched = enrichResult.enriched
+    const userPromptParts = [
+      body.requirements,
+      body.briefNotes,
+      // 사용자가 비워둔 경우에만 enrich 결과가 input.requirements/briefNotes로 보강되므로,
+      // 위 body 원본과 다른 경우에만 추가로 합쳐 중복을 피한다.
+      input.requirements && input.requirements !== body.requirements ? input.requirements : '',
+      input.briefNotes && input.briefNotes !== body.briefNotes ? input.briefNotes : '',
+      enriched?.mustHaveDetails.length ? `필수 디테일: ${enriched.mustHaveDetails.join('; ')}` : '',
+      enriched?.keyConcepts.length ? `컨셉: ${enriched.keyConcepts.join(', ')}` : '',
+    ]
+    const userPromptText = userPromptParts.filter(Boolean).join('\n').trim()
     doc = applyFixedEstimateTemplateV2(doc, prices, {
       userPromptText,
       eventType: body.eventType,

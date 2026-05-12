@@ -108,6 +108,37 @@ function renderTimingValue(key: string, value: unknown): string {
   return String(value)
 }
 
+function renderBriefEnrichBlock(snapshot: Record<string, unknown>) {
+  if (!isRecord(snapshot.briefEnrich)) return null
+  const be = snapshot.briefEnrich
+  if (be.skipped === true) {
+    return (
+      <div className="text-[11px] text-slate-500 mt-1">
+        <span className="font-medium text-slate-600">입력 자동 강화:</span> 건너뜀
+      </div>
+    )
+  }
+  const provider = typeof be.provider === 'string' ? be.provider : '—'
+  const model = typeof be.model === 'string' ? be.model : '—'
+  const latency = asNumber(be.latencyMs)
+  const mustHave = asNumber(be.mustHave)
+  const cautions = asNumber(be.cautions)
+  return (
+    <div className="text-[11px] text-indigo-700 space-y-0.5 mt-1">
+      <div className="font-medium text-indigo-800">입력 자동 강화 (Stage 0)</div>
+      <div>
+        {provider === 'anthropic' ? 'Anthropic' : provider === 'openai' ? 'OpenAI' : provider}
+        {' · '}
+        <span className="font-mono text-[10px]">{model}</span>
+        {latency != null ? ` · ${latency}ms` : ''}
+      </div>
+      <div className="text-[10px] text-indigo-700/80">
+        필수 디테일 {mustHave ?? 0}개 · 주의 포인트 {cautions ?? 0}개 자동 추출
+      </div>
+    </div>
+  )
+}
+
 function renderQualityBlock(snapshot: Record<string, unknown>) {
   if (!isRecord(snapshot.quality)) return null
   const quality = snapshot.quality
@@ -447,6 +478,7 @@ export default function AdminGenerationLogsPage() {
                         ) : (
                           <div className="text-[11px] text-slate-500">AI 호출: —</div>
                         )}
+                        {renderBriefEnrichBlock(r.engineSnapshot)}
                         {renderQualityBlock(r.engineSnapshot)}
                         {isRecord(r.engineSnapshot?.timings) ? (
                           <div className="text-[11px] text-slate-500 space-y-0.5 mt-1">
