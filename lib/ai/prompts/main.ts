@@ -7,6 +7,7 @@ import type { QuoteDoc } from '@/lib/types'
 import { getEnvDrivenPromptPolicyFragment } from '../config'
 import { taskOrderSummaryPromptFragment } from './taskOrderSummaryPrompt'
 import { formatExistingQuoteDocForPrompt } from './existing-doc-context'
+import { buildEnrichedBriefPromptBlock } from '../brief-enricher'
 
 // ─────────────────────────────────────────────────────────────
 //  행사 유형 감지
@@ -821,6 +822,7 @@ export function buildGeneratePrompt(input: GenerateInput): string {
 
   const categoryGuide = getCategoryGuide(category, headcount)
   const programFlowGuide = getProgramFlowGuide(category, input)
+  const enrichedBriefCtx = buildEnrichedBriefPromptBlock(input.enrichedBrief)
   const briefCtx = buildBriefContext(input)
   const programItemsHint = (
     ['estimate', 'program', 'timetable', 'scenario', 'cuesheet', 'emceeScript'] as const
@@ -881,6 +883,7 @@ ${settingsCtx}
 === 행사 유형별 가이드 ===
 ${categoryGuide}
 ${programFlowGuide}
+${enrichedBriefCtx}
 ${briefCtx}
 ${programItemsHint}
 ${priceCtx}

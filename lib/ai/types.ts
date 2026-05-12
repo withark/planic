@@ -92,4 +92,23 @@ export interface GenerateInput {
     rowPlan: string[]
     qualityChecks: string[]
   }
+  /** Stage 0: 사용자 입력을 LLM으로 강화한 브리프(buildEnrichedBriefPromptBlock 입력) */
+  enrichedBrief?: {
+    oneLiner: string
+    enrichedGoal: string
+    audienceInsight: string
+    keyConcepts: string[]
+    mustHaveDetails: string[]
+    cautionPoints: string[]
+    toneGuide: string
+    documentSpecificHints: string
+    expandedRequirements: string
+    meta: {
+      provider: string
+      model: string
+      latencyMs: number
+      skipped?: boolean
+      reason?: string
+    }
+  }
 }

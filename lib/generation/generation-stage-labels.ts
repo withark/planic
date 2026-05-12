@@ -2,6 +2,7 @@
 export function mapGenerationStageToKorean(stage: string): string {
   const m: Record<string, string> = {
     context: '자료 불러오는 중',
+    enrich: '입력을 좋은 프롬프트로 정리 중',
     prompt: '프롬프트 구성 중',
     llm: 'AI 작성 중',
     generate: 'AI 작성 중',

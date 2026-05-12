@@ -42,6 +42,7 @@ export default function AdminEnginesPage() {
     outputFormatTemplate: '',
     sampleWeightNote: '',
     qualityBoost: '',
+    briefEnrichment: true,
   })
   const [sampleStrengthPreset, setSampleStrengthPreset] = useState<'low' | 'medium' | 'strong' | ''>('')
   const [outputFormatPreset, setOutputFormatPreset] = useState<string>('')
@@ -65,6 +66,7 @@ export default function AdminEnginesPage() {
         outputFormatTemplate: String(ov.outputFormatTemplate ?? ''),
         sampleWeightNote: String(ov.sampleWeightNote ?? ''),
         qualityBoost: String(ov.qualityBoost ?? ''),
+        briefEnrichment: typeof ov.briefEnrichment === 'boolean' ? ov.briefEnrichment : true,
       })
       const sn = String(ov.sampleWeightNote ?? '')
       if (/약하게|참고만/.test(sn)) setSampleStrengthPreset('low')
@@ -114,6 +116,7 @@ export default function AdminEnginesPage() {
           outputFormatTemplate: outputFormatPreset ? outputFormatTemplate : overlay.outputFormatTemplate,
           sampleWeightNote: sampleStrengthPreset ? sampleWeightNote : overlay.sampleWeightNote,
           qualityBoost: overlay.qualityBoost,
+          briefEnrichment: overlay.briefEnrichment,
         }),
       })
       if (out.ok) {
@@ -321,6 +324,31 @@ export default function AdminEnginesPage() {
               onChange={(e) => setOverlay((o) => ({ ...o, qualityBoost: e.target.value }))}
               placeholder="추가 지시 문장"
             />
+          </div>
+
+          {/* Stage 0 — 입력 자동 강화 (Claude 스타일 프롬프트 리라이트) */}
+          <div className="rounded-lg border border-indigo-100 bg-indigo-50/40 p-3">
+            <label className="flex items-start gap-2 text-sm">
+              <input
+                type="checkbox"
+                className="mt-1"
+                checked={overlay.briefEnrichment}
+                onChange={(e) => setOverlay((o) => ({ ...o, briefEnrichment: e.target.checked }))}
+              />
+              <span>
+                <span className="font-semibold text-indigo-800">
+                  입력 자동 강화 (Stage 0 · Claude 스타일 프롬프트 리라이트)
+                </span>
+                <span className="block text-[12px] text-indigo-900/80 mt-1">
+                  사용자가 짧게 적은 행사 메모를, 본 생성 직전에 LLM이 1회로 컨셉·필수 디테일·주의 포인트가 채워진
+                  "좋은 프롬프트"로 다시 정리합니다. 기본값 켜짐. 끄면 사용자 원문이 그대로 본 프롬프트에 들어갑니다.
+                </span>
+                <span className="block text-[11px] text-indigo-900/60 mt-1">
+                  env <code className="bg-indigo-100 px-1 rounded">AI_BRIEF_ENRICHMENT=0</code>로도 끌 수 있습니다.
+                  업체 원문 모드(vendorBrief)에서는 자동으로 건너뜁니다.
+                </span>
+              </span>
+            </label>
           </div>
         </div>
 

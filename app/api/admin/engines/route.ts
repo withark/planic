@@ -74,6 +74,12 @@ export async function POST(req: NextRequest) {
       sampleWeightNote:
         typeof body?.sampleWeightNote === 'string' ? body.sampleWeightNote : prev.sampleWeightNote ?? '',
       qualityBoost: typeof body?.qualityBoost === 'string' ? body.qualityBoost : prev.qualityBoost ?? '',
+      briefEnrichment:
+        typeof body?.briefEnrichment === 'boolean'
+          ? body.briefEnrichment
+          : typeof prev.briefEnrichment === 'boolean'
+            ? prev.briefEnrichment
+            : true,
     }
     if (overlay.structureFirst) overlay.toneFirst = false
     if (overlay.toneFirst) overlay.structureFirst = false

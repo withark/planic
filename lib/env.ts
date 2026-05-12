@@ -63,6 +63,8 @@ const EnvSchema = z.object({
   AI_LOG_PIPELINE_STAGE: z.string().optional(),
   AI_LOG_PROMPT_SIZE: z.string().optional(),
   AI_LOG_RAW_RESPONSE: z.string().optional(),
+  /** true면 본 생성 직전 사용자 입력을 LLM으로 자동 강화(Stage 0 · Brief Enrichment). 기본 켜짐. */
+  AI_BRIEF_ENRICHMENT: z.string().optional(),
   DATA_DIR: z.string().optional(),
 })
 

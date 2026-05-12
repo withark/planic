@@ -33,4 +33,6 @@ export interface EngineConfigOverlay {
   sampleWeightNote?: string
   /** 관리자 품질 보강 문장 (프롬프트 말미) */
   qualityBoost?: string
+  /** Stage 0 — 사용자 입력 자동 정리(LLM 1회) 사용 여부. 기본 true(env 토글 보조). */
+  briefEnrichment?: boolean
 }

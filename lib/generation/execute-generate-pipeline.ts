@@ -31,6 +31,7 @@ import { trackEvent } from '@/lib/analytics'
 import { applyFixedEstimateTemplateV2 } from '@/lib/estimate/fixed-template-v2'
 import { anthropicFallbackRepairQuoteDoc } from '@/lib/ai/quote-doc-anthropic-fallback'
 import { type AppDocumentType, isFeatureAllowedForPlan } from '@/lib/plan-access'
+import { enrichGenerateInput } from '@/lib/ai/brief-enricher'
 
 export class GeneratePipelineError extends Error {
   constructor(
@@ -314,7 +315,7 @@ export async function executeGeneratePipeline(
   const programsForPrompt =
     programsFromBody.length > 0 ? programsFromBody : deriveProgramHintsFromQuoteDoc(existingDoc)
 
-  const input: GenerateInput = {
+  const inputBeforeEnrich: GenerateInput = {
     ...bodyWithoutScenarioRefIds,
     programs: programsForPrompt,
     prices: pricesForPrompt,
@@ -332,6 +333,39 @@ export async function executeGeneratePipeline(
     cachedEngineConfig: effective,
     generationProfile: 'realtime',
     pipelineEmit,
+  }
+
+  // Stage 0 — 사용자 입력을 "좋은 문서가 나오는 프롬프트"로 LLM이 다시 정리.
+  //  - mock 모드, vendorBrief 모드, env/overlay로 끈 경우는 자동 우회.
+  //  - 실패해도 본 파이프라인은 그대로 진행(graceful fallback).
+  const enrichStartedAt = Date.now()
+  const enrichResult = isMockAi
+    ? { input: inputBeforeEnrich, enriched: null }
+    : await enrichGenerateInput(inputBeforeEnrich).catch((err) => {
+        logError('generate.briefEnrich.failed', err)
+        return { input: inputBeforeEnrich, enriched: null }
+      })
+  const input = enrichResult.input
+  const briefEnrichMs = Date.now() - enrichStartedAt
+  if (enrichResult.enriched) {
+    logInfo('generate.briefEnrich.applied', {
+      provider: enrichResult.enriched.meta.provider,
+      model: enrichResult.enriched.meta.model,
+      latencyMs: enrichResult.enriched.meta.latencyMs,
+      totalBriefEnrichMs: briefEnrichMs,
+      mustHaveCount: enrichResult.enriched.mustHaveDetails.length,
+      cautionCount: enrichResult.enriched.cautionPoints.length,
+      documentTarget,
+    })
+    ;(engineSnapshot as Record<string, unknown>).briefEnrich = {
+      provider: enrichResult.enriched.meta.provider,
+      model: enrichResult.enriched.meta.model,
+      latencyMs: enrichResult.enriched.meta.latencyMs,
+      mustHave: enrichResult.enriched.mustHaveDetails.length,
+      cautions: enrichResult.enriched.cautionPoints.length,
+    }
+  } else {
+    ;(engineSnapshot as Record<string, unknown>).briefEnrich = { skipped: true }
   }
 
   const parsedBudgetForLogging = parseBudgetCeilingKRW(body.budget || '')
