@@ -211,3 +211,76 @@ export async function getBriefEnrichStatsLast7d(): Promise<{
     ),
   }
 }
+
+/**
+ * Stage 0 일자별 시계열(최근 N일, default 14).
+ * generate_series로 빈 일자도 0으로 채워 sparkline에서 끊김 없이 그릴 수 있게 한다.
+ * 모든 시간은 UTC 일자 기준(date_trunc('day', created_at)).
+ */
+export async function getBriefEnrichDailySeries(days = 14): Promise<
+  Array<{ date: string; applied: number; skipped: number; total: number; avgLatencyMs: number }>
+> {
+  const dayCount = Math.max(1, Math.min(60, Math.floor(days)))
+  if (!hasDatabase()) {
+    const out: Array<{ date: string; applied: number; skipped: number; total: number; avgLatencyMs: number }> = []
+    for (let i = dayCount - 1; i >= 0; i--) {
+      const d = new Date()
+      d.setUTCDate(d.getUTCDate() - i)
+      d.setUTCHours(0, 0, 0, 0)
+      out.push({ date: d.toISOString().slice(0, 10), applied: 0, skipped: 0, total: 0, avgLatencyMs: 0 })
+    }
+    return out
+  }
+  await initDb()
+  const sql = getDb()
+  const fromIso = new Date(Date.now() - (dayCount - 1) * 864e5)
+  fromIso.setUTCHours(0, 0, 0, 0)
+  const fromIsoStr = fromIso.toISOString()
+
+  const rows = await sql`
+    WITH days AS (
+      SELECT generate_series(
+        date_trunc('day', ${fromIsoStr}::timestamptz),
+        date_trunc('day', now()),
+        '1 day'::interval
+      ) AS day
+    ),
+    runs AS (
+      SELECT
+        date_trunc('day', created_at) AS day,
+        engine_snapshot->'briefEnrich' AS be
+      FROM generation_runs
+      WHERE created_at >= ${fromIsoStr}::timestamptz
+        AND engine_snapshot ? 'briefEnrich'
+    )
+    SELECT
+      to_char(d.day, 'YYYY-MM-DD') AS date,
+      COUNT(r.*) FILTER (
+        WHERE (r.be->>'skipped') IS DISTINCT FROM 'true'
+          AND (r.be->>'model') IS NOT NULL
+      )::int AS applied,
+      COUNT(r.*) FILTER (
+        WHERE (r.be->>'skipped') = 'true' OR (r.be->>'model') IS NULL
+      )::int AS skipped,
+      COUNT(r.*)::int AS total,
+      COALESCE(
+        AVG((r.be->>'latencyMs')::numeric)
+        FILTER (WHERE (r.be->>'latencyMs') ~ '^[0-9]+(\\.[0-9]+)?$'),
+        0
+      )::numeric AS avg_latency_ms
+    FROM days d
+    LEFT JOIN runs r ON r.day = d.day
+    GROUP BY d.day
+    ORDER BY d.day
+  `.catch(() => [] as Array<{ date: string; applied: number; skipped: number; total: number; avg_latency_ms: number | string }>)
+
+  return (rows as Array<{ date: string; applied: number; skipped: number; total: number; avg_latency_ms: number | string }>).map(
+    (r) => ({
+      date: r.date,
+      applied: Number(r.applied ?? 0),
+      skipped: Number(r.skipped ?? 0),
+      total: Number(r.total ?? 0),
+      avgLatencyMs: Math.round(Number(r.avg_latency_ms ?? 0)),
+    }),
+  )
+}

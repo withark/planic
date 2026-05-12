@@ -4,6 +4,14 @@ import { useCallback, useEffect, useState } from 'react'
 import { LoadingState, ErrorState } from '@/components/ui/AsyncState'
 import { adminJson } from '@/lib/admin-client'
 
+interface BriefEnrichDaily {
+  date: string
+  applied: number
+  skipped: number
+  total: number
+  avgLatencyMs: number
+}
+
 interface BriefEnrichStats {
   windowDays: number
   total: number
@@ -12,6 +20,64 @@ interface BriefEnrichStats {
   avgLatencyMs: number
   maxLatencyMs: number
   modelBreakdown: Array<{ provider: string; model: string; count: number; avgLatencyMs: number }>
+  daily?: BriefEnrichDaily[]
+}
+
+interface SparklineProps {
+  values: number[]
+  width?: number
+  height?: number
+  stroke?: string
+  fill?: string
+  /** 0~values.length-1 마지막 인덱스에 점을 찍을지 */
+  showLast?: boolean
+  ariaLabel?: string
+}
+
+function Sparkline({
+  values,
+  width = 180,
+  height = 36,
+  stroke = '#4f46e5',
+  fill = 'rgba(79,70,229,0.12)',
+  showLast = true,
+  ariaLabel,
+}: SparklineProps) {
+  if (!values.length) {
+    return (
+      <div className="text-[11px] text-slate-400" aria-label={ariaLabel}>
+        데이터 없음
+      </div>
+    )
+  }
+  const max = Math.max(1, ...values)
+  const min = 0
+  const range = Math.max(1, max - min)
+  const stepX = values.length > 1 ? width / (values.length - 1) : width
+  const points = values.map((v, i) => {
+    const x = values.length > 1 ? i * stepX : width / 2
+    const y = height - ((v - min) / range) * (height - 4) - 2
+    return { x, y, v }
+  })
+  const path = points.map((p, i) => `${i === 0 ? 'M' : 'L'}${p.x.toFixed(2)},${p.y.toFixed(2)}`).join(' ')
+  const areaPath = `${path} L${(points[points.length - 1]?.x ?? 0).toFixed(2)},${height} L0,${height} Z`
+  const last = points[points.length - 1]
+  return (
+    <svg
+      role="img"
+      aria-label={ariaLabel}
+      width={width}
+      height={height}
+      viewBox={`0 0 ${width} ${height}`}
+      className="overflow-visible"
+    >
+      <path d={areaPath} fill={fill} />
+      <path d={path} stroke={stroke} strokeWidth={1.5} fill="none" strokeLinecap="round" strokeLinejoin="round" />
+      {showLast && last ? (
+        <circle cx={last.x} cy={last.y} r={2.5} fill={stroke} />
+      ) : null}
+    </svg>
+  )
 }
 
 export default function AdminOpsStatsPage() {
@@ -58,6 +124,11 @@ export default function AdminOpsStatsPage() {
   if (!stats) return <p className="text-sm text-gray-500">표시할 통계가 없습니다.</p>
 
   const appliedRatio = enrich && enrich.total > 0 ? Math.round((enrich.applied / enrich.total) * 100) : 0
+  const daily = enrich?.daily ?? []
+  const appliedSeries = daily.map((d) => d.applied)
+  const skippedSeries = daily.map((d) => d.skipped)
+  const latencySeries = daily.map((d) => d.avgLatencyMs)
+  const dailyHasAny = daily.some((d) => d.total > 0)
 
   return (
     <div className="space-y-6">
@@ -122,6 +193,63 @@ export default function AdminOpsStatsPage() {
               <dt className="text-gray-500">최대 응답</dt>
               <dd className="font-mono">{enrich.maxLatencyMs.toLocaleString()} ms</dd>
             </dl>
+            {daily.length > 0 ? (
+              <div className="max-w-2xl rounded-lg border border-gray-200 bg-white p-4">
+                <div className="flex flex-wrap items-baseline justify-between gap-2">
+                  <h3 className="text-xs font-semibold uppercase tracking-wide text-gray-500">
+                    일자별 추이 <span className="font-normal text-gray-400">({daily.length}일)</span>
+                  </h3>
+                  <span className="text-[11px] text-gray-400">
+                    {daily[0]?.date} → {daily[daily.length - 1]?.date}
+                  </span>
+                </div>
+                {!dailyHasAny ? (
+                  <p className="mt-3 text-xs text-gray-500">최근 기간 동안 강화 데이터가 없습니다.</p>
+                ) : (
+                  <div className="mt-3 grid gap-3 sm:grid-cols-3">
+                    <div>
+                      <p className="text-[11px] text-gray-500">적용 건수</p>
+                      <Sparkline
+                        values={appliedSeries}
+                        stroke="#4f46e5"
+                        fill="rgba(79,70,229,0.12)"
+                        ariaLabel="일자별 강화 적용 건수"
+                      />
+                      <p className="mt-0.5 text-[11px] font-mono text-gray-700">
+                        오늘 {appliedSeries[appliedSeries.length - 1] ?? 0} ·
+                        최대 {Math.max(0, ...appliedSeries)}
+                      </p>
+                    </div>
+                    <div>
+                      <p className="text-[11px] text-gray-500">스킵·실패</p>
+                      <Sparkline
+                        values={skippedSeries}
+                        stroke="#b45309"
+                        fill="rgba(180,83,9,0.12)"
+                        ariaLabel="일자별 강화 스킵·실패 건수"
+                      />
+                      <p className="mt-0.5 text-[11px] font-mono text-gray-700">
+                        오늘 {skippedSeries[skippedSeries.length - 1] ?? 0} ·
+                        최대 {Math.max(0, ...skippedSeries)}
+                      </p>
+                    </div>
+                    <div>
+                      <p className="text-[11px] text-gray-500">평균 응답 (ms)</p>
+                      <Sparkline
+                        values={latencySeries}
+                        stroke="#0f766e"
+                        fill="rgba(15,118,110,0.12)"
+                        ariaLabel="일자별 강화 평균 응답시간(ms)"
+                      />
+                      <p className="mt-0.5 text-[11px] font-mono text-gray-700">
+                        오늘 {(latencySeries[latencySeries.length - 1] ?? 0).toLocaleString()}ms ·
+                        최대 {Math.max(0, ...latencySeries).toLocaleString()}ms
+                      </p>
+                    </div>
+                  </div>
+                )}
+              </div>
+            ) : null}
             {enrich.modelBreakdown.length > 0 ? (
               <div className="max-w-2xl overflow-hidden rounded-lg border border-gray-200 bg-white">
                 <table className="w-full border-collapse text-sm">

@@ -20,6 +20,47 @@ type HistoryRecord = {
   doc?: unknown
 }
 
+type BriefEnrichDocShape = {
+  oneLiner?: string
+  toneGuide?: string
+  keyConcepts?: string[]
+  mustHaveDetails?: string[]
+  cautionPoints?: string[]
+  documentSpecificHints?: string
+  meta?: { provider?: string; model?: string; latencyMs?: number }
+}
+
+function isRecord(v: unknown): v is Record<string, unknown> {
+  return !!v && typeof v === 'object' && !Array.isArray(v)
+}
+
+function asStringArray(v: unknown): string[] {
+  if (!Array.isArray(v)) return []
+  return v.map((it) => String(it ?? '').trim()).filter(Boolean)
+}
+
+function extractBriefEnrich(doc: unknown): BriefEnrichDocShape | null {
+  if (!isRecord(doc)) return null
+  const be = doc.briefEnrich
+  if (!isRecord(be)) return null
+  const meta = isRecord(be.meta)
+    ? {
+        provider: typeof be.meta.provider === 'string' ? be.meta.provider : undefined,
+        model: typeof be.meta.model === 'string' ? be.meta.model : undefined,
+        latencyMs: typeof be.meta.latencyMs === 'number' ? be.meta.latencyMs : undefined,
+      }
+    : undefined
+  return {
+    oneLiner: typeof be.oneLiner === 'string' ? be.oneLiner : undefined,
+    toneGuide: typeof be.toneGuide === 'string' ? be.toneGuide : undefined,
+    keyConcepts: asStringArray(be.keyConcepts),
+    mustHaveDetails: asStringArray(be.mustHaveDetails),
+    cautionPoints: asStringArray(be.cautionPoints),
+    documentSpecificHints: typeof be.documentSpecificHints === 'string' ? be.documentSpecificHints : undefined,
+    meta,
+  }
+}
+
 export default function AdminQuoteDetailPage() {
   const params = useParams()
   const id = params?.id as string
@@ -78,6 +119,92 @@ export default function AdminQuoteDetailPage() {
           <div><dt className="text-slate-500">저장 시각</dt><dd>{quote.savedAt ? new Date(quote.savedAt).toLocaleString('ko-KR') : '—'}</dd></div>
         </dl>
       </section>
+
+      {(() => {
+        const enriched = extractBriefEnrich(quote.doc)
+        if (!enriched) return null
+        const providerLabel =
+          enriched.meta?.provider === 'anthropic'
+            ? 'Anthropic'
+            : enriched.meta?.provider === 'openai'
+              ? 'OpenAI'
+              : enriched.meta?.provider || '—'
+        const concepts = enriched.keyConcepts ?? []
+        const mustHave = enriched.mustHaveDetails ?? []
+        const cautions = enriched.cautionPoints ?? []
+        return (
+          <section className="rounded-lg border border-indigo-200 bg-indigo-50/40 p-4">
+            <div className="flex flex-wrap items-baseline justify-between gap-2">
+              <h2 className="text-sm font-semibold text-indigo-900">입력 자동 강화 (Stage 0)</h2>
+              <span className="text-xs text-indigo-800/80">
+                {providerLabel}
+                {enriched.meta?.model ? (
+                  <>
+                    {' · '}
+                    <code className="rounded bg-white/70 px-1 font-mono text-[11px]">{enriched.meta.model}</code>
+                  </>
+                ) : null}
+                {enriched.meta?.latencyMs != null ? ` · ${enriched.meta.latencyMs}ms` : ''}
+              </span>
+            </div>
+            {enriched.oneLiner ? (
+              <p className="mt-3 rounded-md bg-white/80 px-3 py-2 text-sm text-indigo-950">
+                <span className="mr-1 font-semibold text-indigo-700">요약:</span>
+                {enriched.oneLiner}
+              </p>
+            ) : null}
+            {enriched.toneGuide ? (
+              <p className="mt-2 text-xs text-indigo-900/90">
+                <span className="mr-1 font-semibold">톤 가이드:</span>
+                {enriched.toneGuide}
+              </p>
+            ) : null}
+            {concepts.length > 0 ? (
+              <div className="mt-3">
+                <p className="text-[11px] font-semibold text-indigo-800/80">키 컨셉</p>
+                <div className="mt-1 flex flex-wrap gap-1">
+                  {concepts.map((c, i) => (
+                    <span
+                      key={`q-kc-${i}`}
+                      className="rounded-full border border-indigo-200 bg-white px-2 py-0.5 text-[11px] text-indigo-800"
+                    >
+                      {c}
+                    </span>
+                  ))}
+                </div>
+              </div>
+            ) : null}
+            <div className="mt-3 grid gap-3 sm:grid-cols-2">
+              {mustHave.length > 0 ? (
+                <div>
+                  <p className="text-[11px] font-semibold text-indigo-800/80">필수 디테일 ({mustHave.length})</p>
+                  <ul className="mt-1 list-disc space-y-0.5 pl-5 text-xs text-indigo-950">
+                    {mustHave.map((line, i) => (
+                      <li key={`q-mh-${i}`}>{line}</li>
+                    ))}
+                  </ul>
+                </div>
+              ) : null}
+              {cautions.length > 0 ? (
+                <div>
+                  <p className="text-[11px] font-semibold text-amber-800/80">주의 포인트 ({cautions.length})</p>
+                  <ul className="mt-1 list-disc space-y-0.5 pl-5 text-xs text-amber-950">
+                    {cautions.map((line, i) => (
+                      <li key={`q-ca-${i}`}>{line}</li>
+                    ))}
+                  </ul>
+                </div>
+              ) : null}
+            </div>
+            {enriched.documentSpecificHints ? (
+              <p className="mt-3 rounded-md bg-white/60 px-3 py-2 text-xs text-indigo-900/90">
+                <span className="mr-1 font-semibold text-indigo-700">문서 특화 힌트:</span>
+                {enriched.documentSpecificHints}
+              </p>
+            ) : null}
+          </section>
+        )
+      })()}
 
       {quote.doc != null ? (
         <section className="rounded-lg border border-slate-200 bg-white p-4">

@@ -127,39 +127,52 @@ function renderBriefEnrichBlock(snapshot: Record<string, unknown>) {
   const keyConcepts = asStringArray(be.keyConcepts)
   const mustHaveTop = asStringArray(be.mustHaveDetailsTop)
   const cautionsTop = asStringArray(be.cautionPointsTop)
+  const oneLinerShort = oneLiner.length > 80 ? `${oneLiner.slice(0, 80)}…` : oneLiner
   return (
-    <div className="text-[11px] text-indigo-700 space-y-0.5 mt-1 rounded-md border border-indigo-100 bg-indigo-50/50 p-2">
-      <div className="font-medium text-indigo-800">입력 자동 강화 (Stage 0)</div>
-      <div>
+    <div className="text-[11px] text-indigo-700 space-y-1 mt-1 rounded-md border border-indigo-100 bg-indigo-50/50 p-2">
+      <div className="flex flex-wrap items-baseline justify-between gap-1">
+        <span className="font-medium text-indigo-800">입력 자동 강화 (Stage 0)</span>
+        <span className="text-[10px] text-indigo-700/80">
+          {latency != null ? `${latency}ms` : '—'} · 디테일 {mustHave ?? 0} · 주의 {cautions ?? 0}
+        </span>
+      </div>
+      <div className="text-[10.5px] text-indigo-900/90">
         {provider === 'anthropic' ? 'Anthropic' : provider === 'openai' ? 'OpenAI' : provider}
         {' · '}
         <span className="font-mono text-[10px]">{model}</span>
-        {latency != null ? ` · ${latency}ms` : ''}
       </div>
-      <div className="text-[10px] text-indigo-700/80">
-        필수 디테일 {mustHave ?? 0}개 · 주의 포인트 {cautions ?? 0}개 자동 추출
-      </div>
-      {oneLiner ? (
+      {oneLinerShort ? (
+        <div
+          className="text-[10.5px] leading-snug text-indigo-900/90 line-clamp-2"
+          title={oneLiner}
+        >
+          <span className="font-semibold text-indigo-800/80">요약: </span>
+          {oneLinerShort}
+        </div>
+      ) : null}
+      {keyConcepts.length > 0 ? (
+        <div className="flex flex-wrap gap-1">
+          {keyConcepts.slice(0, 4).map((c, i) => (
+            <span
+              key={`kc-${i}-${c}`}
+              className="rounded-full bg-white px-1.5 py-0.5 text-[10px] text-indigo-700 border border-indigo-200"
+            >
+              {c}
+            </span>
+          ))}
+          {keyConcepts.length > 4 ? (
+            <span className="rounded-full bg-indigo-100 px-1.5 py-0.5 text-[10px] text-indigo-700">
+              +{keyConcepts.length - 4}
+            </span>
+          ) : null}
+        </div>
+      ) : null}
+      {mustHaveTop.length > 0 || cautionsTop.length > 0 ? (
         <details className="mt-1 text-indigo-900/90">
           <summary className="cursor-pointer text-[11px] font-medium hover:text-indigo-700">
-            한 줄 요약·키워드·디테일 보기
+            디테일·주의 펼치기 ({mustHaveTop.length}·{cautionsTop.length})
           </summary>
           <div className="mt-1 space-y-1.5">
-            <div>
-              <span className="font-semibold text-indigo-800/80">요약:</span> {oneLiner}
-            </div>
-            {keyConcepts.length > 0 ? (
-              <div className="flex flex-wrap gap-1">
-                {keyConcepts.map((c, i) => (
-                  <span
-                    key={`kc-${i}-${c}`}
-                    className="rounded-full bg-white px-1.5 py-0.5 text-[10px] text-indigo-700 border border-indigo-200"
-                  >
-                    {c}
-                  </span>
-                ))}
-              </div>
-            ) : null}
             {mustHaveTop.length > 0 ? (
               <div>
                 <p className="font-semibold text-indigo-800/80">필수 디테일</p>
