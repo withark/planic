@@ -59,8 +59,11 @@ export function AdminShell({ children }: { children: React.ReactNode }) {
     window.location.href = '/admin'
   }
 
-  const isActive = (href: string) =>
-    href === '/admin' ? pathname === '/admin' : pathname.startsWith(href + '/') || pathname === href
+  const isActive = (href: string) => {
+    if (href === '/admin') return pathname === '/admin'
+    if (href === '/') return pathname === '/'
+    return pathname === href || pathname.startsWith(`${href}/`)
+  }
 
   return (
     <div className="min-h-screen flex bg-slate-100">

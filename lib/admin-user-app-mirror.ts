@@ -34,6 +34,9 @@ export function adminUserAppGeneratorLinks(): AdminUserAppMirrorLink[] {
 /** 결제·요금제 (사용자 앱 / 마케팅) */
 const USER_BILLING_AND_PLANS: AdminUserAppMirrorLink[] = [
   { href: '/billing', label: '결제·구독', desc: '청구·구독 관리 화면' },
+  { href: '/billing/checkout', label: '결제 체크아웃', desc: '주문 컨텍스트 없으면 안내·리다이렉트될 수 있음' },
+  { href: '/billing/success', label: '결제 성공', desc: '토스 등 리턴 URL 점검' },
+  { href: '/billing/fail', label: '결제 실패', desc: '토스 등 리턴 URL 점검' },
   { href: '/plans', label: '요금제 안내', desc: '플랜 비교(앱·마케팅 공통 경로)' },
 ]
 
@@ -68,7 +71,7 @@ const USER_MARKETING_AND_POLICY: AdminUserAppMirrorLink[] = [
 /**
  * 관리자 사이드바·대시보드에 쓰는「사용자 앱 전체」그룹.
  * - 1·2: 일상 검수에 자주 쓰는 경로
- * - 3: 결제·CS·참고 자료
+ * - 3: 결제(하위 URL 포함)·요금·참고 자료
  * - 4: 구 URL·리다이렉트 점검
  * - 5: 랜딩·약관
  */
