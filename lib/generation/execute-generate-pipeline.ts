@@ -551,6 +551,24 @@ export async function executeGeneratePipeline(
   const persistenceWarnings: string[] = []
   let persistedEngineSnapshot: Record<string, unknown> = persistedEngineSnapshotBase
 
+  const briefEnrichApi: BriefEnrichApiSummary | null = enrichResult.enriched
+    ? {
+        oneLiner: enrichResult.enriched.oneLiner,
+        toneGuide: enrichResult.enriched.toneGuide,
+        keyConcepts: enrichResult.enriched.keyConcepts,
+        mustHaveDetails: enrichResult.enriched.mustHaveDetails,
+        cautionPoints: enrichResult.enriched.cautionPoints,
+        documentSpecificHints: enrichResult.enriched.documentSpecificHints,
+        meta: enrichResult.enriched.meta,
+      }
+    : null
+
+  // doc.briefEnrich를 영구화: insertGeneratedDoc 이전에 부착해 payload(jsonb)에 함께 저장.
+  // 사용자가 과거 문서를 다시 불러올 때 BriefEnrichSummaryCard가 그대로 복원된다.
+  if (briefEnrichApi) {
+    doc = { ...doc, briefEnrich: briefEnrichApi }
+  }
+
   await insertGeneratedDoc({
     userId,
     id: quoteId,
@@ -629,18 +647,6 @@ export async function executeGeneratePipeline(
     plan,
     mockAi: isMockAi,
   })
-
-  const briefEnrichApi: BriefEnrichApiSummary | null = enrichResult.enriched
-    ? {
-        oneLiner: enrichResult.enriched.oneLiner,
-        toneGuide: enrichResult.enriched.toneGuide,
-        keyConcepts: enrichResult.enriched.keyConcepts,
-        mustHaveDetails: enrichResult.enriched.mustHaveDetails,
-        cautionPoints: enrichResult.enriched.cautionPoints,
-        documentSpecificHints: enrichResult.enriched.documentSpecificHints,
-        meta: enrichResult.enriched.meta,
-      }
-    : null
 
   return { doc, totals, id: quoteId, genMeta: genMeta!, briefEnrich: briefEnrichApi }
 }

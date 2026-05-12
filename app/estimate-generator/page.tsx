@@ -738,17 +738,20 @@ function EstimateGeneratorContent() {
     async (nextDoc: QuoteDoc) => {
       if (!generatedDocId) return
       normalizeQuoteUnitPricesToThousand(nextDoc)
+      const persistedDoc: QuoteDoc = briefEnrich
+        ? { ...nextDoc, briefEnrich: briefEnrich as QuoteDoc['briefEnrich'] }
+        : nextDoc
       setSaving(true)
       try {
         await apiFetch(`/api/generated-docs/${generatedDocId}`, {
           method: 'PATCH',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ doc: nextDoc }),
+          body: JSON.stringify({ doc: persistedDoc }),
         })
         await apiFetch(`/api/quotes/${generatedDocId}`, {
           method: 'PATCH',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ doc: nextDoc }),
+          body: JSON.stringify({ doc: persistedDoc }),
         })
         const updatedHistory = await apiFetch<HistoryRecord[]>('/api/history')
         setHistoryList([...updatedHistory].reverse().slice(0, 20))
@@ -760,7 +763,7 @@ function EstimateGeneratorContent() {
         if (isMountedRef.current) setSaving(false)
       }
     },
-    [generatedDocId, showToast],
+    [generatedDocId, showToast, briefEnrich],
   )
 
   const handleProposalDownload = useCallback(async () => {
@@ -849,6 +852,8 @@ function EstimateGeneratorContent() {
     normalizeQuoteUnitPricesToThousand(next)
     setDoc(next)
     setGeneratedDocId(rec.id)
+    setBriefEnrich(next.briefEnrich ? (next.briefEnrich as BriefEnrichSummary) : null)
+    setRefinementCount(0)
     setPasteFlowCommitted(true)
     showToast('저장된 문서를 불러왔습니다. 수신처·항목만 수정한 뒤 저장하거나 보내세요.')
   }, [historyList, loadPickerId, showToast])

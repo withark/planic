@@ -104,3 +104,110 @@ export async function generationRunsFailureRateLast7d(): Promise<{ total: number
   const r = rows[0] as { total: number; failed: number }
   return { total: r?.total ?? 0, failed: r?.failed ?? 0 }
 }
+
+/**
+ * Stage 0 (brief enrichment) 단계의 운영 지표를 generation_runs.engine_snapshot.briefEnrich에서 집계.
+ * - applied: skipped=true가 아닌 강화 적용 건수
+ * - skipped: skipped=true 또는 model이 비어 있는 건수
+ * - avgLatencyMs: 적용 건의 latencyMs 평균
+ * - modelBreakdown: provider/model별 적용 건수와 평균 latency
+ */
+export async function getBriefEnrichStatsLast7d(): Promise<{
+  windowDays: number
+  total: number
+  applied: number
+  skipped: number
+  avgLatencyMs: number
+  maxLatencyMs: number
+  modelBreakdown: Array<{ provider: string; model: string; count: number; avgLatencyMs: number }>
+}> {
+  const empty = {
+    windowDays: 7,
+    total: 0,
+    applied: 0,
+    skipped: 0,
+    avgLatencyMs: 0,
+    maxLatencyMs: 0,
+    modelBreakdown: [] as Array<{ provider: string; model: string; count: number; avgLatencyMs: number }>,
+  }
+  if (!hasDatabase()) return empty
+  await initDb()
+  const sql = getDb()
+  const d7 = new Date(Date.now() - 7 * 864e5).toISOString()
+
+  const summaryRows = await sql`
+    SELECT
+      COUNT(*) FILTER (WHERE engine_snapshot ? 'briefEnrich')::int AS total,
+      COUNT(*) FILTER (
+        WHERE engine_snapshot ? 'briefEnrich'
+        AND (engine_snapshot->'briefEnrich'->>'skipped') IS DISTINCT FROM 'true'
+        AND (engine_snapshot->'briefEnrich'->>'model') IS NOT NULL
+      )::int AS applied,
+      COUNT(*) FILTER (
+        WHERE engine_snapshot ? 'briefEnrich'
+        AND (
+          (engine_snapshot->'briefEnrich'->>'skipped') = 'true'
+          OR (engine_snapshot->'briefEnrich'->>'model') IS NULL
+        )
+      )::int AS skipped,
+      COALESCE(
+        AVG((engine_snapshot->'briefEnrich'->>'latencyMs')::numeric)
+        FILTER (WHERE (engine_snapshot->'briefEnrich'->>'latencyMs') ~ '^[0-9]+(\\.[0-9]+)?$'),
+        0
+      )::numeric AS avg_latency_ms,
+      COALESCE(
+        MAX((engine_snapshot->'briefEnrich'->>'latencyMs')::numeric)
+        FILTER (WHERE (engine_snapshot->'briefEnrich'->>'latencyMs') ~ '^[0-9]+(\\.[0-9]+)?$'),
+        0
+      )::numeric AS max_latency_ms
+    FROM generation_runs
+    WHERE created_at >= ${d7}::timestamptz
+  `.catch(() => [
+    { total: 0, applied: 0, skipped: 0, avg_latency_ms: 0, max_latency_ms: 0 } as const,
+  ])
+
+  const s = summaryRows[0] as {
+    total: number
+    applied: number
+    skipped: number
+    avg_latency_ms: number | string
+    max_latency_ms: number | string
+  }
+
+  const breakdownRows = await sql`
+    SELECT
+      COALESCE(engine_snapshot->'briefEnrich'->>'provider', '') AS provider,
+      COALESCE(engine_snapshot->'briefEnrich'->>'model', '') AS model,
+      COUNT(*)::int AS count,
+      COALESCE(
+        AVG((engine_snapshot->'briefEnrich'->>'latencyMs')::numeric)
+        FILTER (WHERE (engine_snapshot->'briefEnrich'->>'latencyMs') ~ '^[0-9]+(\\.[0-9]+)?$'),
+        0
+      )::numeric AS avg_latency_ms
+    FROM generation_runs
+    WHERE created_at >= ${d7}::timestamptz
+      AND engine_snapshot ? 'briefEnrich'
+      AND (engine_snapshot->'briefEnrich'->>'model') IS NOT NULL
+      AND (engine_snapshot->'briefEnrich'->>'skipped') IS DISTINCT FROM 'true'
+    GROUP BY 1, 2
+    ORDER BY count DESC
+    LIMIT 10
+  `.catch(() => [] as Array<{ provider: string; model: string; count: number; avg_latency_ms: number | string }>)
+
+  return {
+    windowDays: 7,
+    total: Number(s?.total ?? 0),
+    applied: Number(s?.applied ?? 0),
+    skipped: Number(s?.skipped ?? 0),
+    avgLatencyMs: Math.round(Number(s?.avg_latency_ms ?? 0)),
+    maxLatencyMs: Math.round(Number(s?.max_latency_ms ?? 0)),
+    modelBreakdown: (breakdownRows as Array<{ provider: string; model: string; count: number; avg_latency_ms: number | string }>).map(
+      (row) => ({
+        provider: row.provider || '',
+        model: row.model || '',
+        count: Number(row.count ?? 0),
+        avgLatencyMs: Math.round(Number(row.avg_latency_ms ?? 0)),
+      }),
+    ),
+  }
+}

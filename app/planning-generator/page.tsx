@@ -267,6 +267,8 @@ export default function PlanningGeneratorPage() {
     ({ doc: nextDoc, id }: { doc: QuoteDoc; id: string }) => {
       setDoc(nextDoc)
       setGeneratedDocId(id)
+      setBriefEnrich(nextDoc.briefEnrich ? (nextDoc.briefEnrich as BriefEnrichSummary) : null)
+      setRefinementCount(0)
       showToast('과거에 저장한 문서를 불러왔습니다. 내용을 수정한 뒤 저장·다운로드하세요.')
     },
     [showToast],
@@ -277,10 +279,13 @@ export default function PlanningGeneratorPage() {
       if (!generatedDocId) return
       setSaving(true)
       try {
+        const persistedDoc: QuoteDoc = briefEnrich
+          ? { ...nextDoc, briefEnrich: briefEnrich as QuoteDoc['briefEnrich'] }
+          : nextDoc
         await apiFetch(`/api/generated-docs/${generatedDocId}`, {
           method: 'PATCH',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ doc: nextDoc }),
+          body: JSON.stringify({ doc: persistedDoc }),
         })
         showToast('저장이 완료되었습니다.')
       } catch (e) {
@@ -290,7 +295,7 @@ export default function PlanningGeneratorPage() {
         if (isMountedRef.current) setSaving(false)
       }
     },
-    [generatedDocId, showToast, isMountedRef],
+    [generatedDocId, showToast, isMountedRef, briefEnrich],
   )
 
   const generateDisabled =

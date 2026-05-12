@@ -160,6 +160,21 @@ export interface PlanningDoc {
   expectedEffectsLongTerm?: string[]
 }
 
+// ─── Brief enrichment 영구 요약 (generated_docs.payload에 함께 저장) ─────────
+export interface BriefEnrichDocSummary {
+  oneLiner?: string
+  toneGuide?: string
+  keyConcepts?: string[]
+  mustHaveDetails?: string[]
+  cautionPoints?: string[]
+  documentSpecificHints?: string
+  meta?: {
+    provider?: string
+    model?: string
+    latencyMs?: number
+  }
+}
+
 // ─── 견적서 ──────────────────────────────────
 export interface QuoteDoc {
   eventName: string
@@ -192,6 +207,13 @@ export interface QuoteDoc {
 
   /** 예산 하드 제약(estimate에서만 적용) 결과 메타 */
   budgetConstraint?: BudgetConstraintMeta
+
+  /**
+   * Stage 0 — AI가 사용자 입력을 정리한 결과 요약(영구 보관용).
+   * 생성 직후 또는 저장 시 함께 직렬화되어 generated_docs.payload jsonb에 영구화.
+   * 불러오기(handleLoadSavedDoc) 시 이 값으로 BriefEnrichSummaryCard를 복원한다.
+   */
+  briefEnrich?: BriefEnrichDocSummary
 }
 
 export interface ProgramPlan {
