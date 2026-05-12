@@ -230,6 +230,24 @@ export default function EmceeScriptGeneratorPage() {
     }
   }, [doc, requestBaseFromDoc, showToast, sourceMode, topic, goal, notes, headcount, venue, startSession, stillCurrent, clearAbortIfCurrent])
 
+  const handleRefineBrief = useCallback(
+    (note: string) => {
+      const trimmed = note.trim()
+      if (!trimmed) return
+      if (generating) return
+      setNotes((prev) => {
+        const base = (prev || '').trim()
+        const refinement = `[보강 메모] ${trimmed}`
+        return base ? `${base}\n\n${refinement}` : refinement
+      })
+      const id = window.setTimeout(() => {
+        void handleGenerate()
+      }, 0)
+      return () => window.clearTimeout(id)
+    },
+    [generating, handleGenerate],
+  )
+
   const handleLoadSavedDoc = useCallback(
     ({ doc: nextDoc, id }: { doc: QuoteDoc; id: string }) => {
       setDoc(nextDoc)
@@ -455,6 +473,9 @@ export default function EmceeScriptGeneratorPage() {
                 title="사회자 멘트 생성 중"
                 lines={generationStageLog}
                 briefEnrich={briefEnrich}
+                onRefineBrief={handleRefineBrief}
+                refiningBrief={generating}
+                active={generating}
               />
             </div>
           ) : doc && generatedDocId ? (

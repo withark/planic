@@ -111,13 +111,44 @@ export async function apiGenerateStream(
     })
   }
 
+  /**
+   * `briefEnrich` 같이 서버가 동봉한 부가 정보를 NDJSON `stage` 이벤트처럼 단방향으로 흘려보내,
+   * generator 페이지의 onStage 핸들러가 NDJSON 경로와 동일하게 받을 수 있게 한다.
+   */
+  const emitBriefEnrichFromResult = (briefEnrich: unknown) => {
+    if (!onStage) return
+    if (!briefEnrich || typeof briefEnrich !== 'object' || Array.isArray(briefEnrich)) return
+    try {
+      onStage({
+        stage: 'enrich-done',
+        label: mapGenerationStageToKorean('enrich-done'),
+        details: { kind: 'briefEnrich', ...(briefEnrich as Record<string, unknown>) },
+      })
+    } catch {
+      // 콜백 내부 에러는 본 생성에 영향 주지 않음
+    }
+  }
+
   const parseJsonGenerateResponse = async (res: Response) => {
     const payload = await parseResponsePayload(res)
     if (res.ok) {
-      const env = payload as ApiEnvelope<{ doc: QuoteDoc; totals: Record<string, number>; id: string }>
+      const env = payload as ApiEnvelope<{
+        doc: QuoteDoc
+        totals: Record<string, number>
+        id: string
+        briefEnrich?: unknown
+      }>
       if (env && typeof env === 'object' && (env as any).ok === true && 'data' in (env as any)) {
-        return (env as ApiOk<{ doc: QuoteDoc; totals: Record<string, number>; id: string }>).data
+        const data = (env as ApiOk<{
+          doc: QuoteDoc
+          totals: Record<string, number>
+          id: string
+          briefEnrich?: unknown
+        }>).data
+        if (data && typeof data === 'object') emitBriefEnrichFromResult((data as any).briefEnrich)
+        return data
       }
+      if (payload && typeof payload === 'object') emitBriefEnrichFromResult((payload as any).briefEnrich)
       return payload as { doc: QuoteDoc; totals: Record<string, number>; id: string }
     }
     if (res.status === 401) {
@@ -213,6 +244,9 @@ export async function apiGenerateStream(
           throw new ApiError(message, status, obj)
         }
         if (obj.type === 'complete' && obj.doc) {
+          // 스트림 종료와 동시에 강화 요약이 함께 와 있으면 onStage 시뮬레이션 emit
+          // (스트림 중간 enrich-done이 누락된 환경에서도 마지막에 한 번은 카드가 보장됨)
+          emitBriefEnrichFromResult(obj.briefEnrich)
           return {
             doc: obj.doc as QuoteDoc,
             totals: (obj.totals as Record<string, number>) || {},

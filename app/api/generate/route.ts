@@ -235,6 +235,7 @@ export async function POST(req: NextRequest) {
               doc: result.doc,
               totals: result.totals,
               id: result.id,
+              briefEnrich: result.briefEnrich,
             })
           } catch (e) {
             if (e instanceof GeneratePipelineError) {
@@ -261,7 +262,12 @@ export async function POST(req: NextRequest) {
 
     try {
       const result = await executeGeneratePipeline(pipelineArgs)
-      return okResponse({ doc: result.doc, totals: result.totals, id: result.id })
+      return okResponse({
+        doc: result.doc,
+        totals: result.totals,
+        id: result.id,
+        briefEnrich: result.briefEnrich,
+      })
     } catch (e) {
       if (e instanceof GeneratePipelineError) {
         return errorResponse(e.httpStatus, e.code, e.message)

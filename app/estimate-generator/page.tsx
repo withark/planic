@@ -714,6 +714,24 @@ function EstimateGeneratorContent() {
     }
   }, [requestBodyForEstimate, showToast, sourceMode, priceItemCount, isNarrowViewport, startSession, stillCurrent, clearAbortIfCurrent])
 
+  const handleRefineBrief = useCallback(
+    (note: string) => {
+      const trimmed = note.trim()
+      if (!trimmed) return
+      if (generating) return
+      setNotes((prev) => {
+        const base = (prev || '').trim()
+        const refinement = `[보강 메모] ${trimmed}`
+        return base ? `${base}\n\n${refinement}` : refinement
+      })
+      const id = window.setTimeout(() => {
+        void handleGenerateEstimate()
+      }, 0)
+      return () => window.clearTimeout(id)
+    },
+    [generating, handleGenerateEstimate],
+  )
+
   const handleSaveDoc = useCallback(
     async (nextDoc: QuoteDoc) => {
       if (!generatedDocId) return
@@ -1682,7 +1700,12 @@ function EstimateGeneratorContent() {
                       <p className="mt-2 text-[11px] text-slate-500">단계 로그가 곧 여기에 쌓입니다.</p>
                     )}
                   </div>
-                  <BriefEnrichSummaryCard summary={briefEnrich} active />
+                  <BriefEnrichSummaryCard
+                    summary={briefEnrich}
+                    active={generating}
+                    onRefine={handleRefineBrief}
+                    refining={generating}
+                  />
                 </div>
               ) : (
                 <div className="flex flex-1 flex-col gap-3">

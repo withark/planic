@@ -247,6 +247,24 @@ export default function ProgramProposalGeneratorPage() {
     }
   }, [doc, requestBaseFromDoc, showToast, sourceMode, topic, headcount, venue, goal, notes, taskOrderSummary, startSession, stillCurrent, clearAbortIfCurrent])
 
+  const handleRefineBrief = useCallback(
+    (note: string) => {
+      const trimmed = note.trim()
+      if (!trimmed) return
+      if (generating) return
+      setNotes((prev) => {
+        const base = (prev || '').trim()
+        const refinement = `[보강 메모] ${trimmed}`
+        return base ? `${base}\n\n${refinement}` : refinement
+      })
+      const id = window.setTimeout(() => {
+        void handleGenerateProgram()
+      }, 0)
+      return () => window.clearTimeout(id)
+    },
+    [generating, handleGenerateProgram],
+  )
+
   const handleLoadSavedDoc = useCallback(
     ({ doc: nextDoc, id }: { doc: QuoteDoc; id: string }) => {
       setDoc(nextDoc)
@@ -500,6 +518,9 @@ export default function ProgramProposalGeneratorPage() {
                   title="프로그램 제안 생성 중"
                   lines={generationStageLog}
                   briefEnrich={briefEnrich}
+                  onRefineBrief={handleRefineBrief}
+                  refiningBrief={generating}
+                  active={generating}
                 />
               </div>
             ) : doc && generatedDocId ? (

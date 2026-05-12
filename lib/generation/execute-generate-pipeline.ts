@@ -89,11 +89,28 @@ export type ExecuteGeneratePipelineArgs = {
   pipelineEmit?: (info: { stage: string; label: string; details?: Record<string, unknown> }) => void
 }
 
+/** API 응답·UI 카드용으로 전달하는 강화 브리프 요약(서버 → 클라이언트). */
+export type BriefEnrichApiSummary = {
+  oneLiner: string
+  toneGuide: string
+  keyConcepts: string[]
+  mustHaveDetails: string[]
+  cautionPoints: string[]
+  documentSpecificHints: string
+  meta: {
+    provider: string
+    model: string
+    latencyMs: number
+  }
+}
+
 export type ExecuteGeneratePipelineResult = {
   doc: QuoteDoc
   totals: ReturnType<typeof calcTotals>
   id: string
   genMeta: Awaited<ReturnType<typeof generateQuoteWithMeta>>['meta']
+  /** Stage 0 강화 결과(있으면 UI에 미리보기로 노출). null이면 비활성/실패/skip. */
+  briefEnrich: BriefEnrichApiSummary | null
 }
 
 const REALTIME_ANTHROPIC_MODEL_DEFAULT = resolveAnthropicFinalModel()
@@ -613,5 +630,17 @@ export async function executeGeneratePipeline(
     mockAi: isMockAi,
   })
 
-  return { doc, totals, id: quoteId, genMeta: genMeta! }
+  const briefEnrichApi: BriefEnrichApiSummary | null = enrichResult.enriched
+    ? {
+        oneLiner: enrichResult.enriched.oneLiner,
+        toneGuide: enrichResult.enriched.toneGuide,
+        keyConcepts: enrichResult.enriched.keyConcepts,
+        mustHaveDetails: enrichResult.enriched.mustHaveDetails,
+        cautionPoints: enrichResult.enriched.cautionPoints,
+        documentSpecificHints: enrichResult.enriched.documentSpecificHints,
+        meta: enrichResult.enriched.meta,
+      }
+    : null
+
+  return { doc, totals, id: quoteId, genMeta: genMeta!, briefEnrich: briefEnrichApi }
 }

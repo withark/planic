@@ -42,12 +42,26 @@ type Props = {
   className?: string
   /** Stage 0 — AI가 사용자 입력을 어떻게 정리했는지 요약. 있으면 진행 패널 하단에 카드로 표시 */
   briefEnrich?: BriefEnrichSummary | null
+  /** 사용자가 카드에서 보강 메모를 작성해 재생성을 요청할 때 호출 */
+  onRefineBrief?: (note: string) => void
+  /** 보강 메모 재생성이 진행 중인지 (재생성 버튼 비활성화용) */
+  refiningBrief?: boolean
+  /** 본 생성이 진행 중인지(=BriefEnrichSummaryCard의 active 동기화). 기본 true(panel은 진행 중에만 보이므로) */
+  active?: boolean
 }
 
 /**
  * 생성 스트림(NDJSON stage) 진행 상황을 채팅형으로 보여줍니다.
  */
-export default function GenerationProgressPanel({ title, lines, className, briefEnrich }: Props) {
+export default function GenerationProgressPanel({
+  title,
+  lines,
+  className,
+  briefEnrich,
+  onRefineBrief,
+  refiningBrief,
+  active = true,
+}: Props) {
   const scrollRef = useRef<HTMLDivElement>(null)
 
   const completed = useMemo(() => (lines.length > 1 ? lines.slice(0, -1) : []), [lines])
@@ -104,7 +118,12 @@ export default function GenerationProgressPanel({ title, lines, className, brief
         ) : null}
 
         {briefEnrich ? (
-          <BriefEnrichSummaryCard summary={briefEnrich} active />
+          <BriefEnrichSummaryCard
+            summary={briefEnrich}
+            active={active}
+            onRefine={onRefineBrief}
+            refining={refiningBrief}
+          />
         ) : null}
       </div>
 

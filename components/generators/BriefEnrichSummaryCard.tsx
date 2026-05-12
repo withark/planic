@@ -67,6 +67,14 @@ interface Props {
   className?: string
   /** 본 문서 생성이 진행 중일 때 true(=배너 강조). 완료/실패 후에도 표시 유지 */
   active?: boolean
+  /**
+   * 사용자가 카드 안에서 보강 메모를 작성하고 "이 메모로 다시 생성"을 누르면 호출.
+   * note는 사용자가 입력한 텍스트(trim된 상태). 페이지 측에서 briefNotes/requirements에 합치고
+   * 재생성 트리거를 직접 수행한다. 미제공이면 입력 영역을 표시하지 않는다.
+   */
+  onRefine?: (note: string) => void
+  /** 재생성 버튼 비활성화(이미 다시 생성 중일 때) */
+  refining?: boolean
 }
 
 /**
@@ -74,9 +82,19 @@ interface Props {
  * - 토글로 접고 펼 수 있다. 기본은 펼쳐진 상태.
  * - summary가 null이면 아무것도 렌더링하지 않는다.
  */
-export default function BriefEnrichSummaryCard({ summary, className, active }: Props) {
+export default function BriefEnrichSummaryCard({
+  summary,
+  className,
+  active,
+  onRefine,
+  refining,
+}: Props) {
   const [open, setOpen] = useState(true)
+  const [refineNote, setRefineNote] = useState('')
   if (!summary) return null
+
+  const noteTrimmed = refineNote.trim()
+  const canSubmitRefine = !!onRefine && !active && !refining && noteTrimmed.length >= 2
 
   const concepts = summary.keyConcepts ?? []
   const mustHave = summary.mustHaveDetails ?? []
@@ -198,6 +216,47 @@ export default function BriefEnrichSummaryCard({ summary, className, active }: P
               <span className="font-mono">{summary.meta.model}</span>
               {typeof summary.meta.latencyMs === 'number' ? ` · ${summary.meta.latencyMs}ms` : ''}
             </p>
+          ) : null}
+
+          {onRefine ? (
+            <div className="mt-2 rounded-xl border border-indigo-200 bg-white p-3">
+              <p className="text-[11.5px] font-semibold text-indigo-900">
+                결과가 마음에 들지 않으면 한 줄로 알려 주세요
+              </p>
+              <p className="mt-0.5 text-[10.5px] text-indigo-700/80 leading-snug">
+                예: “비전탑·줄다리기 종목을 더 강조해줘”, “VIP 의전 동선을 추가해줘”, “행사 톤은 격식 있게”
+                — 입력 메모를 합쳐 즉시 다시 생성합니다.
+              </p>
+              <textarea
+                value={refineNote}
+                onChange={(e) => setRefineNote(e.target.value)}
+                rows={2}
+                placeholder="추가하거나 빼고 싶은 디테일을 적어 주세요"
+                className="mt-2 w-full rounded-lg border border-indigo-200 bg-white px-2 py-1.5 text-[12px] leading-relaxed text-slate-900 focus:border-indigo-400 focus:outline-none focus:ring-1 focus:ring-indigo-200"
+                disabled={active || refining}
+              />
+              <div className="mt-2 flex items-center justify-between gap-2">
+                <p className="text-[10px] text-indigo-700/60">
+                  {active
+                    ? '생성이 진행 중이라 잠시 후 입력해 주세요.'
+                    : refining
+                      ? '메모를 합쳐 다시 생성 중입니다…'
+                      : `${noteTrimmed.length}/600자 · 2자 이상 입력 시 재생성 가능`}
+                </p>
+                <button
+                  type="button"
+                  onClick={() => {
+                    if (!canSubmitRefine) return
+                    onRefine?.(noteTrimmed.slice(0, 600))
+                    setRefineNote('')
+                  }}
+                  disabled={!canSubmitRefine}
+                  className="rounded-lg bg-indigo-600 px-3 py-1.5 text-[11.5px] font-semibold text-white shadow-sm transition-colors hover:bg-indigo-700 disabled:cursor-not-allowed disabled:bg-indigo-300"
+                >
+                  이 메모로 다시 생성
+                </button>
+              </div>
+            </div>
           ) : null}
         </div>
       ) : null}

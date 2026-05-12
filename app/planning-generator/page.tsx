@@ -242,6 +242,26 @@ export default function PlanningGeneratorPage() {
     }
   }, [doc, requestBaseFromDoc, showToast, sourceMode, taskOrderSummary, topic, goal, notes, headcount, venue, startSession, stillCurrent, clearAbortIfCurrent])
 
+  /** 강화 카드에서 사용자가 보강 메모를 적고 "이 메모로 다시 생성"을 누른 경우 */
+  const handleRefineBrief = useCallback(
+    (note: string) => {
+      const trimmed = note.trim()
+      if (!trimmed) return
+      if (generating) return
+      setNotes((prev) => {
+        const base = (prev || '').trim()
+        const refinement = `[보강 메모] ${trimmed}`
+        return base ? `${base}\n\n${refinement}` : refinement
+      })
+      // 다음 tick에 재생성(notes state 반영 후)
+      const id = window.setTimeout(() => {
+        void handleGeneratePlanning()
+      }, 0)
+      return () => window.clearTimeout(id)
+    },
+    [generating, handleGeneratePlanning],
+  )
+
   const handleLoadSavedDoc = useCallback(
     ({ doc: nextDoc, id }: { doc: QuoteDoc; id: string }) => {
       setDoc(nextDoc)
@@ -490,6 +510,9 @@ export default function PlanningGeneratorPage() {
                   title="기획 문서 생성 중"
                   lines={generationStageLog}
                   briefEnrich={briefEnrich}
+                  onRefineBrief={handleRefineBrief}
+                  refiningBrief={generating}
+                  active={generating}
                 />
               </div>
             ) : doc && generatedDocId ? (
