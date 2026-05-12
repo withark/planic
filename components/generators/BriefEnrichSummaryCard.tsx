@@ -75,6 +75,8 @@ interface Props {
   onRefine?: (note: string) => void
   /** 재생성 버튼 비활성화(이미 다시 생성 중일 때) */
   refining?: boolean
+  /** 이 세션에서 누적된 보강 메모 개수. 0보다 크면 카드 상단에 인디케이터를 표시 */
+  refinementCount?: number
 }
 
 /**
@@ -88,6 +90,7 @@ export default function BriefEnrichSummaryCard({
   active,
   onRefine,
   refining,
+  refinementCount,
 }: Props) {
   const [open, setOpen] = useState(true)
   const [refineNote, setRefineNote] = useState('')
@@ -123,12 +126,22 @@ export default function BriefEnrichSummaryCard({
             AI
           </span>
           <div className="min-w-0">
-            <p className="text-sm font-semibold text-indigo-900">
-              AI가 입력을 정리했어요
-            </p>
+            <div className="flex flex-wrap items-center gap-2">
+              <p className="text-sm font-semibold text-indigo-900">
+                AI가 입력을 정리했어요
+              </p>
+              {refinementCount && refinementCount > 0 ? (
+                <span
+                  className="inline-flex items-center gap-1 rounded-full bg-indigo-600/90 px-2 py-0.5 text-[10px] font-semibold text-white"
+                  title="이 세션에서 보강 메모로 재생성한 횟수"
+                >
+                  보강 {refinementCount}회 누적
+                </span>
+              ) : null}
+            </div>
             <p className="mt-0.5 text-[11px] text-indigo-900/70 leading-snug">
               사용자가 적은 메모를 본 문서 생성 직전에 컨셉·필수 디테일·주의 포인트로 다시 정리했어요. 마음에 들지 않으면
-              위 폼의 요청사항을 더 구체적으로 적어 주시면 결과가 더 좋아져요.
+              아래 보강 메모에 한 줄을 적거나 위 폼의 요청사항을 더 구체적으로 적어 주세요.
             </p>
           </div>
         </div>

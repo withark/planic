@@ -8,7 +8,7 @@ import SimpleGeneratorWizard from '@/components/generators/SimpleGeneratorWizard
 import { MacroPasteGate } from '@/components/generators/MacroPasteGate'
 import { LoadSavedGeneratedDocModal } from '@/components/generators/LoadSavedGeneratedDocModal'
 import GenerationProgressPanel, { appendStageLine } from '@/components/generators/GenerationProgressPanel'
-import {
+import BriefEnrichSummaryCard, {
   type BriefEnrichSummary,
   parseBriefEnrichSummary,
 } from '@/components/generators/BriefEnrichSummaryCard'
@@ -103,6 +103,7 @@ export default function ProgramProposalGeneratorPage() {
   const [generationProgressLabel, setGenerationProgressLabel] = useState<string | null>(null)
   const [generationStageLog, setGenerationStageLog] = useState<string[]>([])
   const [briefEnrich, setBriefEnrich] = useState<BriefEnrichSummary | null>(null)
+  const [refinementCount, setRefinementCount] = useState(0)
   const [saving, setSaving] = useState(false)
   const [loadSavedOpen, setLoadSavedOpen] = useState(false)
   const generatingTabs = useMemo(() => ({ program: generating }), [generating])
@@ -257,6 +258,7 @@ export default function ProgramProposalGeneratorPage() {
         const refinement = `[보강 메모] ${trimmed}`
         return base ? `${base}\n\n${refinement}` : refinement
       })
+      setRefinementCount((n) => n + 1)
       const id = window.setTimeout(() => {
         void handleGenerateProgram()
       }, 0)
@@ -521,10 +523,21 @@ export default function ProgramProposalGeneratorPage() {
                   onRefineBrief={handleRefineBrief}
                   refiningBrief={generating}
                   active={generating}
+                  refinementCount={refinementCount}
                 />
               </div>
             ) : doc && generatedDocId ? (
-              <section className="flex min-h-0 flex-col overflow-hidden rounded-2xl border border-gray-100 bg-white shadow-card">
+              <div className="flex min-h-0 h-full flex-col gap-3 overflow-hidden">
+                {briefEnrich ? (
+                  <BriefEnrichSummaryCard
+                    summary={briefEnrich}
+                    active={false}
+                    onRefine={handleRefineBrief}
+                    refining={generating}
+                    refinementCount={refinementCount}
+                  />
+                ) : null}
+              <section className="flex min-h-0 flex-1 flex-col overflow-hidden rounded-2xl border border-gray-100 bg-white shadow-card">
                 <div className="border-b border-gray-100 bg-slate-50/50 p-4">
                   <div className="text-sm font-semibold text-gray-900">프로그램 제안 결과</div>
                   <div className="mt-1 text-xs text-gray-500">생성 후 내용을 편집하세요.</div>
@@ -574,6 +587,7 @@ export default function ProgramProposalGeneratorPage() {
                   />
                 </div>
               </section>
+              </div>
             ) : (
               <section className="min-h-0 overflow-y-auto rounded-2xl border border-dashed border-gray-200 bg-white p-8 text-center">
                 <div className="text-sm font-semibold text-gray-900">

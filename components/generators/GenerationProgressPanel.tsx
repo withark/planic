@@ -48,6 +48,8 @@ type Props = {
   refiningBrief?: boolean
   /** 본 생성이 진행 중인지(=BriefEnrichSummaryCard의 active 동기화). 기본 true(panel은 진행 중에만 보이므로) */
   active?: boolean
+  /** 이 세션에서 누적된 보강 메모 개수 */
+  refinementCount?: number
 }
 
 /**
@@ -61,6 +63,7 @@ export default function GenerationProgressPanel({
   onRefineBrief,
   refiningBrief,
   active = true,
+  refinementCount,
 }: Props) {
   const scrollRef = useRef<HTMLDivElement>(null)
 
@@ -123,6 +126,7 @@ export default function GenerationProgressPanel({
             active={active}
             onRefine={onRefineBrief}
             refining={refiningBrief}
+            refinementCount={refinementCount}
           />
         ) : null}
       </div>
