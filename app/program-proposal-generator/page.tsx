@@ -12,6 +12,7 @@ import BriefEnrichSummaryCard, {
   type BriefEnrichSummary,
   parseBriefEnrichSummary,
 } from '@/components/generators/BriefEnrichSummaryCard'
+import GenerationResultNextSteps from '@/components/generators/GenerationResultNextSteps'
 import type { CompanySettings, HistoryRecord, PriceCategory, QuoteDoc, TaskOrderDoc } from '@/lib/types'
 import { apiFetch, apiGenerateStream } from '@/lib/api/client'
 import { toUserMessage } from '@/lib/errors/toUserMessage'
@@ -22,6 +23,7 @@ import { exportToPdf, pdfKindFromQuoteTab } from '@/lib/exportPdf'
 import type { PlanType } from '@/lib/plans'
 import { buildTopicSeedDoc } from '@/lib/topic-seed-doc'
 import { mapPastedTextToTopicGoalFields } from '@/lib/brief-text-parse'
+import { useGeneratorRefineQueue } from '@/lib/hooks/use-generator-refine-queue'
 
 type MeLite = {
   subscription: { planType: PlanType }
@@ -105,6 +107,8 @@ export default function ProgramProposalGeneratorPage() {
   const [briefEnrich, setBriefEnrich] = useState<BriefEnrichSummary | null>(null)
   const [refinementCount, setRefinementCount] = useState(0)
   const [saving, setSaving] = useState(false)
+  const { enqueue: enqueueRefineBrief, flushQueuedIntoNotes, queuedCount: queuedRefineCount, resetQueue: resetRefineQueue } =
+    useGeneratorRefineQueue(showToast)
   const [loadSavedOpen, setLoadSavedOpen] = useState(false)
   const generatingTabs = useMemo(() => ({ program: generating }), [generating])
 
@@ -194,6 +198,7 @@ export default function ProgramProposalGeneratorPage() {
       return
     }
     const { session, signal, ac } = startSession()
+    let completedOk = false
     setGenerating(true)
     setGenerationStageLog(['입력 확인 중'])
     setGenerationProgressLabel('입력 확인 중')
@@ -232,6 +237,7 @@ export default function ProgramProposalGeneratorPage() {
       setDoc(data.doc)
       setGeneratedDocId(data.id)
       setGenerationProgressLabel(null)
+      completedOk = true
       showToast('프로그램 제안 생성 완료!')
     } catch (e) {
       if (e instanceof DOMException && e.name === 'AbortError') return
@@ -244,9 +250,10 @@ export default function ProgramProposalGeneratorPage() {
         setGenerating(false)
         setGenerationProgressLabel(null)
         setGenerationStageLog([])
+        flushQueuedIntoNotes(setNotes, { success: completedOk })
       }
     }
-  }, [doc, requestBaseFromDoc, showToast, sourceMode, topic, headcount, venue, goal, notes, taskOrderSummary, startSession, stillCurrent, clearAbortIfCurrent])
+  }, [doc, requestBaseFromDoc, showToast, sourceMode, topic, headcount, venue, goal, notes, taskOrderSummary, startSession, stillCurrent, clearAbortIfCurrent, flushQueuedIntoNotes])
 
   const handleRefineBrief = useCallback(
     (note: string) => {
@@ -273,9 +280,10 @@ export default function ProgramProposalGeneratorPage() {
       setGeneratedDocId(id)
       setBriefEnrich(nextDoc.briefEnrich ? (nextDoc.briefEnrich as BriefEnrichSummary) : null)
       setRefinementCount(0)
+      resetRefineQueue()
       showToast('과거에 저장한 문서를 불러왔습니다. 내용을 수정한 뒤 저장·다운로드하세요.')
     },
-    [showToast],
+    [showToast, resetRefineQueue],
   )
 
   const handleSaveDoc = useCallback(
@@ -391,6 +399,7 @@ export default function ProgramProposalGeneratorPage() {
         <div className="flex-1 overflow-hidden p-6">
           <div className="grid h-full min-h-0 gap-6 md:grid-cols-[minmax(420px,520px)_minmax(0,1fr)]">
             <section
+              id="generator-input-top"
               className={`min-h-0 overflow-y-auto rounded-2xl border border-slate-200 bg-white p-4 shadow-sm ${generating ? 'max-md:order-last' : ''}`}
             >
               <MacroPasteGate
@@ -526,9 +535,11 @@ export default function ProgramProposalGeneratorPage() {
                   lines={generationStageLog}
                   briefEnrich={briefEnrich}
                   onRefineBrief={handleRefineBrief}
+                  onQueueRefineBrief={enqueueRefineBrief}
                   refiningBrief={generating}
                   active={generating}
                   refinementCount={refinementCount}
+                  queuedRefineCount={queuedRefineCount}
                 />
               </div>
             ) : doc && generatedDocId ? (
@@ -538,10 +549,22 @@ export default function ProgramProposalGeneratorPage() {
                     summary={briefEnrich}
                     active={false}
                     onRefine={handleRefineBrief}
+                    onQueueRefine={enqueueRefineBrief}
                     refining={generating}
                     refinementCount={refinementCount}
+                    queuedRefineCount={queuedRefineCount}
+                    defaultOpen={false}
                   />
                 ) : null}
+                <GenerationResultNextSteps
+                  headline="프로그램 제안"
+                  onScrollToInput={() =>
+                    document.getElementById('generator-input-top')?.scrollIntoView({ behavior: 'smooth', block: 'start' })
+                  }
+                  onRegenerate={() => void handleGenerateProgram()}
+                  onSave={doc ? () => void handleSaveDoc(doc) : undefined}
+                  saving={saving}
+                />
               <section className="flex min-h-0 flex-1 flex-col overflow-hidden rounded-2xl border border-gray-100 bg-white shadow-card">
                 <div className="border-b border-gray-100 bg-slate-50/50 p-4">
                   <div className="text-sm font-semibold text-gray-900">프로그램 제안 결과</div>

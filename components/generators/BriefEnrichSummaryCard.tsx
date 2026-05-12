@@ -73,10 +73,16 @@ interface Props {
    * 재생성 트리거를 직접 수행한다. 미제공이면 입력 영역을 표시하지 않는다.
    */
   onRefine?: (note: string) => void
+  /** 생성 중에도 메모를 넣을 수 있을 때: 큐에 쌓아 두었다가 생성 종료 후 notes에 합침 */
+  onQueueRefine?: (note: string) => void
   /** 재생성 버튼 비활성화(이미 다시 생성 중일 때) */
   refining?: boolean
   /** 이 세션에서 누적된 보강 메모 개수. 0보다 크면 카드 상단에 인디케이터를 표시 */
   refinementCount?: number
+  /** 생성 중 큐에 쌓인 메모 개수 */
+  queuedRefineCount?: number
+  /** 상세 블록 기본 펼침 여부 (모바일에서는 접어 두는 편이 낫다) */
+  defaultOpen?: boolean
 }
 
 /**
@@ -89,15 +95,20 @@ export default function BriefEnrichSummaryCard({
   className,
   active,
   onRefine,
+  onQueueRefine,
   refining,
   refinementCount,
+  queuedRefineCount,
+  defaultOpen = false,
 }: Props) {
-  const [open, setOpen] = useState(true)
+  const [open, setOpen] = useState(defaultOpen)
   const [refineNote, setRefineNote] = useState('')
   if (!summary) return null
 
   const noteTrimmed = refineNote.trim()
+  const canQueue = !!(onQueueRefine && (active || refining) && noteTrimmed.length >= 2)
   const canSubmitRefine = !!onRefine && !active && !refining && noteTrimmed.length >= 2
+  const textareaDisabled = refining && !onQueueRefine ? true : active && !onQueueRefine ? true : false
 
   const concepts = summary.keyConcepts ?? []
   const mustHave = summary.mustHaveDetails ?? []
@@ -138,6 +149,14 @@ export default function BriefEnrichSummaryCard({
                   보강 {refinementCount}회 누적
                 </span>
               ) : null}
+              {queuedRefineCount && queuedRefineCount > 0 ? (
+                <span
+                  className="inline-flex items-center gap-1 rounded-full bg-amber-600/90 px-2 py-0.5 text-[10px] font-semibold text-white"
+                  title="생성이 끝나면 요청사항에 합쳐질 메모 개수"
+                >
+                  대기 {queuedRefineCount}
+                </span>
+              ) : null}
             </div>
             <p className="mt-0.5 text-[11px] text-indigo-900/70 leading-snug">
               사용자가 적은 메모를 본 문서 생성 직전에 컨셉·필수 디테일·주의 포인트로 다시 정리했어요. 마음에 들지 않으면
@@ -155,7 +174,8 @@ export default function BriefEnrichSummaryCard({
       </header>
 
       {open ? (
-        <div className="space-y-3 border-t border-indigo-100/80 px-4 py-3 text-[12.5px] text-indigo-950/90">
+        <div className="max-h-[min(42vh,22rem)] overflow-y-auto overscroll-y-contain border-t border-indigo-100/80 md:max-h-none">
+          <div className="space-y-3 px-4 py-3 text-[12.5px] text-indigo-950/90">
           {summary.oneLiner ? (
             <div>
               <p className="text-[11px] font-semibold text-indigo-700/80">한 줄 요약</p>
@@ -231,14 +251,15 @@ export default function BriefEnrichSummaryCard({
             </p>
           ) : null}
 
-          {onRefine ? (
+          {(onRefine || onQueueRefine) ? (
             <div className="mt-2 rounded-xl border border-indigo-200 bg-white p-3">
               <p className="text-[11.5px] font-semibold text-indigo-900">
                 결과가 마음에 들지 않으면 한 줄로 알려 주세요
               </p>
               <p className="mt-0.5 text-[10.5px] text-indigo-700/80 leading-snug">
-                예: “비전탑·줄다리기 종목을 더 강조해줘”, “VIP 의전 동선을 추가해줘”, “행사 톤은 격식 있게”
-                — 입력 메모를 합쳐 즉시 다시 생성합니다.
+                {onQueueRefine && (active || refining)
+                  ? '생성이 끝나면 요청사항에 합쳐 드려요. 끝난 뒤 다시 생성하면 반영돼요.'
+                  : '예: “비전탑·줄다리기 종목을 더 강조해줘”, “VIP 의전 동선을 추가해줘”, “행사 톤은 격식 있게” — 입력 메모를 합쳐 즉시 다시 생성합니다.'}
               </p>
               <textarea
                 value={refineNote}
@@ -246,31 +267,49 @@ export default function BriefEnrichSummaryCard({
                 rows={2}
                 placeholder="추가하거나 빼고 싶은 디테일을 적어 주세요"
                 className="mt-2 w-full rounded-lg border border-indigo-200 bg-white px-2 py-1.5 text-[12px] leading-relaxed text-slate-900 focus:border-indigo-400 focus:outline-none focus:ring-1 focus:ring-indigo-200"
-                disabled={active || refining}
+                disabled={textareaDisabled}
               />
-              <div className="mt-2 flex items-center justify-between gap-2">
+              <div className="mt-2 flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
                 <p className="text-[10px] text-indigo-700/60">
-                  {active
+                  {active && !onQueueRefine
                     ? '생성이 진행 중이라 잠시 후 입력해 주세요.'
-                    : refining
+                    : refining && !onQueueRefine
                       ? '메모를 합쳐 다시 생성 중입니다…'
-                      : `${noteTrimmed.length}/600자 · 2자 이상 입력 시 재생성 가능`}
+                      : `${noteTrimmed.length}/600자 · 2자 이상`}
                 </p>
-                <button
-                  type="button"
-                  onClick={() => {
-                    if (!canSubmitRefine) return
-                    onRefine?.(noteTrimmed.slice(0, 600))
-                    setRefineNote('')
-                  }}
-                  disabled={!canSubmitRefine}
-                  className="rounded-lg bg-indigo-600 px-3 py-1.5 text-[11.5px] font-semibold text-white shadow-sm transition-colors hover:bg-indigo-700 disabled:cursor-not-allowed disabled:bg-indigo-300"
-                >
-                  이 메모로 다시 생성
-                </button>
+                <div className="flex flex-wrap justify-end gap-2">
+                  {canQueue ? (
+                    <button
+                      type="button"
+                      onClick={() => {
+                        if (!canQueue) return
+                        onQueueRefine?.(noteTrimmed.slice(0, 600))
+                        setRefineNote('')
+                      }}
+                      className="rounded-lg border border-amber-500 bg-amber-50 px-3 py-1.5 text-[11.5px] font-semibold text-amber-950 shadow-sm hover:bg-amber-100"
+                    >
+                      대기열에 넣기
+                    </button>
+                  ) : null}
+                  {onRefine ? (
+                    <button
+                      type="button"
+                      onClick={() => {
+                        if (!canSubmitRefine) return
+                        onRefine(noteTrimmed.slice(0, 600))
+                        setRefineNote('')
+                      }}
+                      disabled={!canSubmitRefine}
+                      className="rounded-lg bg-indigo-600 px-3 py-1.5 text-[11.5px] font-semibold text-white shadow-sm transition-colors hover:bg-indigo-700 disabled:cursor-not-allowed disabled:bg-indigo-300"
+                    >
+                      이 메모로 다시 생성
+                    </button>
+                  ) : null}
+                </div>
               </div>
             </div>
           ) : null}
+          </div>
         </div>
       ) : null}
     </section>

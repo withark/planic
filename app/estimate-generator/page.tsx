@@ -24,11 +24,13 @@ import { calcTotals, normalizeQuoteUnitPricesToThousand } from '@/lib/calc'
 import { saveAs } from 'file-saver'
 import { generateProposal } from '@/src/lib/generateProposal'
 import { useStreamGenerationGuard } from '@/lib/hooks/useStreamGenerationGuard'
+import { useGeneratorRefineQueue } from '@/lib/hooks/use-generator-refine-queue'
 import { warnDevFetchFailure } from '@/lib/log-dev-fetch-failure'
 import BriefEnrichSummaryCard, {
   type BriefEnrichSummary,
   parseBriefEnrichSummary,
 } from '@/components/generators/BriefEnrichSummaryCard'
+import GenerationResultNextSteps from '@/components/generators/GenerationResultNextSteps'
 
 type MeLite = {
   user?: { id?: string | null; email?: string | null } | null
@@ -186,6 +188,8 @@ function EstimateGeneratorContent() {
   /** Stage 0 — AI가 사용자 입력을 어떻게 정리했는지 요약(없으면 비어 있음) */
   const [briefEnrich, setBriefEnrich] = useState<BriefEnrichSummary | null>(null)
   const [refinementCount, setRefinementCount] = useState(0)
+  const { enqueue: enqueueRefineBrief, flushQueuedIntoNotes, queuedCount: queuedRefineCount, resetQueue: resetRefineQueue } =
+    useGeneratorRefineQueue(showToast)
   const [saving, setSaving] = useState(false)
   const [proposalGenerating, setProposalGenerating] = useState(false)
   const generatingTabs = useMemo(() => ({ estimate: generating }), [generating])
@@ -671,6 +675,7 @@ function EstimateGeneratorContent() {
 
     const { session, signal, ac } = startSession()
 
+    let completedOk = false
     setGenerating(true)
     setGenerationStageLog(['요청을 서버로 보내는 중…'])
     setGenerationProgressLabel('입력 확인 중')
@@ -691,6 +696,7 @@ function EstimateGeneratorContent() {
       if (!stillCurrent(session)) return
       setDoc(data.doc)
       setGeneratedDocId(data.id)
+      completedOk = true
       if (isNarrowViewport) {
         setMobileSheet('preview')
       }
@@ -711,9 +717,10 @@ function EstimateGeneratorContent() {
         setGenerating(false)
         setGenerationProgressLabel(null)
         setGenerationStageLog([])
+        flushQueuedIntoNotes(setNotes, { success: completedOk })
       }
     }
-  }, [requestBodyForEstimate, showToast, sourceMode, priceItemCount, isNarrowViewport, startSession, stillCurrent, clearAbortIfCurrent])
+  }, [requestBodyForEstimate, showToast, sourceMode, priceItemCount, isNarrowViewport, startSession, stillCurrent, clearAbortIfCurrent, flushQueuedIntoNotes])
 
   const handleRefineBrief = useCallback(
     (note: string) => {
@@ -854,9 +861,10 @@ function EstimateGeneratorContent() {
     setGeneratedDocId(rec.id)
     setBriefEnrich(next.briefEnrich ? (next.briefEnrich as BriefEnrichSummary) : null)
     setRefinementCount(0)
+    resetRefineQueue()
     setPasteFlowCommitted(true)
     showToast('저장된 문서를 불러왔습니다. 수신처·항목만 수정한 뒤 저장하거나 보내세요.')
-  }, [historyList, loadPickerId, showToast])
+  }, [historyList, loadPickerId, showToast, resetRefineQueue])
 
   const generateDisabled = useMemo(() => {
     if (pricingSheetRequired && priceItemCount === 0) return true
@@ -1606,10 +1614,21 @@ function EstimateGeneratorContent() {
                       summary={briefEnrich}
                       active={false}
                       onRefine={handleRefineBrief}
+                      onQueueRefine={enqueueRefineBrief}
                       refining={generating}
                       refinementCount={refinementCount}
+                      queuedRefineCount={queuedRefineCount}
+                      defaultOpen={false}
                     />
                   ) : null}
+                  <GenerationResultNextSteps
+                    headline="견적 초안"
+                    hint="표를 편집한 뒤 저장하거나, 엑셀·PDF로 보낼 수 있어요. 왼쪽 입력을 바꾼 뒤 다시 생성할 수도 있어요."
+                    onScrollToInput={() => scrollToWizardTop()}
+                    onRegenerate={() => void handleGenerateEstimate()}
+                    onSave={doc ? () => void handleSaveDoc(doc) : undefined}
+                    saving={saving}
+                  />
                   <div className="min-w-0 rounded-2xl border border-slate-200/80 bg-white shadow-sm">
                   {totalsForHeader && docSummary ? (
                     <div className="sticky top-0 z-10 flex flex-wrap items-center gap-3 border-b border-slate-100 bg-white/95 px-3 py-2.5 backdrop-blur sm:px-4">
@@ -1722,8 +1741,11 @@ function EstimateGeneratorContent() {
                     summary={briefEnrich}
                     active={generating}
                     onRefine={handleRefineBrief}
+                    onQueueRefine={enqueueRefineBrief}
                     refining={generating}
                     refinementCount={refinementCount}
+                    queuedRefineCount={queuedRefineCount}
+                    defaultOpen={false}
                   />
                 </div>
               ) : (
