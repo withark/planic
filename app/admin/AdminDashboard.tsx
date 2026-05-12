@@ -6,20 +6,7 @@ import { AdminCard, AdminSection } from '@/components/admin/AdminCard'
 import { ErrorState, LoadingState } from '@/components/ui/AsyncState'
 import { adminJson } from '@/lib/admin-client'
 import { ADMIN_USER_APP_MIRROR_GROUPS } from '@/lib/admin-user-app-mirror'
-
-const ADMIN_LINKS = [
-  { href: '/admin/samples', label: '기준 양식 관리', desc: '참고 양식 등록·반영 방식' },
-  { href: '/admin/engines', label: '생성 규칙 설정', desc: '탭별 규칙·샘플 강도·출력 형식' },
-  { href: '/admin/generation-logs', label: '생성 로그', desc: '샘플·엔진 반영 추적' },
-  { href: '/admin/users', label: '사용자 관리', desc: '가입·플랜·한도' },
-  { href: '/admin/subscriptions', label: '구독 현황', desc: '구독 이력·플랜별' },
-  { href: '/admin/payments', label: '결제 관리', desc: '매출·실패·환불' },
-  { href: '/admin/plans', label: '플랜 관리', desc: '요금제·한도' },
-  { href: '/admin/usage', label: '사용 통계', desc: '생성·쿼터' },
-  { href: '/admin/logs', label: '에러 로그', desc: '에러·이벤트' },
-  { href: '/admin/system', label: '시스템 설정', desc: '환경' },
-  { href: '/api/health', label: '헬스', desc: 'API', external: true },
-]
+import { ADMIN_BACKOFFICE_MIRROR_GROUPS } from '@/lib/admin-backoffice-nav'
 
 type Stats = {
   hasDatabase?: boolean
@@ -308,6 +295,45 @@ export function AdminDashboard() {
           </AdminSection>
         )}
 
+        {/* 관리자(백오피스) 전체 경로 */}
+        <AdminSection
+          title="관리자 전체 경로"
+          description="/app/admin 에 등록된 화면을 그룹별로 모았습니다. 견적·사용자 상세는 동적 경로입니다."
+        >
+          <div className="space-y-6">
+            {ADMIN_BACKOFFICE_MIRROR_GROUPS.map((group) => (
+              <div key={group.label}>
+                <p className="text-[11px] font-semibold uppercase tracking-wide text-slate-400 mb-2">{group.label}</p>
+                <ul className="grid gap-2 sm:grid-cols-2 lg:grid-cols-3">
+                  {group.items.map(({ href, label, desc, external }) => (
+                    <li key={href}>
+                      {external ? (
+                        <a
+                          href={href}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="block p-3 rounded-lg border border-slate-200 bg-white hover:border-primary-300 hover:bg-slate-50/50"
+                        >
+                          <span className="font-medium text-gray-900">{label}</span>
+                          {desc ? <p className="text-xs text-slate-500 mt-0.5 line-clamp-3">{desc}</p> : null}
+                        </a>
+                      ) : (
+                        <Link
+                          href={href}
+                          className="block p-3 rounded-lg border border-slate-200 bg-white hover:border-primary-300 hover:bg-slate-50/50"
+                        >
+                          <span className="font-medium text-gray-900">{label}</span>
+                          {desc ? <p className="text-xs text-slate-500 mt-0.5 line-clamp-3">{desc}</p> : null}
+                        </Link>
+                      )}
+                    </li>
+                  ))}
+                </ul>
+              </div>
+            ))}
+          </div>
+        </AdminSection>
+
         {/* 사용자 앱과 동일한 기능(경로) */}
         <AdminSection
           title="사용자 앱 전체 경로"
@@ -336,35 +362,6 @@ export function AdminDashboard() {
               </div>
             ))}
           </div>
-        </AdminSection>
-
-        {/* 운영 바로가기 */}
-        <AdminSection title="운영 바로가기" description="문서 품질·비즈니스·시스템">
-          <ul className="grid gap-2 sm:grid-cols-2 lg:grid-cols-3">
-            {ADMIN_LINKS.map(({ href, label, desc, external }) => (
-              <li key={href}>
-                {external ? (
-                  <a
-                    href={href}
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    className="block p-3 rounded-lg border border-slate-200 bg-white hover:border-primary-300 hover:bg-slate-50/50"
-                  >
-                    <span className="font-medium text-gray-900">{label}</span>
-                    <p className="text-xs text-slate-500 mt-0.5">{desc}</p>
-                  </a>
-                ) : (
-                  <Link
-                    href={href}
-                    className="block p-3 rounded-lg border border-slate-200 bg-white hover:border-primary-300 hover:bg-slate-50/50"
-                  >
-                    <span className="font-medium text-gray-900">{label}</span>
-                    <p className="text-xs text-slate-500 mt-0.5">{desc}</p>
-                  </Link>
-                )}
-              </li>
-            ))}
-          </ul>
         </AdminSection>
 
         {/* 비밀번호 변경 */}

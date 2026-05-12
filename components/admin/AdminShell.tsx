@@ -4,51 +4,33 @@ import Link from 'next/link'
 import { usePathname } from 'next/navigation'
 import clsx from 'clsx'
 import { ADMIN_USER_APP_MIRROR_GROUPS } from '@/lib/admin-user-app-mirror'
+import { ADMIN_BACKOFFICE_MIRROR_GROUPS } from '@/lib/admin-backoffice-nav'
 
 const USER_APP_SHELL_NAV_GROUPS = ADMIN_USER_APP_MIRROR_GROUPS.map((g) => ({
   label: `사용자 앱 · ${g.label}`,
   items: g.items,
 }))
 
-/** 운영 백오피스: 문서 생성 운영 / 비즈니스 운영 / 시스템 */
-export const ADMIN_NAV_GROUPS: {
+const BACKOFFICE_SHELL_NAV_GROUPS = ADMIN_BACKOFFICE_MIRROR_GROUPS.map((g) => ({
+  label: `관리 · ${g.label}`,
+  items: g.items,
+}))
+
+export type AdminShellNavItem = {
+  href: string
   label: string
-  items: { href: string; label: string; desc?: string }[]
-}[] = [
+  desc?: string
+  external?: boolean
+}
+
+/** 운영 백오피스 사이드바 (사용자 미러 + 관리자 전 경로) */
+export const ADMIN_NAV_GROUPS: { label: string; items: AdminShellNavItem[] }[] = [
   {
     label: '운영 개요',
     items: [{ href: '/admin', label: '대시보드', desc: '서비스 상태 요약' }],
   },
   ...USER_APP_SHELL_NAV_GROUPS,
-  {
-    label: '문서 생성 운영',
-    items: [
-      { href: '/admin/samples', label: '기준 양식 관리', desc: '참고 양식 등록·연결·반영 방식' },
-      { href: '/admin/engines', label: '생성 규칙 설정', desc: '탭별 규칙·샘플 강도·출력 형식' },
-      { href: '/admin/generation-logs', label: '생성 로그', desc: '샘플·엔진 반영 추적' },
-      { href: '/admin/review', label: '검수·미리보기', desc: '출력 품질 확인' },
-    ],
-  },
-  {
-    label: '비즈니스 운영',
-    items: [
-      { href: '/admin/payments', label: '결제 관리', desc: '토스 주문·웹훅' },
-      { href: '/admin/payment-test', label: '결제 테스트', desc: '체크리스트·연동 확인' },
-      { href: '/admin/settlement', label: '정산 관리', desc: '기간별 매출' },
-      { href: '/admin/ops-stats', label: '운영 통계', desc: '매출·전환' },
-      { href: '/admin/usage', label: '사용 통계', desc: '생성·탭·업로드' },
-      { href: '/admin/subscriptions', label: '구독 현황', desc: 'KV 구독' },
-      { href: '/admin/users', label: '사용자 관리', desc: '가입·생성·플랜' },
-      { href: '/admin/plans', label: '플랜 관리', desc: '요금·기능' },
-    ],
-  },
-  {
-    label: '시스템',
-    items: [
-      { href: '/admin/system', label: '시스템 설정', desc: '헬스·환경' },
-      { href: '/admin/logs', label: '에러 로그', desc: 'admin_events' },
-    ],
-  },
+  ...BACKOFFICE_SHELL_NAV_GROUPS,
 ]
 
 export function AdminShell({ children }: { children: React.ReactNode }) {
@@ -79,20 +61,33 @@ export function AdminShell({ children }: { children: React.ReactNode }) {
                 {group.label}
               </p>
               <ul className="space-y-0.5">
-                {group.items.map(({ href, label, desc }) => (
-                  <li key={href}>
-                    <Link
-                      href={href}
-                      title={desc}
-                      className={clsx(
-                        'block px-2.5 py-1.5 rounded-md text-sm font-medium transition-colors',
-                        isActive(href)
-                          ? 'bg-primary-50 text-primary-800 border border-primary-100'
-                          : 'text-gray-600 hover:bg-slate-50 hover:text-gray-900 border border-transparent',
-                      )}
-                    >
-                      {label}
-                    </Link>
+                {group.items.map(({ href, label, desc, external }) => (
+                  <li key={`${group.label}-${href}-${label}`}>
+                    {external ? (
+                      <a
+                        href={href}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        title={desc}
+                        className="block px-2.5 py-1.5 rounded-md text-sm font-medium text-gray-600 hover:bg-slate-50 hover:text-gray-900 border border-transparent"
+                      >
+                        {label}
+                        <span className="sr-only">(새 탭)</span>
+                      </a>
+                    ) : (
+                      <Link
+                        href={href}
+                        title={desc}
+                        className={clsx(
+                          'block px-2.5 py-1.5 rounded-md text-sm font-medium transition-colors',
+                          isActive(href)
+                            ? 'bg-primary-50 text-primary-800 border border-primary-100'
+                            : 'text-gray-600 hover:bg-slate-50 hover:text-gray-900 border border-transparent',
+                        )}
+                      >
+                        {label}
+                      </Link>
+                    )}
                   </li>
                 ))}
               </ul>
