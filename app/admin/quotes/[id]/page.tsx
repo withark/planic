@@ -50,15 +50,25 @@ function extractBriefEnrich(doc: unknown): BriefEnrichDocShape | null {
         latencyMs: typeof be.meta.latencyMs === 'number' ? be.meta.latencyMs : undefined,
       }
     : undefined
-  return {
-    oneLiner: typeof be.oneLiner === 'string' ? be.oneLiner : undefined,
-    toneGuide: typeof be.toneGuide === 'string' ? be.toneGuide : undefined,
+  const result: BriefEnrichDocShape = {
+    oneLiner: typeof be.oneLiner === 'string' ? be.oneLiner.trim() || undefined : undefined,
+    toneGuide: typeof be.toneGuide === 'string' ? be.toneGuide.trim() || undefined : undefined,
     keyConcepts: asStringArray(be.keyConcepts),
     mustHaveDetails: asStringArray(be.mustHaveDetails),
     cautionPoints: asStringArray(be.cautionPoints),
-    documentSpecificHints: typeof be.documentSpecificHints === 'string' ? be.documentSpecificHints : undefined,
+    documentSpecificHints:
+      typeof be.documentSpecificHints === 'string' ? be.documentSpecificHints.trim() || undefined : undefined,
     meta,
   }
+  const hasContent =
+    !!result.oneLiner ||
+    !!result.toneGuide ||
+    (result.keyConcepts?.length ?? 0) > 0 ||
+    (result.mustHaveDetails?.length ?? 0) > 0 ||
+    (result.cautionPoints?.length ?? 0) > 0 ||
+    !!result.documentSpecificHints
+  if (!hasContent) return null
+  return result
 }
 
 export default function AdminQuoteDetailPage() {
