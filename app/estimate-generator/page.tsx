@@ -25,6 +25,10 @@ import { saveAs } from 'file-saver'
 import { generateProposal } from '@/src/lib/generateProposal'
 import { useStreamGenerationGuard } from '@/lib/hooks/useStreamGenerationGuard'
 import { warnDevFetchFailure } from '@/lib/log-dev-fetch-failure'
+import BriefEnrichSummaryCard, {
+  type BriefEnrichSummary,
+  parseBriefEnrichSummary,
+} from '@/components/generators/BriefEnrichSummaryCard'
 
 type MeLite = {
   user?: { id?: string | null; email?: string | null } | null
@@ -179,6 +183,8 @@ function EstimateGeneratorContent() {
   const [generationProgressLabel, setGenerationProgressLabel] = useState<string | null>(null)
   /** 생성 스트림 단계 로그(우측 채팅형 진행 UI) */
   const [generationStageLog, setGenerationStageLog] = useState<string[]>([])
+  /** Stage 0 — AI가 사용자 입력을 어떻게 정리했는지 요약(없으면 비어 있음) */
+  const [briefEnrich, setBriefEnrich] = useState<BriefEnrichSummary | null>(null)
   const [saving, setSaving] = useState(false)
   const [proposalGenerating, setProposalGenerating] = useState(false)
   const generatingTabs = useMemo(() => ({ estimate: generating }), [generating])
@@ -667,13 +673,18 @@ function EstimateGeneratorContent() {
     setGenerating(true)
     setGenerationStageLog(['요청을 서버로 보내는 중…'])
     setGenerationProgressLabel('입력 확인 중')
+    setBriefEnrich(null)
     try {
       const data = await apiGenerateStream(body, {
         signal: ac.signal,
-        onStage: ({ label }) => {
+        onStage: ({ stage, label, details }) => {
           if (!stillCurrent(session)) return
           setGenerationProgressLabel(label)
           setGenerationStageLog((prev) => (prev[prev.length - 1] === label ? prev : [...prev, label]))
+          if (stage === 'enrich-done') {
+            const summary = parseBriefEnrichSummary(details)
+            if (summary) setBriefEnrich(summary)
+          }
         },
       })
       if (!stillCurrent(session)) return
@@ -1645,30 +1656,33 @@ function EstimateGeneratorContent() {
                   </div>
                 </div>
               ) : generating ? (
-                <div className="rounded-xl border border-primary-200 bg-primary-50/30 p-3 shadow-sm">
-                  <div className="flex items-center gap-2 text-[12px] text-slate-800">
-                    <span
-                      className="inline-block h-3 w-3 shrink-0 animate-spin rounded-full border-2 border-primary-200 border-t-primary-600"
-                      aria-hidden
-                    />
-                    <span className="font-medium">
-                      {generationProgressLabel ?? 'AI가 행사 제안서를 구성하고 있습니다…'}
-                    </span>
+                <div className="space-y-3">
+                  <div className="rounded-xl border border-primary-200 bg-primary-50/30 p-3 shadow-sm">
+                    <div className="flex items-center gap-2 text-[12px] text-slate-800">
+                      <span
+                        className="inline-block h-3 w-3 shrink-0 animate-spin rounded-full border-2 border-primary-200 border-t-primary-600"
+                        aria-hidden
+                      />
+                      <span className="font-medium">
+                        {generationProgressLabel ?? 'AI가 행사 제안서를 구성하고 있습니다…'}
+                      </span>
+                    </div>
+                    {generationStageLog.length > 0 ? (
+                      <details className="mt-2 group">
+                        <summary className="cursor-pointer text-[11px] font-medium text-slate-600 hover:text-slate-900">
+                          단계 로그 펼치기
+                        </summary>
+                        <ol className="mt-2 max-h-48 list-decimal space-y-1 overflow-y-auto pl-5 text-[11px] text-slate-600">
+                          {generationStageLog.map((line, i) => (
+                            <li key={`${i}-${line}`}>{line}</li>
+                          ))}
+                        </ol>
+                      </details>
+                    ) : (
+                      <p className="mt-2 text-[11px] text-slate-500">단계 로그가 곧 여기에 쌓입니다.</p>
+                    )}
                   </div>
-                  {generationStageLog.length > 0 ? (
-                    <details className="mt-2 group">
-                      <summary className="cursor-pointer text-[11px] font-medium text-slate-600 hover:text-slate-900">
-                        단계 로그 펼치기
-                      </summary>
-                      <ol className="mt-2 max-h-48 list-decimal space-y-1 overflow-y-auto pl-5 text-[11px] text-slate-600">
-                        {generationStageLog.map((line, i) => (
-                          <li key={`${i}-${line}`}>{line}</li>
-                        ))}
-                      </ol>
-                    </details>
-                  ) : (
-                    <p className="mt-2 text-[11px] text-slate-500">단계 로그가 곧 여기에 쌓입니다.</p>
-                  )}
+                  <BriefEnrichSummaryCard summary={briefEnrich} active />
                 </div>
               ) : (
                 <div className="flex flex-1 flex-col gap-3">

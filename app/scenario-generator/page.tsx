@@ -7,6 +7,10 @@ import SimpleGeneratorWizard from '@/components/generators/SimpleGeneratorWizard
 import { MacroPasteGate } from '@/components/generators/MacroPasteGate'
 import { LoadSavedGeneratedDocModal } from '@/components/generators/LoadSavedGeneratedDocModal'
 import GenerationProgressPanel, { appendStageLine } from '@/components/generators/GenerationProgressPanel'
+import {
+  type BriefEnrichSummary,
+  parseBriefEnrichSummary,
+} from '@/components/generators/BriefEnrichSummaryCard'
 import { Input, Textarea, Toast } from '@/components/ui'
 import type { CompanySettings, PriceCategory, QuoteDoc } from '@/lib/types'
 import { apiFetch, apiGenerateStream } from '@/lib/api/client'
@@ -97,6 +101,7 @@ export default function ScenarioGeneratorPage() {
   const [generating, setGenerating] = useState(false)
   const [generationProgressLabel, setGenerationProgressLabel] = useState<string | null>(null)
   const [generationStageLog, setGenerationStageLog] = useState<string[]>([])
+  const [briefEnrich, setBriefEnrich] = useState<BriefEnrichSummary | null>(null)
   const [saving, setSaving] = useState(false)
   const [loadSavedOpen, setLoadSavedOpen] = useState(false)
   const generatingTabs = useMemo(() => ({ scenario: generating }), [generating])
@@ -178,6 +183,7 @@ export default function ScenarioGeneratorPage() {
     setGenerating(true)
     setGenerationStageLog(['입력 확인 중'])
     setGenerationProgressLabel('입력 확인 중')
+    setBriefEnrich(null)
     try {
       const promptRequirements = [goal.trim(), notes.trim() ? `추가 메모: ${notes.trim()}` : ''].filter(Boolean).join('\n')
       const requirementsText =
@@ -195,10 +201,14 @@ export default function ScenarioGeneratorPage() {
         },
         {
           signal,
-          onStage: ({ label }) => {
+          onStage: ({ stage, label, details }) => {
             if (!stillCurrent(session)) return
             setGenerationProgressLabel(label)
             setGenerationStageLog((prev) => appendStageLine(prev, label))
+            if (stage === 'enrich-done') {
+              const summary = parseBriefEnrichSummary(details)
+              if (summary) setBriefEnrich(summary)
+            }
           },
         },
       )
@@ -456,6 +466,7 @@ export default function ScenarioGeneratorPage() {
                     className="flex-1"
                     title="시나리오 생성 중"
                     lines={generationStageLog}
+                    briefEnrich={briefEnrich}
                   />
                 </div>
               ) : doc && generatedDocId ? (

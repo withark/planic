@@ -86,7 +86,7 @@ export type ExecuteGeneratePipelineArgs = {
   mockBlockedInProduction: boolean
   /** 프로: 프리미엄 쿼터 소진 시 Sonnet으로 강제 */
   forceStandardHybridRefine?: boolean
-  pipelineEmit?: (info: { stage: string; label: string }) => void
+  pipelineEmit?: (info: { stage: string; label: string; details?: Record<string, unknown> }) => void
 }
 
 export type ExecuteGeneratePipelineResult = {
@@ -363,6 +363,11 @@ export async function executeGeneratePipeline(
       latencyMs: enrichResult.enriched.meta.latencyMs,
       mustHave: enrichResult.enriched.mustHaveDetails.length,
       cautions: enrichResult.enriched.cautionPoints.length,
+      // 운영자가 어떤 강화가 이뤄졌는지 빠르게 확인할 수 있도록 핵심 텍스트도 부분 보존(클램프).
+      oneLiner: enrichResult.enriched.oneLiner,
+      keyConcepts: enrichResult.enriched.keyConcepts,
+      mustHaveDetailsTop: enrichResult.enriched.mustHaveDetails.slice(0, 5),
+      cautionPointsTop: enrichResult.enriched.cautionPoints.slice(0, 4),
     }
   } else {
     ;(engineSnapshot as Record<string, unknown>).briefEnrich = { skipped: true }

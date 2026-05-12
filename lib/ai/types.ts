@@ -72,8 +72,8 @@ export interface GenerateInput {
     maxTokens: number
     overlay: EngineConfigOverlay | null
   }
-  /** 서버 전용: 진행 단계(NDJSON 스트림 등) */
-  pipelineEmit?: (info: { stage: string; label: string }) => void
+  /** 서버 전용: 진행 단계(NDJSON 스트림 등). 단계에 따라 부가 데이터(`details`)를 함께 전송할 수 있다. */
+  pipelineEmit?: (info: { stage: string; label: string; details?: Record<string, unknown> }) => void
   /** Stage A: brief 구성 산출물(품질/로그/프롬프트 공통 입력) */
   stageBrief?: {
     purpose: string

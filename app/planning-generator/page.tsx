@@ -8,6 +8,10 @@ import SimpleGeneratorWizard from '@/components/generators/SimpleGeneratorWizard
 import { MacroPasteGate } from '@/components/generators/MacroPasteGate'
 import { LoadSavedGeneratedDocModal } from '@/components/generators/LoadSavedGeneratedDocModal'
 import GenerationProgressPanel, { appendStageLine } from '@/components/generators/GenerationProgressPanel'
+import {
+  type BriefEnrichSummary,
+  parseBriefEnrichSummary,
+} from '@/components/generators/BriefEnrichSummaryCard'
 import type { CompanySettings, HistoryRecord, PriceCategory, QuoteDoc, TaskOrderDoc } from '@/lib/types'
 import { apiFetch, apiGenerateStream } from '@/lib/api/client'
 import { toUserMessage } from '@/lib/errors/toUserMessage'
@@ -97,6 +101,7 @@ export default function PlanningGeneratorPage() {
   const [generating, setGenerating] = useState(false)
   const [generationProgressLabel, setGenerationProgressLabel] = useState<string | null>(null)
   const [generationStageLog, setGenerationStageLog] = useState<string[]>([])
+  const [briefEnrich, setBriefEnrich] = useState<BriefEnrichSummary | null>(null)
   const [saving, setSaving] = useState(false)
   const [loadSavedOpen, setLoadSavedOpen] = useState(false)
   const generatingTabs = useMemo(() => ({ planning: generating }), [generating])
@@ -185,6 +190,7 @@ export default function PlanningGeneratorPage() {
     setGenerating(true)
     setGenerationStageLog(['입력 확인 중'])
     setGenerationProgressLabel('입력 확인 중')
+    setBriefEnrich(null)
     try {
       const requirementsText =
         sourceMode === 'fromTopic'
@@ -205,10 +211,14 @@ export default function PlanningGeneratorPage() {
         },
         {
           signal,
-          onStage: ({ label }) => {
+          onStage: ({ stage, label, details }) => {
             if (!stillCurrent(session)) return
             setGenerationProgressLabel(label)
             setGenerationStageLog((prev) => appendStageLine(prev, label))
+            if (stage === 'enrich-done') {
+              const summary = parseBriefEnrichSummary(details)
+              if (summary) setBriefEnrich(summary)
+            }
           },
         },
       )
@@ -479,6 +489,7 @@ export default function PlanningGeneratorPage() {
                   className="flex-1"
                   title="기획 문서 생성 중"
                   lines={generationStageLog}
+                  briefEnrich={briefEnrich}
                 />
               </div>
             ) : doc && generatedDocId ? (

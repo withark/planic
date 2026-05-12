@@ -123,8 +123,12 @@ function renderBriefEnrichBlock(snapshot: Record<string, unknown>) {
   const latency = asNumber(be.latencyMs)
   const mustHave = asNumber(be.mustHave)
   const cautions = asNumber(be.cautions)
+  const oneLiner = typeof be.oneLiner === 'string' ? be.oneLiner.trim() : ''
+  const keyConcepts = asStringArray(be.keyConcepts)
+  const mustHaveTop = asStringArray(be.mustHaveDetailsTop)
+  const cautionsTop = asStringArray(be.cautionPointsTop)
   return (
-    <div className="text-[11px] text-indigo-700 space-y-0.5 mt-1">
+    <div className="text-[11px] text-indigo-700 space-y-0.5 mt-1 rounded-md border border-indigo-100 bg-indigo-50/50 p-2">
       <div className="font-medium text-indigo-800">입력 자동 강화 (Stage 0)</div>
       <div>
         {provider === 'anthropic' ? 'Anthropic' : provider === 'openai' ? 'OpenAI' : provider}
@@ -135,6 +139,50 @@ function renderBriefEnrichBlock(snapshot: Record<string, unknown>) {
       <div className="text-[10px] text-indigo-700/80">
         필수 디테일 {mustHave ?? 0}개 · 주의 포인트 {cautions ?? 0}개 자동 추출
       </div>
+      {oneLiner ? (
+        <details className="mt-1 text-indigo-900/90">
+          <summary className="cursor-pointer text-[11px] font-medium hover:text-indigo-700">
+            한 줄 요약·키워드·디테일 보기
+          </summary>
+          <div className="mt-1 space-y-1.5">
+            <div>
+              <span className="font-semibold text-indigo-800/80">요약:</span> {oneLiner}
+            </div>
+            {keyConcepts.length > 0 ? (
+              <div className="flex flex-wrap gap-1">
+                {keyConcepts.map((c, i) => (
+                  <span
+                    key={`kc-${i}-${c}`}
+                    className="rounded-full bg-white px-1.5 py-0.5 text-[10px] text-indigo-700 border border-indigo-200"
+                  >
+                    {c}
+                  </span>
+                ))}
+              </div>
+            ) : null}
+            {mustHaveTop.length > 0 ? (
+              <div>
+                <p className="font-semibold text-indigo-800/80">필수 디테일</p>
+                <ul className="list-disc pl-4 text-[10.5px] leading-snug text-indigo-900/90">
+                  {mustHaveTop.map((line, i) => (
+                    <li key={`mh-${i}`}>{line}</li>
+                  ))}
+                </ul>
+              </div>
+            ) : null}
+            {cautionsTop.length > 0 ? (
+              <div>
+                <p className="font-semibold text-amber-700/80">주의 포인트</p>
+                <ul className="list-disc pl-4 text-[10.5px] leading-snug text-amber-900/90">
+                  {cautionsTop.map((line, i) => (
+                    <li key={`ca-${i}`}>{line}</li>
+                  ))}
+                </ul>
+              </div>
+            ) : null}
+          </div>
+        </details>
+      ) : null}
     </div>
   )
 }

@@ -273,6 +273,27 @@ export async function enrichGenerateInput(input: GenerateInput): Promise<{
     documentTarget: input.documentTarget ?? 'estimate',
   })
 
+  // 사용자 UI에 노출할 강화 요약을 NDJSON 스트림으로 즉시 흘려보낸다.
+  // (성공·실패 모두 graceful, 본 파이프라인 영향 없음)
+  try {
+    input.pipelineEmit?.({
+      stage: 'enrich-done',
+      label: 'AI가 입력을 정리했어요',
+      details: {
+        kind: 'briefEnrich',
+        oneLiner: enriched.oneLiner,
+        toneGuide: enriched.toneGuide,
+        keyConcepts: enriched.keyConcepts,
+        mustHaveDetails: enriched.mustHaveDetails,
+        cautionPoints: enriched.cautionPoints,
+        documentSpecificHints: enriched.documentSpecificHints,
+        meta: enriched.meta,
+      },
+    })
+  } catch {
+    // ignore — stream가 닫혀 있어도 본 생성은 계속
+  }
+
   return {
     input: applyEnrichedToInput(input, enriched),
     enriched,

@@ -77,8 +77,8 @@ export async function apiFetch<T>(input: RequestInfo | URL, init?: RequestInit):
 }
 
 export type GenerateStreamCallbacks = {
-  /** NDJSON `stage` 이벤트마다 호출(실제 서버 단계) */
-  onStage?: (info: { stage: string; label: string }) => void
+  /** NDJSON `stage` 이벤트마다 호출(실제 서버 단계). `details`는 단계가 같이 보낸 부가 데이터(예: brief 강화 요약). */
+  onStage?: (info: { stage: string; label: string; details?: Record<string, unknown> }) => void
 }
 
 export type GenerateStreamOptions = GenerateStreamCallbacks & {
@@ -197,8 +197,15 @@ export async function apiGenerateStream(
           continue
         }
         if (obj.type === 'stage' && typeof obj.stage === 'string') {
-          const label = mapGenerationStageToKorean(obj.stage)
-          onStage?.({ stage: obj.stage, label })
+          const label =
+            typeof obj.label === 'string' && obj.label
+              ? obj.label
+              : mapGenerationStageToKorean(obj.stage)
+          const details =
+            obj.details && typeof obj.details === 'object' && !Array.isArray(obj.details)
+              ? (obj.details as Record<string, unknown>)
+              : undefined
+          onStage?.({ stage: obj.stage, label, details })
         }
         if (obj.type === 'error') {
           const status = typeof obj.status === 'number' ? obj.status : 500

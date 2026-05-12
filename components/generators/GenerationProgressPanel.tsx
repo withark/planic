@@ -2,6 +2,9 @@
 
 import { useEffect, useMemo, useRef, useState } from 'react'
 import clsx from 'clsx'
+import BriefEnrichSummaryCard, {
+  type BriefEnrichSummary,
+} from './BriefEnrichSummaryCard'
 
 function TypewriterBubble({ text }: { text: string }) {
   const [n, setN] = useState(0)
@@ -37,12 +40,14 @@ type Props = {
   lines: readonly string[]
   /** 그리드 오른쪽 열 등에서 높이 맞출 때 `h-full min-h-0 flex-1` 등 */
   className?: string
+  /** Stage 0 — AI가 사용자 입력을 어떻게 정리했는지 요약. 있으면 진행 패널 하단에 카드로 표시 */
+  briefEnrich?: BriefEnrichSummary | null
 }
 
 /**
  * 생성 스트림(NDJSON stage) 진행 상황을 채팅형으로 보여줍니다.
  */
-export default function GenerationProgressPanel({ title, lines, className }: Props) {
+export default function GenerationProgressPanel({ title, lines, className, briefEnrich }: Props) {
   const scrollRef = useRef<HTMLDivElement>(null)
 
   const completed = useMemo(() => (lines.length > 1 ? lines.slice(0, -1) : []), [lines])
@@ -96,6 +101,10 @@ export default function GenerationProgressPanel({ title, lines, className }: Pro
               <TypewriterBubble text={current} />
             </div>
           </div>
+        ) : null}
+
+        {briefEnrich ? (
+          <BriefEnrichSummaryCard summary={briefEnrich} active />
         ) : null}
       </div>
 

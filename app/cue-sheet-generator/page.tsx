@@ -7,6 +7,10 @@ import SimpleGeneratorWizard, { type WizardMode } from '@/components/generators/
 import { MacroPasteGate } from '@/components/generators/MacroPasteGate'
 import { LoadSavedGeneratedDocModal } from '@/components/generators/LoadSavedGeneratedDocModal'
 import GenerationProgressPanel, { appendStageLine } from '@/components/generators/GenerationProgressPanel'
+import {
+  type BriefEnrichSummary,
+  parseBriefEnrichSummary,
+} from '@/components/generators/BriefEnrichSummaryCard'
 import { Input, Textarea, Toast } from '@/components/ui'
 import type { CompanySettings, PriceCategory, QuoteDoc } from '@/lib/types'
 import type { PlanType } from '@/lib/plans'
@@ -100,6 +104,7 @@ export default function CueSheetGeneratorPage() {
   const [generating, setGenerating] = useState(false)
   const [generationProgressLabel, setGenerationProgressLabel] = useState<string | null>(null)
   const [generationStageLog, setGenerationStageLog] = useState<string[]>([])
+  const [briefEnrich, setBriefEnrich] = useState<BriefEnrichSummary | null>(null)
   const [saving, setSaving] = useState(false)
   const [loadSavedOpen, setLoadSavedOpen] = useState(false)
   const generatingTabs = useMemo(() => ({ program: generating }), [generating])
@@ -187,6 +192,7 @@ export default function CueSheetGeneratorPage() {
     setGenerating(true)
     setGenerationStageLog(['입력 확인 중'])
     setGenerationProgressLabel('입력 확인 중')
+    setBriefEnrich(null)
     try {
       const promptRequirements = [goal.trim(), notes.trim() ? `추가 메모: ${notes.trim()}` : ''].filter(Boolean).join('\n')
       const requirementsText = sourceMode === 'fromTopic' ? promptRequirements : ''
@@ -202,10 +208,14 @@ export default function CueSheetGeneratorPage() {
         },
         {
           signal,
-          onStage: ({ label }) => {
+          onStage: ({ stage, label, details }) => {
             if (!stillCurrent(session)) return
             setGenerationProgressLabel(label)
             setGenerationStageLog((prev) => appendStageLine(prev, label))
+            if (stage === 'enrich-done') {
+              const summary = parseBriefEnrichSummary(details)
+              if (summary) setBriefEnrich(summary)
+            }
           },
         },
       )
@@ -480,6 +490,7 @@ export default function CueSheetGeneratorPage() {
                     className="flex-1"
                     title="큐시트 생성 중"
                     lines={generationStageLog}
+                    briefEnrich={briefEnrich}
                   />
                 </div>
               ) : doc && generatedDocId ? (
