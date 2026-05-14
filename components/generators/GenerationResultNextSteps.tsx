@@ -12,6 +12,10 @@ type Props = {
   onSave?: () => void | Promise<void>
   saveLabel?: string
   saving?: boolean
+  /** 워드(.docx) 내려받기 (선택) — 제공되면 액션 영역에 버튼 노출 */
+  onDownloadWord?: () => void | Promise<void>
+  wordLabel?: string
+  downloadingWord?: boolean
   className?: string
 }
 
@@ -39,6 +43,9 @@ export default function GenerationResultNextSteps({
   onSave,
   saveLabel = '저장',
   saving,
+  onDownloadWord,
+  wordLabel = '워드(.docx)',
+  downloadingWord,
   className,
 }: Props) {
   return (
@@ -79,6 +86,17 @@ export default function GenerationResultNextSteps({
             className="rounded-lg border border-slate-300 bg-white px-3 py-1.5 text-[11.5px] font-semibold text-slate-800 shadow-sm hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-60"
           >
             {saving ? '저장 중…' : saveLabel}
+          </button>
+        ) : null}
+        {onDownloadWord ? (
+          <button
+            type="button"
+            onClick={() => void onDownloadWord()}
+            disabled={downloadingWord}
+            className="rounded-lg border border-emerald-300/80 bg-white px-3 py-1.5 text-[11.5px] font-semibold text-emerald-900 shadow-sm hover:bg-emerald-50/90 disabled:cursor-not-allowed disabled:opacity-60"
+            title="AI가 만든 본문 그대로 워드 파일로 내려받기"
+          >
+            {downloadingWord ? '준비 중…' : wordLabel}
           </button>
         ) : null}
       </div>

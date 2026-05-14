@@ -21,8 +21,7 @@ import { isPaidPlan, type PlanType } from '@/lib/plans'
 import { isFeatureAllowedForPlan } from '@/lib/plan-access'
 import { isExcludedSupplyLineItem } from '@/lib/quote/supply-line-filter'
 import { calcTotals, normalizeQuoteUnitPricesToThousand } from '@/lib/calc'
-import { saveAs } from 'file-saver'
-import { generateProposal } from '@/src/lib/generateProposal'
+import { exportProgramProposalDocxFromDoc } from '@/lib/export/exportDocxFromQuoteDoc'
 import { useStreamGenerationGuard } from '@/lib/hooks/useStreamGenerationGuard'
 import { useGeneratorRefineQueue } from '@/lib/hooks/use-generator-refine-queue'
 import { warnDevFetchFailure } from '@/lib/log-dev-fetch-failure'
@@ -101,7 +100,6 @@ function EstimateGeneratorContent() {
   const { isMountedRef, startSession, clearAbortIfCurrent, stillCurrent } = useStreamGenerationGuard()
   const estimateBadLinkWarnedRef = useRef(false)
   const pdfExportingRef = useRef(false)
-  const proposalAbortRef = useRef<AbortController | null>(null)
 
   const dismissToast = useCallback(() => {
     if (toastTimerRef.current) {
@@ -137,8 +135,6 @@ function EstimateGeneratorContent() {
   useEffect(
     () => () => {
       if (toastTimerRef.current) clearTimeout(toastTimerRef.current)
-      proposalAbortRef.current?.abort()
-      proposalAbortRef.current = null
     },
     [],
   )
@@ -782,67 +778,21 @@ function EstimateGeneratorContent() {
     }
 
     setProposalGenerating(true)
-    proposalAbortRef.current?.abort()
-    const ac = new AbortController()
-    proposalAbortRef.current = ac
     try {
-      const requestBody = requestBodyForEstimate()
-      const requirementsText =
-        sourceMode === 'fromPrompt'
-          ? vendorBrief.trim()
-          : notes.trim()
-      const followUpText = notes.trim()
-      const noteText = proposalSource.notes?.trim() || ''
-
-      const blob = await generateProposal(
-        {
-          clientName: proposalSource.clientName || clientName.trim(),
-          contact: proposalSource.clientTel || clientTel.trim(),
-          eventName: proposalSource.eventName || topic.trim(),
-          eventDate: proposalSource.eventDate || (requestBody?.eventDate ?? ''),
-          eventPlace: proposalSource.venue || venue.trim(),
-          headcount: proposalSource.headcount || headcount.trim(),
-          budget: requestBody?.budget || budget,
-          eventType: proposalSource.eventType || eventType.trim(),
-          requirements: requirementsText,
-          followUp: followUpText,
-          notes: noteText,
-        },
-        { signal: ac.signal },
-      )
-
+      await exportProgramProposalDocxFromDoc(proposalSource, {
+        includeQuote: true,
+        allowEmptyProgram: true,
+      })
       if (!isMountedRef.current) return
-
-      const filename = `제안서_${(proposalSource.clientName || clientName || '고객').trim()}_${(proposalSource.eventDate || requestBody?.eventDate || '미정').trim()}.docx`
-      saveAs(blob, filename)
-      showToast('제안서 다운로드를 시작했습니다.')
+      showToast('워드(.docx) 다운로드를 시작했어요. 견적표·프로그램 본문이 함께 들어가요.')
     } catch (e) {
       if (!isMountedRef.current) return
       if (e instanceof Error && e.name === 'AbortError') return
       showToast(toUserMessage(e, '제안서 생성에 실패했습니다.'))
     } finally {
-      if (proposalAbortRef.current === ac) {
-        proposalAbortRef.current = null
-      }
       if (isMountedRef.current) setProposalGenerating(false)
     }
-  }, [
-    proposalGenerating,
-    budget,
-    clientName,
-    clientTel,
-    doc,
-    eventType,
-    headcount,
-    notes,
-    requestBodyForEstimate,
-    selectedHistoryDoc,
-    showToast,
-    sourceMode,
-    topic,
-    vendorBrief,
-    venue,
-  ])
+  }, [proposalGenerating, doc, selectedHistoryDoc, showToast])
 
   const handleLoadSavedEstimate = useCallback(() => {
     const id = loadPickerId.trim()

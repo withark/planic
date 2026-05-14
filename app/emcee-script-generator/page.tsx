@@ -20,6 +20,7 @@ import { useStreamGenerationGuard } from '@/lib/hooks/useStreamGenerationGuard'
 import { warnDevFetchFailure } from '@/lib/log-dev-fetch-failure'
 import { exportToExcel } from '@/lib/exportExcel'
 import { exportToPdf, pdfKindFromQuoteTab } from '@/lib/exportPdf'
+import { exportEmceeScriptDocxFromDoc } from '@/lib/export/exportDocxFromQuoteDoc'
 import type { PlanType } from '@/lib/plans'
 import { buildTopicSeedDoc } from '@/lib/topic-seed-doc'
 import { mapPastedTextToTopicGoalFields } from '@/lib/brief-text-parse'
@@ -293,6 +294,23 @@ export default function EmceeScriptGeneratorPage() {
     [generatedDocId, showToast, isMountedRef, briefEnrich],
   )
 
+  const [downloadingWord, setDownloadingWord] = useState(false)
+  const handleDownloadWord = useCallback(async () => {
+    if (!doc) {
+      showToast('먼저 사회자 멘트를 생성해 주세요.')
+      return
+    }
+    setDownloadingWord(true)
+    try {
+      await exportEmceeScriptDocxFromDoc(doc)
+      showToast('워드(.docx) 다운로드를 시작했어요.')
+    } catch (e) {
+      showToast(toUserMessage(e, '워드 다운로드에 실패했어요.'))
+    } finally {
+      if (isMountedRef.current) setDownloadingWord(false)
+    }
+  }, [doc, showToast, isMountedRef])
+
   const generateDisabled =
     sourceMode === 'fromTopic' ? !topic.trim() || !goal.trim() : !selectedBaseDocId || !doc
 
@@ -519,6 +537,8 @@ export default function EmceeScriptGeneratorPage() {
                 onRegenerate={() => void handleGenerate()}
                 onSave={doc ? () => void handleSaveDoc(doc) : undefined}
                 saving={saving}
+                onDownloadWord={doc ? handleDownloadWord : undefined}
+                downloadingWord={downloadingWord}
               />
             <section className="flex min-h-0 flex-1 flex-col overflow-hidden rounded-2xl border border-gray-100 bg-white shadow-card">
               <div className="p-4 border-b border-gray-100 bg-slate-50/50">

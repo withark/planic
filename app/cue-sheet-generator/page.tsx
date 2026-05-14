@@ -21,6 +21,7 @@ import { useStreamGenerationGuard } from '@/lib/hooks/useStreamGenerationGuard'
 import { warnDevFetchFailure } from '@/lib/log-dev-fetch-failure'
 import { exportToExcel } from '@/lib/exportExcel'
 import { exportToPdf, pdfKindFromQuoteTab } from '@/lib/exportPdf'
+import { exportCueSheetDocxFromDoc } from '@/lib/export/exportDocxFromQuoteDoc'
 import { buildTopicSeedDoc } from '@/lib/topic-seed-doc'
 import { mapPastedTextToTopicGoalFields } from '@/lib/brief-text-parse'
 import { useGeneratorRefineQueue } from '@/lib/hooks/use-generator-refine-queue'
@@ -303,6 +304,23 @@ export default function CueSheetGeneratorPage() {
     [generatedDocId, showToast, isMountedRef, briefEnrich],
   )
 
+  const [downloadingWord, setDownloadingWord] = useState(false)
+  const handleDownloadWord = useCallback(async () => {
+    if (!doc) {
+      showToast('먼저 큐시트를 생성해 주세요.')
+      return
+    }
+    setDownloadingWord(true)
+    try {
+      await exportCueSheetDocxFromDoc(doc)
+      showToast('워드(.docx) 다운로드를 시작했어요.')
+    } catch (e) {
+      showToast(toUserMessage(e, '워드 다운로드에 실패했어요.'))
+    } finally {
+      if (isMountedRef.current) setDownloadingWord(false)
+    }
+  }, [doc, showToast, isMountedRef])
+
   const generateDisabled =
     sourceMode === 'fromTopic'
       ? !topic.trim() || !goal.trim()
@@ -549,13 +567,15 @@ export default function CueSheetGeneratorPage() {
                   ) : null}
                   <GenerationResultNextSteps
                     headline="큐시트"
-                    hint="아래에서 cueRows를 편집한 뒤 저장하거나, 엑셀·PDF로 보낼 수 있어요. 입력을 바꾼 뒤 다시 생성할 수도 있어요."
+                    hint="아래에서 cueRows를 편집한 뒤 저장하거나, 엑셀·PDF·워드로 보낼 수 있어요. 입력을 바꾼 뒤 다시 생성할 수도 있어요."
                     onScrollToInput={() =>
                       document.getElementById('generator-input-top')?.scrollIntoView({ behavior: 'smooth', block: 'start' })
                     }
                     onRegenerate={() => void handleGenerateCueSheet()}
                     onSave={doc ? () => void handleSaveDoc(doc) : undefined}
                     saving={saving}
+                    onDownloadWord={doc ? handleDownloadWord : undefined}
+                    downloadingWord={downloadingWord}
                   />
                 <section className="flex min-h-0 flex-1 flex-col overflow-hidden rounded-2xl border border-gray-100 bg-white shadow-card">
                   <div className="flex flex-wrap items-center justify-between gap-4 border-b border-gray-100 bg-slate-50/50 p-4">
