@@ -25,6 +25,7 @@ import type { PlanType } from '@/lib/plans'
 import { buildTopicSeedDoc } from '@/lib/topic-seed-doc'
 import { mapPastedTextToTopicGoalFields } from '@/lib/brief-text-parse'
 import { useGeneratorRefineQueue } from '@/lib/hooks/use-generator-refine-queue'
+import { useCompanyOnboardingRedirect } from '@/lib/hooks/use-company-onboarding-redirect'
 
 type MeLite = {
   subscription: { planType: PlanType }
@@ -44,6 +45,7 @@ type GeneratedDocListRow = {
 type SourceMode = 'fromTopic' | 'fromProgram' | 'fromScenario'
 
 export default function EmceeScriptGeneratorPage() {
+  useCompanyOnboardingRedirect()
   const [toast, setToast] = useState<string | null>(null)
   const toastTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
   const { isMountedRef, startSession, clearAbortIfCurrent, stillCurrent } = useStreamGenerationGuard()

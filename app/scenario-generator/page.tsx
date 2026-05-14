@@ -25,6 +25,7 @@ import type { PlanType } from '@/lib/plans'
 import { buildTopicSeedDoc } from '@/lib/topic-seed-doc'
 import { mapPastedTextToTopicGoalFields } from '@/lib/brief-text-parse'
 import { useGeneratorRefineQueue } from '@/lib/hooks/use-generator-refine-queue'
+import { useCompanyOnboardingRedirect } from '@/lib/hooks/use-company-onboarding-redirect'
 import { isDocumentAllowedForPlan } from '@/lib/plan-access'
 import { PlanLockedNotice } from '@/components/plan/PlanLockedNotice'
 
@@ -46,6 +47,7 @@ type GeneratedDocListRow = {
 type SourceMode = 'fromPlanning' | 'fromProgram' | 'fromTopic'
 
 export default function ScenarioGeneratorPage() {
+  useCompanyOnboardingRedirect()
   const [toast, setToast] = useState<string | null>(null)
   const toastTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
   const { isMountedRef, startSession, clearAbortIfCurrent, stillCurrent } = useStreamGenerationGuard()

@@ -24,6 +24,7 @@ import { calcTotals, normalizeQuoteUnitPricesToThousand } from '@/lib/calc'
 import { exportProgramProposalDocxFromDoc } from '@/lib/export/exportDocxFromQuoteDoc'
 import { useStreamGenerationGuard } from '@/lib/hooks/useStreamGenerationGuard'
 import { useGeneratorRefineQueue } from '@/lib/hooks/use-generator-refine-queue'
+import { useCompanyOnboardingRedirect } from '@/lib/hooks/use-company-onboarding-redirect'
 import { warnDevFetchFailure } from '@/lib/log-dev-fetch-failure'
 import BriefEnrichSummaryCard, {
   type BriefEnrichSummary,
@@ -93,6 +94,7 @@ function getTaskOrderParsed(t: TaskOrderDoc): TaskOrderSummaryParsed | null {
 }
 
 function EstimateGeneratorContent() {
+  useCompanyOnboardingRedirect()
   const proposalLabel = '행사 제안서'
   const searchParams = useSearchParams()
   const [toast, setToast] = useState<string | null>(null)

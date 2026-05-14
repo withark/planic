@@ -1,5 +1,6 @@
 'use client'
-import { useEffect, useState, useCallback } from 'react'
+import { Suspense, useEffect, useState, useCallback, useMemo } from 'react'
+import { useRouter, useSearchParams } from 'next/navigation'
 import { GNB, GNB_MOBILE_MAIN_COLUMN_PADDING } from '@/components/GNB'
 import { Button, Input, Field, Toast } from '@/components/ui'
 import type { CompanySettings } from '@/lib/types'
@@ -7,6 +8,7 @@ import { DEFAULT_SETTINGS } from '@/lib/defaults'
 import Link from 'next/link'
 import { apiFetch } from '@/lib/api/client'
 import { toUserMessage } from '@/lib/errors/toUserMessage'
+import { sanitizeCallbackUrl } from '@/lib/auth-callback'
 import type { PlanType } from '@/lib/plans'
 
 const DAUM_POSTCODE_SCRIPT = 'https://t1.daumcdn.net/mapjsapi/bundle/postcode/prod/postcode.v2.js'
@@ -89,6 +91,33 @@ function formatPhoneDisplay(value: string): string {
 }
 
 export default function SettingsPage() {
+  return (
+    <Suspense
+      fallback={
+        <div className="flex h-screen overflow-hidden bg-gray-50/50">
+          <GNB />
+          <div className={`flex-1 flex items-center justify-center ${GNB_MOBILE_MAIN_COLUMN_PADDING}`}>
+            <p className="text-sm text-gray-500">로딩 중…</p>
+          </div>
+        </div>
+      }
+    >
+      <SettingsContent />
+    </Suspense>
+  )
+}
+
+function SettingsContent() {
+  const router = useRouter()
+  const searchParams = useSearchParams()
+  const onboardingMode = searchParams?.get('onboarding') === '1'
+  const rawFrom = searchParams?.get('from') ?? ''
+  const fromTarget = useMemo(() => {
+    const sanitized = sanitizeCallbackUrl(rawFrom)
+    if (!sanitized || sanitized === '/') return '/dashboard'
+    return sanitized
+  }, [rawFrom])
+
   const [cfg,  setCfg]  = useState<CompanySettings>(DEFAULT_SETTINGS)
   const [toast, setToast] = useState('')
   const [postcodeError, setPostcodeError] = useState('')
@@ -103,6 +132,15 @@ export default function SettingsPage() {
       .then(setCfg)
       .catch(() => {})
   }, [])
+
+  const skipOnboarding = useCallback(() => {
+    try {
+      window.sessionStorage.setItem('planic_company_onboarding_skipped', '1')
+    } catch {
+      // sessionStorage 사용 불가 환경 무시
+    }
+    router.replace(fromTarget)
+  }, [router, fromTarget])
 
   useEffect(() => {
     apiFetch<{ subscription: { planType: PlanType }; usage: { companyProfileCount: number }; limits: { companyProfileLimit: number } }>('/api/me')
@@ -121,6 +159,14 @@ export default function SettingsPage() {
       apiFetch<{ subscription: { planType: PlanType }; usage: { companyProfileCount: number }; limits: { companyProfileLimit: number } }>('/api/me')
         .then(setMe)
         .catch(() => {})
+      if (onboardingMode && (cfg.name ?? '').trim().length > 0) {
+        try {
+          window.sessionStorage.removeItem('planic_company_onboarding_skipped')
+        } catch {
+          // ignore
+        }
+        window.setTimeout(() => router.replace(fromTarget), 800)
+      }
     } catch (e) {
       showToast(toUserMessage(e, '설정 저장에 실패했습니다.'))
     }
@@ -142,6 +188,26 @@ export default function SettingsPage() {
         </header>
 
         <div className="flex-1 overflow-y-auto p-6 space-y-6 max-w-2xl">
+          {onboardingMode && (
+            <div className="rounded-2xl border border-primary-200 bg-primary-50 px-4 py-3.5 text-sm text-primary-900">
+              <p className="font-semibold">먼저 회사 정보를 한 번 채워 주세요.</p>
+              <p className="mt-1 text-[12.5px] leading-relaxed text-primary-900/85">
+                상호명·담당자·연락처는 워드(.docx) 헤더·푸터와 견적서 상단에 자동으로 들어갑니다. 처음 한 번만 채우면 이후 모든 문서에 반영돼요.
+              </p>
+              <div className="mt-2.5 flex flex-wrap gap-2">
+                <button
+                  type="button"
+                  onClick={skipOnboarding}
+                  className="rounded-lg border border-slate-300 bg-white px-3 py-1.5 text-[12px] font-medium text-slate-700 shadow-sm hover:bg-slate-50"
+                >
+                  나중에 채우기
+                </button>
+                <span className="text-[11.5px] text-primary-900/70 self-center">
+                  저장하면 방금 보시던 화면으로 자동 이동해요.
+                </span>
+              </div>
+            </div>
+          )}
           {me?.subscription?.planType === 'FREE' && (
             <div className="rounded-2xl border border-amber-200 bg-amber-50 px-4 py-3 text-xs text-amber-900">
               무료 플랜은 기업정보를 {me.limits.companyProfileLimit}개까지 저장할 수 있어요. (현재 {me.usage.companyProfileCount}개)

@@ -25,6 +25,7 @@ import type { PlanType } from '@/lib/plans'
 import { buildTopicSeedDoc } from '@/lib/topic-seed-doc'
 import { mapPastedTextToTopicGoalFields } from '@/lib/brief-text-parse'
 import { useGeneratorRefineQueue } from '@/lib/hooks/use-generator-refine-queue'
+import { useCompanyOnboardingRedirect } from '@/lib/hooks/use-company-onboarding-redirect'
 
 type MeLite = {
   subscription: { planType: PlanType }
@@ -35,6 +36,7 @@ type MeLite = {
 type SourceMode = 'fromEstimate' | 'fromTaskOrder' | 'fromTopic'
 
 export default function PlanningGeneratorPage() {
+  useCompanyOnboardingRedirect()
   const [me, setMe] = useState<MeLite | null>(null)
   const [meLoadError, setMeLoadError] = useState<string | null>(null)
   const [companySettings, setCompanySettings] = useState<CompanySettings | null>(null)

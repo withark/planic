@@ -11,6 +11,7 @@ import type { PlanLimits, PlanType } from '@/lib/plans'
 import { planLabelKo } from '@/lib/plans'
 import type { HistoryRecord } from '@/lib/types'
 import { fmtKRW } from '@/lib/calc'
+import { useCompanyOnboardingRedirect } from '@/lib/hooks/use-company-onboarding-redirect'
 
 type MeResponse = {
   user: { id: string; email: string | null; name: string | null; image: string | null }
@@ -106,6 +107,7 @@ function buildRecentDailyCounts(records: HistoryRecord[], days = 7): DailyCount[
 const DASHBOARD_DETAILS_STORAGE_KEY = 'planic_dashboard_show_details'
 
 function DashboardContent() {
+  useCompanyOnboardingRedirect()
   const searchParams = useSearchParams()
   const [me, setMe] = useState<MeResponse | null>(null)
   const [err, setErr] = useState('')
