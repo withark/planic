@@ -125,7 +125,13 @@ export default function BriefEnrichSummaryCard({
       )}
       aria-label="AI가 정리한 입력 미리보기"
     >
-      <header className="flex items-start justify-between gap-3 px-4 py-3">
+      <button
+        type="button"
+        onClick={() => setOpen((v) => !v)}
+        aria-expanded={open}
+        aria-controls="brief-enrich-body"
+        className="flex w-full items-start justify-between gap-3 px-4 py-3 text-left hover:bg-indigo-50/40 focus:bg-indigo-50/60 focus:outline-none"
+      >
         <div className="flex items-start gap-2">
           <span
             aria-hidden
@@ -164,17 +170,19 @@ export default function BriefEnrichSummaryCard({
             </p>
           </div>
         </div>
-        <button
-          type="button"
-          onClick={() => setOpen((v) => !v)}
-          className="shrink-0 rounded-lg border border-indigo-200 bg-white px-2 py-1 text-[11px] font-medium text-indigo-700 hover:bg-indigo-50"
+        <span
+          aria-hidden
+          className="shrink-0 rounded-lg border border-indigo-200 bg-white px-2 py-1 text-[11px] font-medium text-indigo-700"
         >
           {open ? '접기' : '펴기'}
-        </button>
-      </header>
+        </span>
+      </button>
 
       {open ? (
-        <div className="max-h-[min(42vh,22rem)] overflow-y-auto overscroll-y-contain border-t border-indigo-100/80 md:max-h-none">
+        <div
+          id="brief-enrich-body"
+          className="max-h-[min(42vh,22rem)] overflow-y-auto overscroll-y-contain border-t border-indigo-100/80 md:max-h-none"
+        >
           <div className="space-y-3 px-4 py-3 text-[12.5px] text-indigo-950/90">
           {summary.oneLiner ? (
             <div>

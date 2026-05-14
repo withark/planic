@@ -16,6 +16,19 @@ type Props = {
 }
 
 /**
+ * 한글 단어 끝 글자의 받침(종성) 유무를 기준으로 "이/가" 같은 조사를 고른다.
+ * 한글이 아닌 글자로 끝나면 받침이 없는 것으로 보고 기본 조사를 반환한다.
+ */
+function pickKoreanParticle(word: string, withBatchim: string, withoutBatchim: string): string {
+  const last = word.trim().slice(-1)
+  const code = last.charCodeAt(0)
+  const isHangulSyllable = code >= 0xac00 && code <= 0xd7a3
+  if (!isHangulSyllable) return withoutBatchim
+  const jong = (code - 0xac00) % 28
+  return jong === 0 ? withoutBatchim : withBatchim
+}
+
+/**
  * 생성 완료 후 결과 영역 상단에서 다음 행동을 안내하는 컴팩트 CTA 박스.
  */
 export default function GenerationResultNextSteps({
@@ -35,7 +48,10 @@ export default function GenerationResultNextSteps({
         className,
       )}
     >
-      <p className="text-sm font-semibold text-emerald-950">{headline}가 준비됐어요.</p>
+      <p className="text-sm font-semibold text-emerald-950">
+        {headline}
+        {pickKoreanParticle(headline, '이', '가')} 준비됐어요.
+      </p>
       <p className="mt-1 text-[11.5px] leading-relaxed text-emerald-900/90">
         {hint ??
           '아래에서 편집한 뒤 저장하거나, 엑셀·PDF로 보낼 수 있어요. 입력을 바꾼 뒤 다시 생성할 수도 있어요.'}
