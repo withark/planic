@@ -138,7 +138,15 @@ function staffInfoTable(content: CuesheetContent): Table {
   })
 }
 
-export async function exportCuesheetDocx(content: CuesheetContent): Promise<void> {
+export interface CuesheetDocxOptions {
+  companyName?: string
+  companyContact?: string
+}
+
+export async function exportCuesheetDocx(
+  content: CuesheetContent,
+  options?: CuesheetDocxOptions,
+): Promise<void> {
   const children: Array<Paragraph | Table> = []
 
   // 타이틀
@@ -237,7 +245,10 @@ export async function exportCuesheetDocx(content: CuesheetContent): Promise<void
             children: [
               new Paragraph({
                 children: [
-                  new TextRun({ text: `위드아크(WITH ARK)  |  ${s(content.eventName)} 큐시트`, font: FONT, size: 16, color: '999999' }),
+                  new TextRun({
+                    text: `${options?.companyName?.trim() ? `${options.companyName.trim()}  |  ` : ''}${s(content.eventName)} 큐시트`,
+                    font: FONT, size: 16, color: '999999',
+                  }),
                 ],
                 alignment: AlignmentType.RIGHT,
                 border: { bottom: { style: BorderStyle.SINGLE, size: 4, color: 'CCCCCC' } },
@@ -254,6 +265,14 @@ export async function exportCuesheetDocx(content: CuesheetContent): Promise<void
                     children: [PageNumber.CURRENT, ' / ', PageNumber.TOTAL_PAGES],
                     font: FONT, size: 16, color: '999999',
                   }),
+                  ...(options?.companyContact?.trim()
+                    ? [
+                        new TextRun({
+                          text: `    |    ${options.companyContact.trim()}`,
+                          font: FONT, size: 16, color: 'AAAAAA',
+                        }),
+                      ]
+                    : []),
                 ],
                 alignment: AlignmentType.CENTER,
                 border: { top: { style: BorderStyle.SINGLE, size: 4, color: 'CCCCCC' } },

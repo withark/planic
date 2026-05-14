@@ -180,7 +180,15 @@ function infoTable(content: EmceeContent): Table {
   })
 }
 
-export async function exportEmceeDocx(content: EmceeContent): Promise<void> {
+export interface EmceeDocxOptions {
+  companyName?: string
+  companyContact?: string
+}
+
+export async function exportEmceeDocx(
+  content: EmceeContent,
+  options?: EmceeDocxOptions,
+): Promise<void> {
   const children: Array<Paragraph | Table> = []
 
   // 타이틀
@@ -275,7 +283,10 @@ export async function exportEmceeDocx(content: EmceeContent): Promise<void> {
             children: [
               new Paragraph({
                 children: [
-                  new TextRun({ text: `위드아크(WITH ARK)  |  ${s(content.eventName)} 사회자 대본  (${s(content.tone)})`, font: FONT, size: 16, color: '999999' }),
+                  new TextRun({
+                    text: `${options?.companyName?.trim() ? `${options.companyName.trim()}  |  ` : ''}${s(content.eventName)} 사회자 대본  (${s(content.tone)})`,
+                    font: FONT, size: 16, color: '999999',
+                  }),
                 ],
                 alignment: AlignmentType.RIGHT,
                 border: { bottom: { style: BorderStyle.SINGLE, size: 4, color: 'CCCCCC' } },
@@ -292,6 +303,14 @@ export async function exportEmceeDocx(content: EmceeContent): Promise<void> {
                     children: [PageNumber.CURRENT, ' / ', PageNumber.TOTAL_PAGES],
                     font: FONT, size: 16, color: '999999',
                   }),
+                  ...(options?.companyContact?.trim()
+                    ? [
+                        new TextRun({
+                          text: `    |    ${options.companyContact.trim()}`,
+                          font: FONT, size: 16, color: 'AAAAAA',
+                        }),
+                      ]
+                    : []),
                 ],
                 alignment: AlignmentType.CENTER,
                 border: { top: { style: BorderStyle.SINGLE, size: 4, color: 'CCCCCC' } },

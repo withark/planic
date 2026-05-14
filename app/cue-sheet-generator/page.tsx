@@ -312,14 +312,14 @@ export default function CueSheetGeneratorPage() {
     }
     setDownloadingWord(true)
     try {
-      await exportCueSheetDocxFromDoc(doc)
+      await exportCueSheetDocxFromDoc(doc, { company: companySettings })
       showToast('워드(.docx) 다운로드를 시작했어요.')
     } catch (e) {
       showToast(toUserMessage(e, '워드 다운로드에 실패했어요.'))
     } finally {
       if (isMountedRef.current) setDownloadingWord(false)
     }
-  }, [doc, showToast, isMountedRef])
+  }, [doc, companySettings, showToast, isMountedRef])
 
   const generateDisabled =
     sourceMode === 'fromTopic'

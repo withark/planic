@@ -6,6 +6,7 @@
  * - 견적기에서도 program 제안용 워드를 그대로 호출해 "행사 제안서" 생성을 대체할 수 있다.
  */
 import type {
+  CompanySettings,
   EmceeScriptLine,
   ProgramTableRow,
   QuoteDoc,
@@ -29,6 +30,19 @@ import { exportScenarioDocx } from './exportScenarioDocx'
 
 function s(v: unknown): string {
   return String(v ?? '').trim()
+}
+
+function brandingOptions(company: CompanySettings | null | undefined): {
+  companyName?: string
+  companyContact?: string
+} {
+  if (!company) return {}
+  const name = s(company.name)
+  const contact = [s(company.tel), s(company.contact)].filter(Boolean).join(' · ')
+  return {
+    companyName: name || undefined,
+    companyContact: contact || undefined,
+  }
 }
 
 function splitLines(value: string | undefined): string[] {
@@ -100,14 +114,19 @@ function mapQuoteItemsForProposal(doc: QuoteDoc): QuoteData | undefined {
   }
 }
 
-function toProposalContent(
+export function toProposalContent(
   doc: QuoteDoc,
   options?: { includeQuote?: boolean; budget?: string },
 ): ProposalContent {
   const program = doc.program
   const concept = s(program?.concept)
-  const tagline = concept ? concept.split(/\n+/u)[0].slice(0, 80) : ''
-  const highlights = (program?.tips ?? []).map((t) => s(t)).filter(Boolean).slice(0, 5)
+  const enrichOneLiner = s(doc.briefEnrich?.oneLiner)
+  const enrichConcepts = (doc.briefEnrich?.keyConcepts ?? []).map((c) => s(c)).filter(Boolean)
+  const enrichMustHave = (doc.briefEnrich?.mustHaveDetails ?? []).map((c) => s(c)).filter(Boolean)
+  const tagline =
+    (concept ? concept.split(/\n+/u)[0].slice(0, 80) : '') || enrichOneLiner || ''
+  const programTips = (program?.tips ?? []).map((t) => s(t)).filter(Boolean)
+  const highlights = (programTips.length ? programTips : [...enrichConcepts, ...enrichMustHave]).slice(0, 5)
   return {
     clientName: s(doc.clientName),
     contact: s(doc.clientTel),
@@ -126,7 +145,7 @@ function toProposalContent(
   }
 }
 
-function toEmceeContent(doc: QuoteDoc): EmceeContent {
+export function toEmceeContent(doc: QuoteDoc): EmceeContent {
   const script = doc.emceeScript
   return {
     eventName: s(doc.eventName),
@@ -137,7 +156,7 @@ function toEmceeContent(doc: QuoteDoc): EmceeContent {
   }
 }
 
-function toCuesheetContent(doc: QuoteDoc): CuesheetContent {
+export function toCuesheetContent(doc: QuoteDoc): CuesheetContent {
   return {
     eventName: s(doc.eventName),
     eventDate: s(doc.eventDate),
@@ -152,7 +171,12 @@ function toCuesheetContent(doc: QuoteDoc): CuesheetContent {
 
 export async function exportProgramProposalDocxFromDoc(
   doc: QuoteDoc,
-  options?: { includeQuote?: boolean; allowEmptyProgram?: boolean; budget?: string },
+  options?: {
+    includeQuote?: boolean
+    allowEmptyProgram?: boolean
+    budget?: string
+    company?: CompanySettings | null
+  },
 ): Promise<void> {
   const hasProgram = (doc.program?.programRows?.length ?? 0) > 0 || s(doc.program?.concept).length > 0
   const hasQuote = (doc.quoteItems ?? []).some((c) => (c.items ?? []).length > 0)
@@ -162,27 +186,39 @@ export async function exportProgramProposalDocxFromDoc(
   if (!hasProgram && !hasQuote && options?.allowEmptyProgram) {
     throw new Error('프로그램·견적 본문이 모두 비어 있습니다. 먼저 견적을 생성해 주세요.')
   }
-  await exportProposalDocx(toProposalContent(doc, options))
+  await exportProposalDocx(toProposalContent(doc, options), brandingOptions(options?.company))
 }
 
-export async function exportEmceeScriptDocxFromDoc(doc: QuoteDoc): Promise<void> {
+export async function exportEmceeScriptDocxFromDoc(
+  doc: QuoteDoc,
+  options?: { company?: CompanySettings | null },
+): Promise<void> {
   if (!doc.emceeScript?.lines?.length) {
     throw new Error('사회자 멘트 본문이 비어 있습니다. 먼저 사회자 멘트를 생성해 주세요.')
   }
-  await exportEmceeDocx(toEmceeContent(doc))
+  await exportEmceeDocx(toEmceeContent(doc), brandingOptions(options?.company))
 }
 
-export async function exportCueSheetDocxFromDoc(doc: QuoteDoc): Promise<void> {
+export async function exportCueSheetDocxFromDoc(
+  doc: QuoteDoc,
+  options?: { company?: CompanySettings | null },
+): Promise<void> {
   if (!doc.program?.cueRows?.length) {
     throw new Error('큐시트 본문이 비어 있습니다. 먼저 큐시트를 생성해 주세요.')
   }
-  await exportCuesheetDocx(toCuesheetContent(doc))
+  await exportCuesheetDocx(toCuesheetContent(doc), brandingOptions(options?.company))
 }
 
-export async function exportPlanningDocxFromDoc(doc: QuoteDoc): Promise<void> {
-  await exportPlanningDocx(doc)
+export async function exportPlanningDocxFromDoc(
+  doc: QuoteDoc,
+  options?: { company?: CompanySettings | null },
+): Promise<void> {
+  await exportPlanningDocx(doc, brandingOptions(options?.company))
 }
 
-export async function exportScenarioDocxFromDoc(doc: QuoteDoc): Promise<void> {
-  await exportScenarioDocx(doc)
+export async function exportScenarioDocxFromDoc(
+  doc: QuoteDoc,
+  options?: { company?: CompanySettings | null },
+): Promise<void> {
+  await exportScenarioDocx(doc, brandingOptions(options?.company))
 }

@@ -675,7 +675,23 @@ function quoteSection(quote: QuoteData): Array<Paragraph | Table> {
 }
 
 // ── 메인 export 함수 ──────────────────────────────────────────────
-export async function exportProposalDocx(content: ProposalContent): Promise<void> {
+export interface ProposalDocxOptions {
+  /** 헤더·푸터·서명에 노출할 회사명 (예: "위드아크") */
+  companyName?: string
+  /** 푸터에 함께 노출할 회사 연락처 텍스트 */
+  companyContact?: string
+}
+
+function headerLine(companyName: string | undefined, eventName: string): string {
+  const safeName = (companyName ?? '').trim()
+  const safeEvent = eventName || '행사 제안서'
+  return safeName ? `${safeName}  |  ${safeEvent}` : safeEvent
+}
+
+export async function exportProposalDocx(
+  content: ProposalContent,
+  options?: ProposalDocxOptions,
+): Promise<void> {
   const children: Array<Paragraph | Table> = []
 
   // ── 타이틀
@@ -897,7 +913,7 @@ export async function exportProposalDocx(content: ProposalContent): Promise<void
               new Paragraph({
                 children: [
                   new TextRun({
-                    text: `위드아크(WITH ARK)  |  ${s(content.eventName) || '행사 제안서'}`,
+                    text: headerLine(options?.companyName, s(content.eventName)),
                     font: FONT, size: 17, color: '999999',
                   }),
                 ],
@@ -916,6 +932,14 @@ export async function exportProposalDocx(content: ProposalContent): Promise<void
                     children: [PageNumber.CURRENT, ' / ', PageNumber.TOTAL_PAGES],
                     font: FONT, size: 17, color: '999999',
                   }),
+                  ...(options?.companyContact?.trim()
+                    ? [
+                        new TextRun({
+                          text: `    |    ${options.companyContact.trim()}`,
+                          font: FONT, size: 17, color: 'AAAAAA',
+                        }),
+                      ]
+                    : []),
                   new TextRun({
                     text: `    |    ${s(content.clientName) || ''} 귀중`,
                     font: FONT, size: 17, color: 'CCCCCC',

@@ -226,7 +226,12 @@ function statsRowTable(stats: PlanningStatItem[]): Table {
   })
 }
 
-export async function exportPlanningDocx(doc: QuoteDoc): Promise<void> {
+export interface PlanningDocxOptions {
+  companyName?: string
+  companyContact?: string
+}
+
+export async function exportPlanningDocx(doc: QuoteDoc, options?: PlanningDocxOptions): Promise<void> {
   const planning = doc.planning
   if (!planning) {
     throw new Error('기획 본문이 비어 있습니다. 먼저 기획 문서를 생성해 주세요.')
@@ -410,7 +415,7 @@ export async function exportPlanningDocx(doc: QuoteDoc): Promise<void> {
                 alignment: AlignmentType.RIGHT,
                 children: [
                   new TextRun({
-                    text: `${s(doc.eventName) || '행사 기획 문서'}`,
+                    text: `${options?.companyName?.trim() ? `${options.companyName.trim()}  |  ` : ''}${s(doc.eventName) || '행사 기획 문서'}`,
                     font: FONT,
                     size: 16,
                     color: '999999',
@@ -433,6 +438,16 @@ export async function exportPlanningDocx(doc: QuoteDoc): Promise<void> {
                     size: 16,
                     color: '999999',
                   }),
+                  ...(options?.companyContact?.trim()
+                    ? [
+                        new TextRun({
+                          text: `    |    ${options.companyContact.trim()}`,
+                          font: FONT,
+                          size: 16,
+                          color: 'AAAAAA',
+                        }),
+                      ]
+                    : []),
                 ],
                 border: { top: { style: BorderStyle.SINGLE, size: 4, color: 'CCCCCC' } },
               }),
