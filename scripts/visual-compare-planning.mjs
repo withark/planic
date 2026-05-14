@@ -18,28 +18,22 @@ const REFS = [
 async function loginWithDevProvider(page, baseUrl) {
   const req = page.context().request
   const username = `visual_${Math.random().toString(36).slice(2, 10)}`
-  const password = `Visual!${Math.random().toString(36).slice(2, 10)}`
-
-  const reg = await req.post(`${baseUrl}/api/auth/register`, {
-    data: { username, password, name: 'Visual Compare' },
-    headers: { 'content-type': 'application/json' },
-  })
-  if (!reg.ok()) throw new Error(`register 실패: ${reg.status()}`)
 
   const csrfRes = await req.get(`${baseUrl}/api/auth/csrf`)
   const csrf = await csrfRes.json()
   if (!csrf?.csrfToken) throw new Error('csrfToken 누락')
 
-  const login = await req.post(`${baseUrl}/api/auth/callback/email-password`, {
+  // 운영 로그인은 소셜 전용. 자동화는 dev-login(DEV_AUTH=1 + DEV_AUTH_SECRET)으로 우회.
+  const login = await req.post(`${baseUrl}/api/auth/callback/dev-login`, {
     form: {
       csrfToken: csrf.csrfToken,
-      username,
-      password,
+      email: `${username}@dev.local`,
+      secret: DEV_SECRET,
       callbackUrl: `${baseUrl}/planning-generator`,
       json: 'true',
     },
   })
-  if (!login.ok()) throw new Error(`email-password login 실패: ${login.status()}`)
+  if (!login.ok()) throw new Error(`dev-login 실패: ${login.status()} (DEV_AUTH/DEV_AUTH_SECRET 확인)`)
 
   await page.goto(`${baseUrl}/planning-generator`, { waitUntil: 'domcontentloaded' })
 }

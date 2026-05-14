@@ -6,7 +6,6 @@ import { hasDatabase } from '@/lib/db/client'
 import { upsertUser } from '@/lib/db/users-db'
 import { ensureFreeSubscription } from '@/lib/db/subscriptions-db'
 import { devAuthProvider, isDevAuthEnabled } from '@/lib/auth-dev'
-import { emailPasswordCredentialsProvider, isEmailPasswordAuthEnabled } from '@/lib/auth-email-password'
 import { planicProductionSharedCookie, PLANIC_SESSION_COOKIE_NAME } from '@/lib/planic-auth-env'
 import { resolveEnabledSocialAuthProviders } from '@/lib/social-auth-providers'
 
@@ -54,7 +53,6 @@ export const authOptions: NextAuthOptions = {
   providers: [
     ...oauthProviders(),
     ...(isDevAuthEnabled() ? [devAuthProvider()] : []),
-    ...(isEmailPasswordAuthEnabled() ? [emailPasswordCredentialsProvider()] : []),
   ],
   pages: {
     signIn: '/auth',

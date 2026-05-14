@@ -13,49 +13,25 @@ const wait = (ms) => new Promise((resolve) => setTimeout(resolve, ms))
 async function signupAndLogin(page, baseUrl, callbackPath) {
   const req = page.context().request
   const username = `audit_${Math.random().toString(36).slice(2, 10)}`
-  const password = `Audit!${Math.random().toString(36).slice(2, 10)}`
 
   const csrfRes = await req.get(`${baseUrl}/api/auth/csrf`)
   const csrf = await csrfRes.json().catch(() => null)
   if (!csrf?.csrfToken) throw new Error('csrfToken 누락')
 
-  let loggedIn = false
-  try {
-    const reg = await req.post(`${baseUrl}/api/auth/register`, {
-      data: { username, password, name: 'Runtime Audit' },
-      headers: { 'content-type': 'application/json' },
-    })
-    if (reg.ok()) {
-      const login = await req.post(`${baseUrl}/api/auth/callback/email-password`, {
-        form: {
-          csrfToken: csrf.csrfToken,
-          username,
-          password,
-          callbackUrl: `${baseUrl}${callbackPath}`,
-          json: 'true',
-        },
-      })
-      loggedIn = login.ok()
-    }
-  } catch {
-    loggedIn = false
-  }
-
-  if (!loggedIn) {
-    const devSecret = process.env.AUDIT_DEV_AUTH_SECRET || 'playwright-secret'
-    const devEmail = `${username}@dev.local`
-    const devLogin = await req.post(`${baseUrl}/api/auth/callback/dev-login`, {
-      form: {
-        csrfToken: csrf.csrfToken,
-        email: devEmail,
-        secret: devSecret,
-        callbackUrl: `${baseUrl}${callbackPath}`,
-        json: 'true',
-      },
-    })
-    if (!devLogin.ok()) {
-      throw new Error(`로그인 실패 status=${devLogin.status()}`)
-    }
+  // 운영 로그인은 소셜 전용. 자동화는 dev-login 우회(DEV_AUTH=1 + DEV_AUTH_SECRET) 전제.
+  const devSecret = process.env.AUDIT_DEV_AUTH_SECRET || 'playwright-secret'
+  const devEmail = `${username}@dev.local`
+  const devLogin = await req.post(`${baseUrl}/api/auth/callback/dev-login`, {
+    form: {
+      csrfToken: csrf.csrfToken,
+      email: devEmail,
+      secret: devSecret,
+      callbackUrl: `${baseUrl}${callbackPath}`,
+      json: 'true',
+    },
+  })
+  if (!devLogin.ok()) {
+    throw new Error(`dev-login 실패 status=${devLogin.status()} (DEV_AUTH/DEV_AUTH_SECRET 확인)`)
   }
 
   await page.goto(`${baseUrl}${callbackPath}`, { waitUntil: 'domcontentloaded' })

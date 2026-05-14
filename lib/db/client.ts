@@ -345,10 +345,4 @@ export async function initDb(): Promise<void> {
   await sql`CREATE INDEX IF NOT EXISTS idx_reference_candidates_created ON reference_candidates (created_at DESC)`
 
   initDone = true
-
-  const { isCredentialAuthEnabled } = await import('@/lib/credential-auth-env')
-  if (isCredentialAuthEnabled()) {
-    const { ensureBillingTestUser } = await import('@/lib/db/users-db')
-    await ensureBillingTestUser()
-  }
 }

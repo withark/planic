@@ -3,7 +3,6 @@ import { redirect } from 'next/navigation'
 import { getServerSession } from 'next-auth/next'
 import { AuthLoginCard } from '@/components/auth/AuthLoginCard'
 import { isDevAuthEnabled } from '@/lib/auth-dev'
-import { isEmailPasswordAuthEnabled } from '@/lib/auth-email-password'
 import { sanitizeCallbackUrl } from '@/lib/auth-callback'
 import { authOptions } from '@/lib/auth'
 import { resolveEnabledSocialAuthProviders } from '@/lib/social-auth-providers'
@@ -35,7 +34,6 @@ export default async function AuthPage({
   const isSignupInduction = reason === 'signup_required'
   const needSessionNote = reason === 'login_required' || reason === 'session_required'
   const devEnabled = isDevAuthEnabled()
-  const emailPasswordAuthEnabled = isEmailPasswordAuthEnabled()
   const socialProviders = resolveEnabledSocialAuthProviders()
 
   if (session) {
@@ -57,7 +55,6 @@ export default async function AuthPage({
           error={resolvedSearchParams?.error}
           errorDescription={resolvedSearchParams?.errorDescription}
           devEnabled={devEnabled}
-          emailPasswordAuthEnabled={emailPasswordAuthEnabled}
           socialProviders={socialProviders}
           hint={
             isSignupInduction
