@@ -39,7 +39,7 @@ export function detectEventCategory(eventType: string, eventName: string): Event
 function splitBriefAnchors(value: string | undefined | null): string[] {
   return (value || '')
     .split(/\n|,|\/|·|;|\|/g)
-    .map((part) => part.trim())
+    .map((part) => part.trim().replace(/^\[보강 메모\]\s*/u, ''))
     .filter((part) => part.length >= 2 && part.length <= 40)
 }
 
@@ -639,6 +639,11 @@ function buildBriefContext(input: GenerateInput): string {
   if (goal) lines.push(`핵심 목표: ${goal}`)
   if (notes) lines.push(`중요 메모: ${notes}`)
   lines.push('위 브리프는 단순 참고가 아니라 문서 구조와 우선순위에 직접 반영하세요.')
+  if (notes && notes.includes('[보강 메모]')) {
+    lines.push(
+      '메모 안에 `[보강 메모]` 라벨이 붙은 줄은 사용자가 직전 결과를 보고 더 강조해 달라고 새로 추가한 요청입니다. 본문의 적절한 섹션·행에 가장 우선적으로 반영하고, 해당 어휘를 그대로 인용해 주세요.',
+    )
+  }
   return `\n${lines.join('\n')}\n`
 }
 
