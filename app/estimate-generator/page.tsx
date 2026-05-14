@@ -782,6 +782,7 @@ function EstimateGeneratorContent() {
       await exportProgramProposalDocxFromDoc(proposalSource, {
         includeQuote: true,
         allowEmptyProgram: true,
+        budget,
       })
       if (!isMountedRef.current) return
       showToast('워드(.docx) 다운로드를 시작했어요. 견적표·프로그램 본문이 함께 들어가요.')
@@ -792,7 +793,7 @@ function EstimateGeneratorContent() {
     } finally {
       if (isMountedRef.current) setProposalGenerating(false)
     }
-  }, [proposalGenerating, doc, selectedHistoryDoc, showToast])
+  }, [proposalGenerating, doc, selectedHistoryDoc, showToast, budget])
 
   const handleLoadSavedEstimate = useCallback(() => {
     const id = loadPickerId.trim()

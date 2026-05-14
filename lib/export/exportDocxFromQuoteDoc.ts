@@ -100,7 +100,10 @@ function mapQuoteItemsForProposal(doc: QuoteDoc): QuoteData | undefined {
   }
 }
 
-function toProposalContent(doc: QuoteDoc, options?: { includeQuote?: boolean }): ProposalContent {
+function toProposalContent(
+  doc: QuoteDoc,
+  options?: { includeQuote?: boolean; budget?: string },
+): ProposalContent {
   const program = doc.program
   const concept = s(program?.concept)
   const tagline = concept ? concept.split(/\n+/u)[0].slice(0, 80) : ''
@@ -112,12 +115,12 @@ function toProposalContent(doc: QuoteDoc, options?: { includeQuote?: boolean }):
     eventDate: s(doc.eventDate),
     eventPlace: s(doc.venue),
     headcount: s(doc.headcount),
-    budget: '협의',
+    budget: s(options?.budget) || '협의',
     eventType: s(doc.eventType),
     tagline,
     highlights,
     programFlow: mapProgramRows(program?.programRows),
-    followUp: splitLines(doc.paymentTerms),
+    followUp: [],
     notes: splitLines(doc.notes),
     quote: options?.includeQuote ? mapQuoteItemsForProposal(doc) : undefined,
   }
@@ -149,7 +152,7 @@ function toCuesheetContent(doc: QuoteDoc): CuesheetContent {
 
 export async function exportProgramProposalDocxFromDoc(
   doc: QuoteDoc,
-  options?: { includeQuote?: boolean; allowEmptyProgram?: boolean },
+  options?: { includeQuote?: boolean; allowEmptyProgram?: boolean; budget?: string },
 ): Promise<void> {
   const hasProgram = (doc.program?.programRows?.length ?? 0) > 0 || s(doc.program?.concept).length > 0
   const hasQuote = (doc.quoteItems ?? []).some((c) => (c.items ?? []).length > 0)
