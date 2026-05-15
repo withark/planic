@@ -6,7 +6,8 @@ import { GNB, GNB_MOBILE_MAIN_COLUMN_PADDING } from '@/components/GNB'
 import { apiFetch } from '@/lib/api/client'
 import { toUserMessage } from '@/lib/errors/toUserMessage'
 import { LoadingState } from '@/components/ui/AsyncState'
-import { CORE_DOCUMENT_COUNT } from '@/lib/marketing-documents'
+import { CORE_DOCUMENT_COUNT, CORE_DOCUMENT_HREFS, CREATE_DOCUMENT_HUB_ITEMS } from '@/lib/marketing-documents'
+import { PlanGatedQuickLink } from '@/components/plan/PlanGatedQuickLink'
 import type { PlanLimits, PlanType } from '@/lib/plans'
 import { planLabelKo } from '@/lib/plans'
 import type { HistoryRecord } from '@/lib/types'
@@ -259,31 +260,27 @@ function DashboardContent() {
               </Link>
             </div>
             <p className="mt-2 text-xs text-slate-600">핵심 문서 {CORE_DOCUMENT_COUNT}종을 빠르게 시작할 수 있어요.</p>
+            {plan === 'FREE' && me ? (
+              <p className="mt-1.5 text-[11px] text-amber-800/90 leading-relaxed">
+                무료 플랜: 제안서·기획안·프로그램 제안서 · 베이직 이상: 큐시트·사회자 멘트·과업지시서 등
+              </p>
+            ) : null}
             <div className="mt-4 flex flex-col sm:flex-row sm:flex-wrap gap-2">
-              <Link
-                href="/estimate-generator"
-                className="inline-flex items-center justify-center rounded-xl bg-primary-600 px-4 py-2.5 text-sm font-semibold text-white hover:bg-primary-700 transition-colors"
-              >
-                새 견적서 생성
-              </Link>
-              <Link
-                href="/cue-sheet-generator"
-                className="inline-flex items-center justify-center rounded-xl border border-gray-200 bg-white px-4 py-2.5 text-sm font-semibold text-gray-800 hover:bg-gray-50 transition-colors"
-              >
-                큐시트 생성
-              </Link>
-              <Link
-                href="/emcee-script-generator"
-                className="inline-flex items-center justify-center rounded-xl border border-gray-200 bg-white px-4 py-2.5 text-sm font-semibold text-gray-800 hover:bg-gray-50 transition-colors"
-              >
-                사회자 멘트 생성
-              </Link>
-              <Link
-                href="/task-order-summary"
-                className="inline-flex items-center justify-center rounded-xl border border-gray-200 bg-white px-4 py-2.5 text-sm font-semibold text-gray-800 hover:bg-gray-50 transition-colors"
-              >
-                과업지시서 요약
-              </Link>
+              {CORE_DOCUMENT_HREFS.map((href, idx) => {
+                const doc = CREATE_DOCUMENT_HUB_ITEMS.find((d) => d.href === href)
+                const label = doc?.title ?? href
+                return (
+                  <PlanGatedQuickLink
+                    key={href}
+                    href={href}
+                    plan={plan}
+                    planResolved={!!me}
+                    variant={idx === 0 ? 'primary' : 'secondary'}
+                  >
+                    {idx === 0 ? `새 ${label.replace(/ 생성$/, '')} 생성` : label}
+                  </PlanGatedQuickLink>
+                )
+              })}
               {latestRecord ? (
                 <Link
                   href={`/estimate-generator?estimate=${encodeURIComponent(latestRecord.id)}`}

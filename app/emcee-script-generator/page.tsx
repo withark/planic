@@ -26,6 +26,8 @@ import { buildTopicSeedDoc } from '@/lib/topic-seed-doc'
 import { mapPastedTextToTopicGoalFields } from '@/lib/brief-text-parse'
 import { useGeneratorRefineQueue } from '@/lib/hooks/use-generator-refine-queue'
 import { useCompanyOnboardingRedirect } from '@/lib/hooks/use-company-onboarding-redirect'
+import { isDocumentAllowedForPlan } from '@/lib/plan-access'
+import { PlanLockedNotice } from '@/components/plan/PlanLockedNotice'
 
 type MeLite = {
   subscription: { planType: PlanType }
@@ -359,6 +361,7 @@ export default function EmceeScriptGeneratorPage() {
 
   const topicInvalid = sourceMode === 'fromTopic' && generateDisabled && !topic.trim()
   const goalInvalid = sourceMode === 'fromTopic' && generateDisabled && !goal.trim()
+  const isEmceeLocked = !isDocumentAllowedForPlan(me?.subscription?.planType ?? 'FREE', 'emceeScript')
 
   return (
     <div className="flex h-screen overflow-hidden bg-gray-50/50">
@@ -395,6 +398,15 @@ export default function EmceeScriptGeneratorPage() {
         ) : null}
 
         <div className="flex-1 overflow-hidden p-6">
+          {isEmceeLocked ? (
+            <div className="h-full overflow-y-auto">
+              <PlanLockedNotice
+                title="사회자 멘트는 베이직부터 사용할 수 있어요."
+                message="무료 플랜에서는 제안서·기획안·프로그램 제안서를 먼저 사용할 수 있습니다. 베이직 이상에서 사회자 멘트 생성이 열립니다."
+                ctaLabel="베이직으로 업그레이드"
+              />
+            </div>
+          ) : (
           <div className="grid h-full min-h-0 gap-6 md:grid-cols-[minmax(420px,520px)_minmax(0,1fr)]">
             <section
               id="generator-input-top"
@@ -614,6 +626,7 @@ export default function EmceeScriptGeneratorPage() {
             </section>
           )}
           </div>
+          )}
         </div>
       </div>
       <LoadSavedGeneratedDocModal

@@ -12,7 +12,7 @@ import {
 import { apiFetch } from '@/lib/api/client'
 import type { PlanType } from '@/lib/plans'
 import { planLabelKo } from '@/lib/plans'
-import { documentAccessMessage, isDocumentAllowedForPlan, type AppDocumentType } from '@/lib/plan-access'
+import { hubDocumentLockMessage, isHubDocumentLocked } from '@/lib/plan-document-hub'
 
 function ArrowIntoIcon({ className }: { className?: string }) {
   return (
@@ -32,16 +32,6 @@ function ArrowIntoIcon({ className }: { className?: string }) {
       <path d="M12 5l7 7-7 7" />
     </svg>
   )
-}
-
-const DOC_TYPE_BY_HREF: Record<string, AppDocumentType> = {
-  '/estimate-generator': 'estimate',
-  '/planning-generator': 'planning',
-  '/program-proposal-generator': 'program',
-  '/scenario-generator': 'scenario',
-  '/cue-sheet-generator': 'cuesheet',
-  '/emcee-script-generator': 'emceeScript',
-  '/task-order-summary': 'taskOrderSummary',
 }
 
 export function CreateDocumentsHubBody() {
@@ -70,14 +60,9 @@ export function CreateDocumentsHubBody() {
   )
   const isLocked = (href: string) => {
     if (!planResolved || planError) return false
-    const docType = DOC_TYPE_BY_HREF[href]
-    if (!docType) return false
-    return !isDocumentAllowedForPlan(plan, docType)
+    return isHubDocumentLocked(plan, href)
   }
-  const lockReason = (href: string) => {
-    const docType = DOC_TYPE_BY_HREF[href]
-    return docType ? documentAccessMessage(docType) : '현재 플랜에서 사용할 수 없는 문서입니다.'
-  }
+  const lockReason = (href: string) => hubDocumentLockMessage(href)
 
 
   return (
