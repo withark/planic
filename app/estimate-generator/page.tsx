@@ -867,7 +867,8 @@ function EstimateGeneratorContent() {
     resetRefineQueue()
     setPasteFlowCommitted(true)
     showToast('저장된 문서를 불러왔습니다. 수신처·항목만 수정한 뒤 저장하거나 보내세요.')
-  }, [historyList, loadPickerId, showToast, resetRefineQueue])
+    if (isNarrowViewport) setMobileSheet('preview')
+  }, [historyList, loadPickerId, showToast, resetRefineQueue, isNarrowViewport])
 
   const generateDisabled = useMemo(() => {
     if (pricingSheetRequired && priceItemCount === 0) return true
@@ -1291,11 +1292,8 @@ function EstimateGeneratorContent() {
     return calcTotals(doc)
   }, [doc])
 
-  const emptyStateInputLead = useMemo(() => {
-    if (!isNarrowViewport) return '왼쪽에서'
-    if (mobileSheet === 'preview') return '「입력·채팅」 탭에서'
-    return '아래 입력란에서'
-  }, [isNarrowViewport, mobileSheet])
+  /** Claude형: 채팅만 보이다가 생성·불러오기 시 오른쪽 미리보기 패널 표시 */
+  const showPreviewPane = generating || doc != null
 
   useEffect(() => {
     if (!isNarrowViewport || mobileSheet !== 'preview') return
@@ -1304,6 +1302,14 @@ function EstimateGeneratorContent() {
     })
     return () => cancelAnimationFrame(id)
   }, [mobileSheet, isNarrowViewport])
+
+  useEffect(() => {
+    if (isNarrowViewport && generating) setMobileSheet('preview')
+  }, [isNarrowViewport, generating])
+
+  useEffect(() => {
+    if (!showPreviewPane && isNarrowViewport) setMobileSheet('chat')
+  }, [showPreviewPane, isNarrowViewport])
 
   const onEstimateMobileTabKeyDown = useCallback(
     (e: KeyboardEvent<HTMLDivElement>) => {
@@ -1360,7 +1366,7 @@ function EstimateGeneratorContent() {
 
         {/* md부터 좌 340px 고정 — lg(1024)만 쓰면 창이 좁을 때 좌열이 전체 너비로 보임 */}
         {/* md 미만: 한 화면에 입력 또는 미리보기 */}
-        {isNarrowViewport ? (
+        {isNarrowViewport && showPreviewPane ? (
           <div
             className="flex shrink-0 gap-1 border-b border-slate-200 bg-white px-2 py-1.5 md:hidden"
             role="tablist"
@@ -1403,8 +1409,12 @@ function EstimateGeneratorContent() {
             id="estimate-panel-chat"
             role={isNarrowViewport ? 'tabpanel' : undefined}
             aria-labelledby={isNarrowViewport ? 'estimate-tab-chat' : undefined}
-            hidden={isNarrowViewport && mobileSheet !== 'chat'}
-            className="flex min-h-0 w-full flex-col overflow-hidden border-slate-200 md:w-[340px] md:min-w-[340px] md:max-w-[340px] md:flex-none md:border-r md:bg-white"
+            hidden={isNarrowViewport && showPreviewPane && mobileSheet !== 'chat'}
+            className={`flex min-h-0 w-full flex-col overflow-hidden border-slate-200 bg-white transition-[flex,width,max-width] duration-300 ease-out ${
+              showPreviewPane
+                ? 'md:w-[340px] md:min-w-[340px] md:max-w-[340px] md:flex-none md:border-r md:border-slate-200'
+                : 'md:flex-1 md:min-w-0 md:max-w-none md:border-r-0'
+            }`}
           >
             <div id="estimate-wizard-top" className="flex min-h-0 flex-1 flex-col overflow-hidden">
               {me ? (
@@ -1428,7 +1438,7 @@ function EstimateGeneratorContent() {
                 onSkipPaste={() => setShowWizardPanel(true)}
                 title="행사 제안서"
                 description="아래에 붙여 넣거나 입력한 뒤 보내 주세요."
-                chatWelcome={`행사·견적 내용을 아래 입력란에 붙여 넣어 주세요.\n보내시면 오른쪽에 제안서 초안을 바로 만들어 드립니다.`}
+                chatWelcome={`행사·견적 내용을 아래 입력란에 붙여 넣어 주세요.\n보내시면 제안서 초안을 바로 만들어 드립니다.`}
                 placeholder={`예)\n공급자 : (주)OOO 대표이사 홍길동\n사업자번호 : 000-00-00000\n연락처 : 010-0000-0000\n사회자 1명 330만원\n붐어 MC 4명 …`}
                 onApplyPaste={applyPastedBrief}
                 onWizardEntered={markPasteFlowCommitted}
@@ -1521,15 +1531,53 @@ function EstimateGeneratorContent() {
               />
               </MacroPasteGate>
             </section>
+            {!showPreviewPane ? (
+              <div className="flex-shrink-0 border-t border-slate-100 bg-slate-50/90 px-3 py-2.5">
+                <p className="text-[10.5px] font-semibold text-slate-600">저장된 문서 불러오기</p>
+                <div className="mt-1.5 flex gap-1.5">
+                  <select
+                    value={loadPickerId}
+                    onChange={(e) => setLoadPickerId(e.target.value)}
+                    disabled={historyList.length === 0}
+                    className="min-w-0 flex-1 rounded-lg border border-slate-200 bg-white px-2 py-1.5 text-[11px] text-slate-900 disabled:opacity-50"
+                  >
+                    {historyList.length === 0 ? (
+                      <option value="">저장된 문서 없음</option>
+                    ) : (
+                      historyList.map((r) => (
+                        <option key={r.id} value={r.id}>
+                          {r.eventName || '행사'} · {r.quoteDate}
+                        </option>
+                      ))
+                    )}
+                  </select>
+                  <button
+                    type="button"
+                    onClick={() => void handleLoadSavedEstimate()}
+                    disabled={historyList.length === 0 || !loadPickerId}
+                    className="shrink-0 rounded-lg bg-slate-800 px-2.5 py-1.5 text-[11px] font-semibold text-white hover:bg-slate-900 disabled:cursor-not-allowed disabled:opacity-50"
+                  >
+                    불러오기
+                  </button>
+                </div>
+                <Link
+                  href="/history"
+                  className="mt-1.5 inline-block text-[10.5px] font-medium text-primary-700 underline decoration-primary-300 underline-offset-2"
+                >
+                  작업 이력 전체 보기
+                </Link>
+              </div>
+            ) : null}
             </div>
           </div>
 
+          {showPreviewPane ? (
           <div
             id="estimate-panel-preview"
             role={isNarrowViewport ? 'tabpanel' : undefined}
             aria-labelledby={isNarrowViewport ? 'estimate-tab-preview' : undefined}
             hidden={isNarrowViewport && mobileSheet !== 'preview'}
-            className="flex min-h-0 min-w-0 flex-1 flex-col overflow-hidden bg-slate-50"
+            className="flex min-h-0 min-w-0 flex-1 flex-col overflow-hidden bg-slate-50 animate-in fade-in duration-300"
           >
               <div className="flex flex-shrink-0 flex-wrap items-center gap-2 border-b border-slate-200 bg-white px-4 py-2.5">
               <h2
@@ -1726,70 +1774,10 @@ function EstimateGeneratorContent() {
                     defaultOpen={false}
                   />
                 </div>
-              ) : (
-                <div className="flex flex-1 flex-col gap-3">
-                    <div className="flex flex-1 flex-col justify-center gap-3">
-                      <div className="bubble-tip relative rounded-2xl border border-primary-100 bg-gradient-to-br from-primary-50/90 to-white px-4 py-3 text-sm leading-relaxed text-slate-800 shadow-sm">
-                        <span className="absolute -left-1 top-4 h-3 w-3 rotate-45 border-l border-b border-primary-100 bg-primary-50/90" aria-hidden />
-                        {emptyStateInputLead}{' '}
-                        <strong className="text-primary-800">
-                          {sourceMode === 'fromPrompt' ? '업체 원문·예산' : '주제·예산'}
-                        </strong>
-                        을 입력한 뒤 생성하면, 단가표를 반영한 행사 제안서 초안이 여기에 표시됩니다.
-                      </div>
-                      <div className="bubble-tip relative ml-4 rounded-2xl border border-slate-200 bg-white px-4 py-3 text-sm leading-relaxed text-slate-700 shadow-sm">
-                        <span className="absolute -left-1 top-4 h-3 w-3 rotate-45 border-l border-b border-slate-200 bg-white" aria-hidden />
-                        이미 만든 문서는 아래에서 불러와 <strong>수신처·금액</strong>만 손보고 저장·엑셀·PDF로 보낼 수 있어요.
-                      </div>
-                      <div className="bubble-tip relative rounded-2xl border border-emerald-100 bg-emerald-50/50 px-4 py-3 text-sm leading-relaxed text-slate-800 shadow-sm">
-                        <span className="absolute -left-1 top-4 h-3 w-3 rotate-45 border-l border-b border-emerald-100 bg-emerald-50/50" aria-hidden />
-                        표는 넓게 편집할 수 있도록 이 화면에 맞춰 두었습니다. 엑셀·PDF는 결과 상단 버튼을 사용하세요.
-                      </div>
-                    </div>
-
-                    <div className="mt-4 rounded-2xl border border-slate-200 bg-white p-4 shadow-sm">
-                      <p className="text-xs font-semibold text-slate-700">저장된 문서 불러오기</p>
-                      <p className="mt-1 text-xs text-slate-500">작업 이력에 있는 문서를 그대로 열어 수정합니다. 전체 목록은 작업 이력에서 확인하세요.</p>
-                      <div className="mt-3 flex flex-col gap-2 sm:flex-row sm:items-stretch">
-                        <select
-                          value={loadPickerId}
-                          onChange={(e) => setLoadPickerId(e.target.value)}
-                          disabled={historyList.length === 0}
-                          className="min-w-0 flex-1 rounded-xl border border-slate-200 bg-white px-3 py-2.5 text-sm text-slate-900 shadow-sm focus:outline-none focus:ring-2 focus:ring-primary-200 disabled:opacity-50"
-                        >
-                          {historyList.length === 0 ? (
-                            <option value="">저장된 문서가 없습니다</option>
-                          ) : (
-                            historyList.map((r) => (
-                              <option key={r.id} value={r.id}>
-                                {r.eventName || '행사'} · {r.quoteDate}
-                                {r.total ? ` · ${Number(r.total).toLocaleString('ko-KR')}원` : ''}
-                              </option>
-                            ))
-                          )}
-                        </select>
-                        <button
-                          type="button"
-                          onClick={() => void handleLoadSavedEstimate()}
-                          disabled={historyList.length === 0 || !loadPickerId}
-                          className="rounded-xl bg-slate-900 px-4 py-2.5 text-sm font-semibold text-white hover:bg-slate-800 disabled:cursor-not-allowed disabled:opacity-50"
-                        >
-                          불러와서 편집
-                        </button>
-                      </div>
-                      <div className="mt-3 text-center">
-                        <Link
-                          href="/history"
-                          className="text-xs font-semibold text-primary-700 underline decoration-primary-300 underline-offset-2 hover:text-primary-900"
-                        >
-                          작업 이력에서 전체 목록 보기
-                        </Link>
-                      </div>
-                    </div>
-                  </div>
-              )}
+              ) : null}
             </div>
           </div>
+          ) : null}
         </div>
       </div>
 

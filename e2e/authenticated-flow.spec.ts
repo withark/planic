@@ -92,27 +92,19 @@ test.describe.serial('authenticated app flows', () => {
       await expect(page.getByRole('button', { name: '행사 제안서 생성하기' })).toBeEnabled({ timeout: 15_000 })
     })
 
-    test('미리보기 헤더 컨트롤: 미리보기로 표시·문서 없을 때 직접 편집 비활성', async ({ page }) => {
+    test('초기 화면: 미리보기 패널 없음·채팅만 전체 너비', async ({ page }) => {
       await authenticateFromProtectedRoute(page, '/estimate-generator')
       await dismissMacroPasteGateIfPresent(page)
-      await expect(page.getByTestId('estimate-preview-scroll-top')).toBeVisible()
-      await expect(page.getByTestId('estimate-focus-table')).toBeDisabled()
+      await expect(page.locator('#estimate-panel-preview')).toHaveCount(0)
+      await expect(page.getByText('저장된 문서 불러오기')).toBeVisible()
     })
 
-    test('모바일 폭에서 입력·미리보기 탭 전환', async ({ page }) => {
+    test('모바일 폭: 생성 전 미리보기 탭 없음', async ({ page }) => {
       await page.setViewportSize({ width: 390, height: 820 })
       await authenticateFromProtectedRoute(page, '/estimate-generator')
       await dismissMacroPasteGateIfPresent(page)
-      await expect(page.getByRole('tab', { name: '미리보기' })).toBeVisible()
-      await page.getByRole('tab', { name: '미리보기' }).click()
-      await expect(page.locator('#estimate-panel-chat')).toHaveAttribute('hidden', '')
-      await expect(page.locator('#estimate-tab-preview')).toHaveAttribute('aria-selected', 'true')
-      await expect(page.locator('#estimate-panel-preview')).not.toHaveAttribute('hidden')
-      await page.getByRole('tab', { name: '입력·채팅' }).click()
-      await expect(page.locator('#estimate-panel-chat')).not.toHaveAttribute('hidden')
-      await expect(page.locator('#estimate-panel-preview')).toHaveAttribute('hidden', '')
-      await expect(page.locator('#estimate-tab-chat')).toHaveAttribute('aria-selected', 'true')
-      await expect(page.getByTestId('macro-paste-wizard-panel')).toBeVisible()
+      await expect(page.getByRole('tab', { name: '미리보기' })).toHaveCount(0)
+      await expect(page.locator('#estimate-panel-chat')).toBeVisible()
     })
   })
 
