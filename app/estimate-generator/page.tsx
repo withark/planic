@@ -193,6 +193,10 @@ function EstimateGeneratorContent() {
   const generatingTabs = useMemo(() => ({ estimate: generating }), [generating])
   /** 붙여넣기 전송 또는 건너뛰기 이후 — 하단 state-bar 단계 표시용 */
   const [pasteFlowCommitted, setPasteFlowCommitted] = useState(false)
+  /** 채팅-primary 모드에서만 — 「건너뛰고 단계별 입력」 시 좌측 마법사 표시 */
+  const [showWizardPanel, setShowWizardPanel] = useState(false)
+  const vendorBriefRef = useRef('')
+  const chatBriefSentRef = useRef(false)
   /** md 미만: 입력 / 미리보기 전환 — SSR 스냅샷 false, 클라이언트는 matchMedia와 동기(하이드레이션 안전) */
   const isNarrowViewport = useSyncExternalStore(
     subscribeEstimateNarrowMq,
@@ -285,6 +289,21 @@ function EstimateGeneratorContent() {
   useEffect(() => {
     if (!isNarrowViewport) setMobileSheet('chat')
   }, [isNarrowViewport])
+
+  useEffect(() => {
+    vendorBriefRef.current = vendorBrief
+  }, [vendorBrief])
+
+  useEffect(() => {
+    try {
+      if (typeof window !== 'undefined' && window.sessionStorage.getItem('planic:skip-paste-gate:estimate') === '1') {
+        setShowWizardPanel(true)
+        setPasteFlowCommitted(true)
+      }
+    } catch {
+      /* ignore */
+    }
+  }, [])
 
   useEffect(() => {
     apiFetch<HistoryRecord[]>('/api/history')
@@ -656,8 +675,38 @@ function EstimateGeneratorContent() {
     vendorBrief,
   ])
 
-  const handleGenerateEstimate = useCallback(async () => {
-    const body = requestBodyForEstimate()
+  type EstimateGenerateBody = NonNullable<ReturnType<typeof requestBodyForEstimate>>
+
+  const buildVendorBriefRequestBody = useCallback(
+    (rawBrief: string): EstimateGenerateBody | null => {
+      const raw = rawBrief.trim()
+      if (raw.length < 40) return null
+      return {
+        eventDate: '',
+        eventDuration: '',
+        eventStartHHmm: '',
+        eventEndHHmm: '',
+        headcount: '',
+        venue: '',
+        budget,
+        documentTarget: 'estimate' as const,
+        clientName: '',
+        clientManager: '',
+        clientTel: '',
+        requirements:
+          '업체 견적·브리핑 원문을 기준으로 행사 제안서를 구성합니다. 원문의 품목·수량·단가·조건을 반영하고, 사용자 단가표와 조합해 합리적인 항목을 만드세요.',
+        briefNotes: raw,
+        generationMode: 'vendorBrief' as const,
+        eventName: topic.trim() || '업체 견적 기반',
+        quoteDate: todayStr(),
+        eventType: eventType.trim() || '기타',
+      }
+    },
+    [budget, eventType, topic],
+  )
+
+  const handleGenerateEstimate = useCallback(async (bodyOverride?: EstimateGenerateBody) => {
+    const body = bodyOverride ?? requestBodyForEstimate()
     if (!body) {
       if (sourceMode === 'fromEstimate') {
         showToast('저장된 문서를 불러올 수 없습니다. 목록에서 다시 선택해 주세요.')
@@ -900,6 +949,52 @@ function EstimateGeneratorContent() {
   const markPasteFlowCommitted = useCallback(() => {
     setPasteFlowCommitted(true)
   }, [])
+
+  const handleChatSubmit = useCallback(
+    async (text: string) => {
+      const trimmed = text.trim()
+      if (!trimmed) return
+
+      const prevBrief = chatBriefSentRef.current ? vendorBriefRef.current.trim() : ''
+      const isFollowUp = prevBrief.length > 0
+      const newBrief = isFollowUp ? `${prevBrief}\n${trimmed}` : trimmed
+
+      if (!isFollowUp) {
+        const p = parseLooseBrief(trimmed)
+        setSourceMode('fromPrompt')
+        setEventType((et) => et.trim() || '기타')
+        if (looksLikeVendorQuoteBlock(p)) {
+          setTopic(
+            (prev) => prev.trim() || (p.supplierHint?.slice(0, 120) ?? '') || '업체 견적 기반',
+          )
+        } else {
+          const firstLine = trimmed
+            .split(/\r?\n/)
+            .map((l) => l.trim())
+            .find((l) => l.length > 0)
+          if (firstLine) {
+            setTopic((prev) =>
+              prev.trim() ? prev : firstLine.length > 100 ? `${firstLine.slice(0, 97)}…` : firstLine,
+            )
+          }
+        }
+      }
+
+      setVendorBrief(newBrief)
+      vendorBriefRef.current = newBrief
+      chatBriefSentRef.current = true
+      setPasteFlowCommitted(true)
+
+      const body = buildVendorBriefRequestBody(newBrief)
+      if (!body) {
+        showToast('내용을 40자 이상 입력해 주세요. (메모·견적 요약·대화록 등)')
+        return
+      }
+
+      await handleGenerateEstimate(body)
+    },
+    [buildVendorBriefRequestBody, handleGenerateEstimate, showToast],
+  )
 
   const applyPastedBrief = useCallback(
     (text: string) => {
@@ -1202,19 +1297,6 @@ function EstimateGeneratorContent() {
     return '아래 입력란에서'
   }, [isNarrowViewport, mobileSheet])
 
-  const toastRegenerateLocation = useMemo(
-    () => (isNarrowViewport ? '「입력·채팅」 탭에서' : '왼쪽에서'),
-    [isNarrowViewport],
-  )
-
-  const followUpRegenerateWhere = useMemo(
-    () =>
-      isNarrowViewport
-        ? '「입력·채팅」 탭의 「행사 제안서 생성하기」'
-        : '왼쪽의 「행사 제안서 생성하기」',
-    [isNarrowViewport],
-  )
-
   useEffect(() => {
     if (!isNarrowViewport || mobileSheet !== 'preview') return
     const id = requestAnimationFrame(() => {
@@ -1340,25 +1422,13 @@ function EstimateGeneratorContent() {
                 skipStorageKey="planic:skip-paste-gate:estimate"
                 layout="chat"
                 chatPanelStyle="split"
-                onFollowUpSend={(text) => {
-                  const t = text.trim()
-                  if (!t) return
-                  if (sourceMode === 'fromPrompt') {
-                    setVendorBrief((v) => (v.trim() ? `${v.trim()}\n${t}` : t))
-                    showToast(`업체 원문에 이어 붙였어요. 표에 반영하려면 ${toastRegenerateLocation} 다시 생성해 주세요.`)
-                  } else {
-                    setNotes((n) => (n.trim() ? `${n.trim()}\n${t}` : t))
-                    showToast(`추가 요청을 메모에 넣었어요. 표에 반영하려면 ${toastRegenerateLocation} 다시 생성해 주세요.`)
-                  }
-                }}
-                followUpAssistantReply={
-                  sourceMode === 'fromPrompt'
-                    ? `업체 원문에 이어 붙였어요. 표를 바꾸려면 ${followUpRegenerateWhere}로 다시 생성해야 해요.`
-                    : `메모에 반영했어요. AI가 표를 바꾸려면 ${followUpRegenerateWhere}로 다시 생성해야 해요.`
-                }
+                chatPrimaryMode
+                showWizardPanel={showWizardPanel}
+                onChatSubmit={handleChatSubmit}
+                onSkipPaste={() => setShowWizardPanel(true)}
                 title="행사 제안서"
                 description="아래에 붙여 넣거나 입력한 뒤 보내 주세요."
-                chatWelcome={`행사·견적 내용을 아래 입력란에 붙여 넣어 주세요.\n공급자·일정·인원·금액이 있으면 오른쪽 제안서 초안에 반영됩니다.`}
+                chatWelcome={`행사·견적 내용을 아래 입력란에 붙여 넣어 주세요.\n보내시면 오른쪽에 제안서 초안을 바로 만들어 드립니다.`}
                 placeholder={`예)\n공급자 : (주)OOO 대표이사 홍길동\n사업자번호 : 000-00-00000\n연락처 : 010-0000-0000\n사회자 1명 330만원\n붐어 MC 4명 …`}
                 onApplyPaste={applyPastedBrief}
                 onWizardEntered={markPasteFlowCommitted}

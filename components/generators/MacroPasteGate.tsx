@@ -40,6 +40,16 @@ type Props = {
   followUpAssistantReply?: string
   /** 붙여넣기 전송·건너뛰기·세션 복원 등으로 마법사에 들어왔을 때(부모 단계 UI 동기화) */
   onWizardEntered?: () => void
+  /** true: 채팅 전송 시 마법사로 넘기지 않고 onChatSubmit만 호출(견적 제안서 등) */
+  chatPrimaryMode?: boolean
+  /** chatPrimaryMode일 때 단계별 마법사 패널 표시 여부(건너뛰기 시 true) */
+  showWizardPanel?: boolean
+  /** chatPrimaryMode일 때 Enter 전송 — 첫 입력·후속 수정 공통 */
+  onChatSubmit?: (text: string) => void | Promise<void>
+  /** chatPrimaryMode 첫 전송 후 안내 말풍선 */
+  chatSubmitAssistantReply?: string
+  /** chatPrimaryMode 후속 전송 안내 말풍선 */
+  chatFollowUpAssistantReply?: string
 }
 
 export function MacroPasteGate({
@@ -58,6 +68,11 @@ export function MacroPasteGate({
   onFollowUpSend,
   followUpAssistantReply,
   onWizardEntered,
+  chatPrimaryMode = false,
+  showWizardPanel = false,
+  onChatSubmit,
+  chatSubmitAssistantReply = '내용을 반영해 제안서를 만들고 있어요. 오른쪽 미리보기에서 확인할 수 있어요.',
+  chatFollowUpAssistantReply = '수정 요청을 반영해 다시 만들고 있어요.',
 }: Props) {
   const [phase, setPhase] = useState<Phase>('paste')
   const [draft, setDraft] = useState('')
@@ -82,13 +97,18 @@ export function MacroPasteGate({
   useEffect(() => {
     try {
       if (typeof window !== 'undefined' && window.sessionStorage.getItem(skipStorageKey) === '1') {
-        setPhase('wizard')
-        onWizardEntered?.()
+        if (chatPrimaryMode) {
+          onSkipPaste?.()
+          onWizardEntered?.()
+        } else {
+          setPhase('wizard')
+          onWizardEntered?.()
+        }
       }
     } catch {
       /* ignore */
     }
-  }, [skipStorageKey, onWizardEntered])
+  }, [skipStorageKey, onWizardEntered, onSkipPaste, chatPrimaryMode])
 
   useEffect(() => {
     if (layout !== 'chat' || phase !== 'paste') return
@@ -135,6 +155,21 @@ export function MacroPasteGate({
   const handleContinue = () => {
     const t = draft.trim()
     if (!t) return
+    if (chatPrimaryMode && onChatSubmit) {
+      const isFollowUp = chatMessages.some((m) => m.role === 'user')
+      setChatMessages((prev) => [
+        ...prev,
+        { id: nextMsgId(), role: 'user', text: t },
+        {
+          id: nextMsgId(),
+          role: 'assistant',
+          text: isFollowUp ? chatFollowUpAssistantReply : chatSubmitAssistantReply,
+        },
+      ])
+      setDraft('')
+      void onChatSubmit(t)
+      return
+    }
     if (layout === 'chat') {
       setChatMessages((prev) => [
         ...prev,
@@ -155,6 +190,16 @@ export function MacroPasteGate({
   const handleFollowUp = () => {
     const t = draft.trim()
     if (!t) return
+    if (chatPrimaryMode && onChatSubmit) {
+      setChatMessages((prev) => [
+        ...prev,
+        { id: nextMsgId(), role: 'user', text: t },
+        { id: nextMsgId(), role: 'assistant', text: chatFollowUpAssistantReply },
+      ])
+      setDraft('')
+      void onChatSubmit(t)
+      return
+    }
     setChatMessages((prev) => [
       ...prev,
       { id: nextMsgId(), role: 'user', text: t },
@@ -166,7 +211,7 @@ export function MacroPasteGate({
 
   const handleSkip = () => {
     onSkipPaste?.()
-    setPhase('wizard')
+    if (!chatPrimaryMode) setPhase('wizard')
     persistSkip()
     onWizardEntered?.()
     if (layout === 'chat' && chatPanelStyle === 'split') {
@@ -179,7 +224,7 @@ export function MacroPasteGate({
   }
 
   const showPastePanel = phase === 'paste'
-  const wizardOpen = phase === 'wizard'
+  const wizardOpen = chatPrimaryMode ? showWizardPanel : phase === 'wizard'
   const embedSplit = chatPanelStyle === 'split'
   const showChatDock =
     layout === 'chat' && (embedSplit || phase === 'paste' || chatMessages.length > 0)
@@ -194,7 +239,9 @@ export function MacroPasteGate({
     }
 
     const handleComposerSend = () => {
-      if (showPastePanel) handleContinue()
+      const chatHasUser = chatMessages.some((m) => m.role === 'user')
+      if (chatPrimaryMode && chatHasUser) handleFollowUp()
+      else if (showPastePanel) handleContinue()
       else handleFollowUp()
       queueMicrotask(() => composerRef.current?.focus())
     }
