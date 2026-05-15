@@ -44,12 +44,14 @@ type Props = {
   chatPrimaryMode?: boolean
   /** chatPrimaryMode일 때 단계별 마법사 패널 표시 여부(건너뛰기 시 true) */
   showWizardPanel?: boolean
-  /** chatPrimaryMode일 때 Enter 전송 — 첫 입력·후속 수정 공통 */
-  onChatSubmit?: (text: string) => void | Promise<void>
+  /** chatPrimaryMode일 때 Enter 전송 — 첫 입력·후속 수정 공통. false면 안내 말풍선 생략(검증 실패 등) */
+  onChatSubmit?: (text: string) => void | boolean | Promise<boolean | void>
   /** chatPrimaryMode 첫 전송 후 안내 말풍선 */
   chatSubmitAssistantReply?: string
   /** chatPrimaryMode 후속 전송 안내 말풍선 */
   chatFollowUpAssistantReply?: string
+  /** chatPrimaryMode 검증·생성 시작 실패 시 안내 말풍선 */
+  chatSubmitFailureReply?: string
 }
 
 export function MacroPasteGate({
@@ -71,8 +73,9 @@ export function MacroPasteGate({
   chatPrimaryMode = false,
   showWizardPanel = false,
   onChatSubmit,
-  chatSubmitAssistantReply = '내용을 반영해 제안서를 만들고 있어요. 오른쪽 미리보기에서 확인할 수 있어요.',
+  chatSubmitAssistantReply = '제안서를 만들고 있어요. 잠시만 기다려 주세요.',
   chatFollowUpAssistantReply = '수정 요청을 반영해 다시 만들고 있어요.',
+  chatSubmitFailureReply = '제안서를 만들지 못했어요. 내용을 조금 더 적거나 잠시 후 다시 시도해 주세요.',
 }: Props) {
   const [phase, setPhase] = useState<Phase>('paste')
   const [draft, setDraft] = useState('')
@@ -152,22 +155,37 @@ export function MacroPasteGate({
     }
   }
 
+  const runPrimaryChatSubmit = useCallback(
+    async (text: string, assistantReply: string) => {
+      setChatMessages((prev) => [...prev, { id: nextMsgId(), role: 'user', text }])
+      setDraft('')
+      let ok = true
+      try {
+        const r = await onChatSubmit!(text)
+        ok = r !== false
+      } catch {
+        ok = false
+      }
+      setChatMessages((prev) => [
+        ...prev,
+        {
+          id: nextMsgId(),
+          role: 'assistant',
+          text: ok ? assistantReply : chatSubmitFailureReply,
+        },
+      ])
+      queueMicrotask(() => composerRef.current?.focus())
+    },
+    [onChatSubmit, nextMsgId, chatSubmitFailureReply],
+  )
+
   const handleContinue = () => {
     const t = draft.trim()
     if (!t) return
     if (chatPrimaryMode && onChatSubmit) {
       const isFollowUp = chatMessages.some((m) => m.role === 'user')
-      setChatMessages((prev) => [
-        ...prev,
-        { id: nextMsgId(), role: 'user', text: t },
-        {
-          id: nextMsgId(),
-          role: 'assistant',
-          text: isFollowUp ? chatFollowUpAssistantReply : chatSubmitAssistantReply,
-        },
-      ])
-      setDraft('')
-      void onChatSubmit(t)
+      const assistantText = isFollowUp ? chatFollowUpAssistantReply : chatSubmitAssistantReply
+      void runPrimaryChatSubmit(t, assistantText)
       return
     }
     if (layout === 'chat') {
@@ -191,13 +209,7 @@ export function MacroPasteGate({
     const t = draft.trim()
     if (!t) return
     if (chatPrimaryMode && onChatSubmit) {
-      setChatMessages((prev) => [
-        ...prev,
-        { id: nextMsgId(), role: 'user', text: t },
-        { id: nextMsgId(), role: 'assistant', text: chatFollowUpAssistantReply },
-      ])
-      setDraft('')
-      void onChatSubmit(t)
+      void runPrimaryChatSubmit(t, chatFollowUpAssistantReply)
       return
     }
     setChatMessages((prev) => [

@@ -41,6 +41,8 @@ type MeLite = {
 
 type SourceMode = 'fromEstimate' | 'fromTaskOrder' | 'fromTopic' | 'fromPrompt'
 const DRAFT_STORAGE_KEY = 'planic:estimate-generator:draft:v1'
+/** 업체 원문(vendorBrief) 최소 길이 — 채팅·마법사 동일 */
+const VENDOR_BRIEF_MIN_CHARS = 10
 /** Tailwind `md`(768px) 미만 — `max-md`와 동일한 구간 */
 const ESTIMATE_NARROW_MQ = '(max-width: 767px)'
 
@@ -180,6 +182,8 @@ function EstimateGeneratorContent() {
   const [doc, setDoc] = useState<QuoteDoc | null>(null)
   const [generatedDocId, setGeneratedDocId] = useState<string | null>(null)
   const [generating, setGenerating] = useState(false)
+  /** 채팅 전송 직후 미리보기 패널을 즉시 열기(setGenerating 비동기 보완) */
+  const [previewSessionActive, setPreviewSessionActive] = useState(false)
   const [generationProgressLabel, setGenerationProgressLabel] = useState<string | null>(null)
   /** 생성 스트림 단계 로그(우측 채팅형 진행 UI) */
   const [generationStageLog, setGenerationStageLog] = useState<string[]>([])
@@ -680,7 +684,16 @@ function EstimateGeneratorContent() {
   const buildVendorBriefRequestBody = useCallback(
     (rawBrief: string): EstimateGenerateBody | null => {
       const raw = rawBrief.trim()
-      if (raw.length < 40) return null
+      if (raw.length < VENDOR_BRIEF_MIN_CHARS) return null
+      const firstLine = raw
+        .split(/\r?\n/)
+        .map((l) => l.trim())
+        .find((l) => l.length > 0)
+      const eventNameFromBrief = firstLine
+        ? firstLine.length > 100
+          ? `${firstLine.slice(0, 97)}…`
+          : firstLine
+        : ''
       return {
         eventDate: '',
         eventDuration: '',
@@ -697,7 +710,7 @@ function EstimateGeneratorContent() {
           '업체 견적·브리핑 원문을 기준으로 행사 제안서를 구성합니다. 원문의 품목·수량·단가·조건을 반영하고, 사용자 단가표와 조합해 합리적인 항목을 만드세요.',
         briefNotes: raw,
         generationMode: 'vendorBrief' as const,
-        eventName: topic.trim() || '업체 견적 기반',
+        eventName: eventNameFromBrief || topic.trim() || '업체 견적 기반',
         quoteDate: todayStr(),
         eventType: eventType.trim() || '기타',
       }
@@ -705,7 +718,7 @@ function EstimateGeneratorContent() {
     [budget, eventType, topic],
   )
 
-  const handleGenerateEstimate = useCallback(async (bodyOverride?: EstimateGenerateBody) => {
+  const handleGenerateEstimate = useCallback(async (bodyOverride?: EstimateGenerateBody): Promise<boolean> => {
     const body = bodyOverride ?? requestBodyForEstimate()
     if (!body) {
       if (sourceMode === 'fromEstimate') {
@@ -717,12 +730,13 @@ function EstimateGeneratorContent() {
       } else {
         showToast('필수 입력을 확인해 주세요.')
       }
-      return
+      return false
     }
 
     const { session, signal, ac } = startSession()
 
     let completedOk = false
+    setPreviewSessionActive(true)
     setGenerating(true)
     setGenerationStageLog(['요청을 서버로 보내는 중…'])
     setGenerationProgressLabel('입력 확인 중')
@@ -740,7 +754,7 @@ function EstimateGeneratorContent() {
           }
         },
       })
-      if (!stillCurrent(session)) return
+      if (!stillCurrent(session)) return false
       setDoc(data.doc)
       setGeneratedDocId(data.id)
       completedOk = true
@@ -755,8 +769,8 @@ function EstimateGeneratorContent() {
         showToast('행사 제안서 생성 완료!')
       }
     } catch (e) {
-      if (e instanceof DOMException && e.name === 'AbortError') return
-      if (!stillCurrent(session)) return
+      if (e instanceof DOMException && e.name === 'AbortError') return false
+      if (!stillCurrent(session)) return false
       showToast(toUserMessage(e, '행사 제안서 생성에 실패했습니다.'))
     } finally {
       clearAbortIfCurrent(ac)
@@ -765,8 +779,10 @@ function EstimateGeneratorContent() {
         setGenerationProgressLabel(null)
         setGenerationStageLog([])
         flushQueuedIntoNotes(setNotes, { success: completedOk })
+        if (!completedOk) setPreviewSessionActive(false)
       }
     }
+    return completedOk
   }, [requestBodyForEstimate, showToast, sourceMode, priceItemCount, isNarrowViewport, startSession, stillCurrent, clearAbortIfCurrent, flushQueuedIntoNotes])
 
   const handleRefineBrief = useCallback(
@@ -866,6 +882,7 @@ function EstimateGeneratorContent() {
     setRefinementCount(0)
     resetRefineQueue()
     setPasteFlowCommitted(true)
+    setPreviewSessionActive(true)
     showToast('저장된 문서를 불러왔습니다. 수신처·항목만 수정한 뒤 저장하거나 보내세요.')
     if (isNarrowViewport) setMobileSheet('preview')
   }, [historyList, loadPickerId, showToast, resetRefineQueue, isNarrowViewport])
@@ -874,7 +891,7 @@ function EstimateGeneratorContent() {
     if (pricingSheetRequired && priceItemCount === 0) return true
     if (!eventType.trim()) return true
     if (sourceMode === 'fromPrompt') {
-      return vendorBrief.trim().length < 40
+      return vendorBrief.trim().length < VENDOR_BRIEF_MIN_CHARS
     }
     const commonValid =
       clientName.trim() &&
@@ -952,13 +969,25 @@ function EstimateGeneratorContent() {
   }, [])
 
   const handleChatSubmit = useCallback(
-    async (text: string) => {
+    async (text: string): Promise<boolean> => {
       const trimmed = text.trim()
-      if (!trimmed) return
+      if (!trimmed) return false
+      if (generating) {
+        showToast('이전 제안서를 만드는 중이에요. 잠시만 기다려 주세요.')
+        return false
+      }
 
       const prevBrief = chatBriefSentRef.current ? vendorBriefRef.current.trim() : ''
       const isFollowUp = prevBrief.length > 0
       const newBrief = isFollowUp ? `${prevBrief}\n${trimmed}` : trimmed
+
+      const body = buildVendorBriefRequestBody(newBrief)
+      if (!body) {
+        showToast(
+          `행사·견적 내용을 ${VENDOR_BRIEF_MIN_CHARS}자 이상 입력해 주세요. (한 줄 요약만 있어도 됩니다.)`,
+        )
+        return false
+      }
 
       if (!isFollowUp) {
         const p = parseLooseBrief(trimmed)
@@ -986,15 +1015,9 @@ function EstimateGeneratorContent() {
       chatBriefSentRef.current = true
       setPasteFlowCommitted(true)
 
-      const body = buildVendorBriefRequestBody(newBrief)
-      if (!body) {
-        showToast('내용을 40자 이상 입력해 주세요. (메모·견적 요약·대화록 등)')
-        return
-      }
-
-      await handleGenerateEstimate(body)
+      return handleGenerateEstimate(body)
     },
-    [buildVendorBriefRequestBody, handleGenerateEstimate, showToast],
+    [buildVendorBriefRequestBody, handleGenerateEstimate, showToast, generating],
   )
 
   const applyPastedBrief = useCallback(
@@ -1042,8 +1065,8 @@ function EstimateGeneratorContent() {
     }
     if (!eventType.trim()) return '행사 종류를 선택해 주세요. (체육대회·워크숍·팀빌딩 등)'
     if (sourceMode === 'fromPrompt') {
-      return vendorBrief.trim().length < 40
-        ? '업체에서 들은 내용을 40자 이상 붙여 넣어 주세요. (메모·견적 요약·대화록 등)'
+      return vendorBrief.trim().length < VENDOR_BRIEF_MIN_CHARS
+        ? `업체에서 들은 내용을 ${VENDOR_BRIEF_MIN_CHARS}자 이상 붙여 넣어 주세요. (한 줄 요약도 가능합니다.)`
         : null
     }
     if (sourceMode === 'fromEstimate') {
@@ -1293,7 +1316,23 @@ function EstimateGeneratorContent() {
   }, [doc])
 
   /** Claude형: 채팅만 보이다가 생성·불러오기 시 오른쪽 미리보기 패널 표시 */
-  const showPreviewPane = generating || doc != null
+  const showPreviewPane = previewSessionActive || generating || doc != null
+
+  const chatSubmitAssistantReply = useMemo(
+    () =>
+      isNarrowViewport
+        ? '제안서를 만들고 있어요. 「미리보기」 탭에서 진행 상황을 확인할 수 있어요.'
+        : '제안서를 만들고 있어요. 오른쪽 패널에서 진행 상황을 확인할 수 있어요.',
+    [isNarrowViewport],
+  )
+
+  const chatFollowUpAssistantReply = useMemo(
+    () =>
+      isNarrowViewport
+        ? '수정 내용을 반영해 다시 만들고 있어요. 「미리보기」 탭을 확인해 주세요.'
+        : '수정 내용을 반영해 다시 만들고 있어요. 오른쪽 패널을 확인해 주세요.',
+    [isNarrowViewport],
+  )
 
   useEffect(() => {
     if (!isNarrowViewport || mobileSheet !== 'preview') return
@@ -1436,9 +1475,12 @@ function EstimateGeneratorContent() {
                 showWizardPanel={showWizardPanel}
                 onChatSubmit={handleChatSubmit}
                 onSkipPaste={() => setShowWizardPanel(true)}
+                chatSubmitAssistantReply={chatSubmitAssistantReply}
+                chatFollowUpAssistantReply={chatFollowUpAssistantReply}
+                chatSubmitFailureReply="제안서를 시작하지 못했어요. 내용을 조금 더 적거나, 잠시 후 다시 보내 주세요."
                 title="행사 제안서"
-                description="아래에 붙여 넣거나 입력한 뒤 보내 주세요."
-                chatWelcome={`행사·견적 내용을 아래 입력란에 붙여 넣어 주세요.\n보내시면 제안서 초안을 바로 만들어 드립니다.`}
+                description="행사·견적 내용을 입력하고 보내 주세요."
+                chatWelcome={`행사·견적 내용을 아래에 입력한 뒤 보내 주세요.\n보내시면 제안서 초안을 바로 만들어 드립니다.`}
                 placeholder={`예)\n공급자 : (주)OOO 대표이사 홍길동\n사업자번호 : 000-00-00000\n연락처 : 010-0000-0000\n사회자 1명 330만원\n붐어 MC 4명 …`}
                 onApplyPaste={applyPastedBrief}
                 onWizardEntered={markPasteFlowCommitted}
@@ -1521,7 +1563,7 @@ function EstimateGeneratorContent() {
               )
             }
             generateLabel="행사 제안서 생성하기"
-            onGenerate={handleGenerateEstimate}
+            onGenerate={() => void handleGenerateEstimate()}
             generating={generating}
             generationProgressLabel={generationProgressLabel}
             generateDisabled={generateDisabled}
@@ -1651,7 +1693,9 @@ function EstimateGeneratorContent() {
                     headline="견적 초안"
                     hint="표를 편집한 뒤 저장하거나, 엑셀·PDF로 보낼 수 있어요. 왼쪽 입력을 바꾼 뒤 다시 생성할 수도 있어요."
                     onScrollToInput={() => scrollToWizardTop()}
-                    onRegenerate={() => void handleGenerateEstimate()}
+                    onRegenerate={() => {
+                      void handleGenerateEstimate()
+                    }}
                     onSave={doc ? () => void handleSaveDoc(doc) : undefined}
                     saving={saving}
                   />
