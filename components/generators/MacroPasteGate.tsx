@@ -220,22 +220,25 @@ export function MacroPasteGate({
                 >
                   건너뛰고 단계별 입력
                 </button>
-              ) : (
-                <span className="shrink-0 rounded-lg bg-primary-50 px-2 py-1 text-[10px] font-medium text-primary-800">
-                  대화 유지
-                </span>
-              )}
+              ) : null}
             </div>
 
+            <div
+              className={clsx(
+                'flex min-h-0 flex-1 flex-col',
+                showPastePanel ? 'justify-start overflow-y-auto' : 'overflow-hidden',
+              )}
+            >
             <div
               ref={scrollRef}
               role="log"
               aria-live="polite"
               aria-relevant="additions"
               className={clsx(
-                'min-h-0 space-y-3 overflow-y-auto px-3 py-3 sm:px-4',
-                wizardOpen ? 'max-h-[min(34vh,300px)] flex-shrink-0 border-b border-slate-200' : 'flex-1',
-                'bg-slate-50/60',
+                'space-y-3 overflow-y-auto px-3 py-3 sm:px-4',
+                showPastePanel
+                  ? 'flex-shrink-0 bg-slate-50/60'
+                  : 'max-h-[min(34vh,300px)] min-h-0 flex-shrink-0 border-b border-slate-200 bg-slate-50/60',
               )}
             >
               {chatMessages.map((m) => (
@@ -245,7 +248,7 @@ export function MacroPasteGate({
                 >
                   <div
                     className={clsx(
-                      'max-w-[260px] whitespace-pre-wrap break-words rounded-xl px-3 py-2 text-[12.5px] leading-relaxed',
+                      'max-w-[min(100%,280px)] whitespace-pre-wrap break-words rounded-xl px-3 py-2 text-[12.5px] leading-relaxed',
                       m.role === 'user'
                         ? 'rounded-br-[4px] bg-primary-600 text-white'
                         : 'rounded-bl-[4px] border border-slate-200 bg-white text-slate-800 shadow-sm',
@@ -291,7 +294,7 @@ export function MacroPasteGate({
                   value={draft}
                   onChange={(e) => setDraft(e.target.value)}
                   placeholder={wizardOpen ? '수정사항을 말씀해 주세요…' : placeholder}
-                  rows={wizardOpen ? 2 : 3}
+                  rows={showPastePanel ? 6 : wizardOpen ? 2 : 3}
                   data-testid="macro-paste-composer"
                   className={clsx(
                     'min-h-[44px] flex-1 resize-none border-0 bg-transparent px-1 py-1 text-[12.5px] text-slate-900 outline-none',
@@ -323,6 +326,7 @@ export function MacroPasteGate({
                 </button>
               </div>
               <p className="mt-1.5 text-[10.5px] text-slate-500">Shift+Enter 줄바꿈 · Enter 전송</p>
+            </div>
             </div>
 
             {bottomSteps && bottomSteps.length > 0 ? (

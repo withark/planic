@@ -6,7 +6,7 @@ import { useSearchParams } from 'next/navigation'
 import { GNB } from '@/components/GNB'
 import QuoteResult from '@/components/quote/QuoteResult'
 import SimpleGeneratorWizard, { type WizardMode } from '@/components/generators/SimpleGeneratorWizard'
-import { MacroPasteGate, type MacroPasteBottomStep } from '@/components/generators/MacroPasteGate'
+import { MacroPasteGate } from '@/components/generators/MacroPasteGate'
 import { looksLikeVendorQuoteBlock, parseLooseBrief } from '@/lib/brief-text-parse'
 import { CalendarPicker, Input, Textarea, Toast } from '@/components/ui'
 import type { CompanySettings, HistoryRecord, PriceCategory, QuoteDoc, TaskOrderDoc } from '@/lib/types'
@@ -859,48 +859,6 @@ function EstimateGeneratorContent() {
     eventType,
   ])
 
-  /** 목업(ai_quote_saas_mockup) state-bar 단계 — 붙여넣기 여부·생성·미리보기와 연동 */
-  const macroPasteBottomSteps = useMemo((): MacroPasteBottomStep[] => {
-    if (generating) {
-      return [
-        { label: '파싱', status: 'done' },
-        { label: '구조화', status: 'done' },
-        { label: '생성 중', status: 'active' },
-        { label: '미리보기', status: 'idle' },
-      ]
-    }
-    if (doc && generatedDocId) {
-      return [
-        { label: '파싱', status: 'done' },
-        { label: '구조화', status: 'done' },
-        { label: '검토', status: 'done' },
-        { label: '미리보기', status: 'active' },
-      ]
-    }
-    if (!pasteFlowCommitted) {
-      return [
-        { label: '붙여넣기', status: 'active' },
-        { label: '구조화', status: 'idle' },
-        { label: '생성', status: 'idle' },
-        { label: '미리보기', status: 'idle' },
-      ]
-    }
-    if (generateDisabled) {
-      return [
-        { label: '파싱', status: 'done' },
-        { label: '구조화', status: 'active' },
-        { label: '생성', status: 'idle' },
-        { label: '미리보기', status: 'idle' },
-      ]
-    }
-    return [
-      { label: '파싱', status: 'done' },
-      { label: '구조화', status: 'done' },
-      { label: '생성', status: 'active' },
-      { label: '미리보기', status: 'idle' },
-    ]
-  }, [generating, doc, generatedDocId, generateDisabled, pasteFlowCommitted])
-
   const exportEstimatePdf = useCallback(async () => {
     if (!doc || pdfExportingRef.current) return
     pdfExportingRef.current = true
@@ -1382,8 +1340,6 @@ function EstimateGeneratorContent() {
                 skipStorageKey="planic:skip-paste-gate:estimate"
                 layout="chat"
                 chatPanelStyle="split"
-                quickChipLabels={['VAT 포함으로', '만원 단위', '행사일 미정']}
-                bottomSteps={macroPasteBottomSteps}
                 onFollowUpSend={(text) => {
                   const t = text.trim()
                   if (!t) return
@@ -1401,11 +1357,9 @@ function EstimateGeneratorContent() {
                     : `메모에 반영했어요. AI가 표를 바꾸려면 ${followUpRegenerateWhere}로 다시 생성해야 해요.`
                 }
                 title="행사 제안서"
-                description="카톡처럼 말하면 초안이 만들어져요."
-                chatWelcome={`안녕하세요! 행사·견적 내용을 자유롭게 말씀해 주세요.
-
-공급자·일정·인원·금액을 넣어 주시면 오른쪽에서 제안서 초안을 만들 수 있어요.`}
-                placeholder={`예)\n공급자 : (주)OOO 대표이사 홍길동\n사업자번호 : 000-00-00000\n연락처 : 010-0000-0000\n사회자 1명 330만원 · VAT 별도\n붐어 MC 4명 …`}
+                description="아래에 붙여 넣거나 입력한 뒤 보내 주세요."
+                chatWelcome={`행사·견적 내용을 아래 입력란에 붙여 넣어 주세요.\n공급자·일정·인원·금액이 있으면 오른쪽 제안서 초안에 반영됩니다.`}
+                placeholder={`예)\n공급자 : (주)OOO 대표이사 홍길동\n사업자번호 : 000-00-00000\n연락처 : 010-0000-0000\n사회자 1명 330만원\n붐어 MC 4명 …`}
                 onApplyPaste={applyPastedBrief}
                 onWizardEntered={markPasteFlowCommitted}
               >
