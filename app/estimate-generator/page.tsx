@@ -14,7 +14,7 @@ import { apiFetch, apiGenerateStream } from '@/lib/api/client'
 import { toUserMessage } from '@/lib/errors/toUserMessage'
 import { LoadingState } from '@/components/ui/AsyncState'
 import { ESTIMATE_BUDGET_OPTIONS } from '@/lib/estimate-budget-options'
-import { EVENT_TYPE_GROUPS } from '@/lib/estimate/event-types'
+import { EVENT_TYPE_GROUPS, inferEventTypeFromBriefText } from '@/lib/estimate/event-types'
 import { exportToExcel } from '@/lib/exportExcel'
 import { exportToPdf } from '@/lib/exportPdf'
 import { isPaidPlan, type PlanType } from '@/lib/plans'
@@ -41,8 +41,8 @@ type MeLite = {
 
 type SourceMode = 'fromEstimate' | 'fromTaskOrder' | 'fromTopic' | 'fromPrompt'
 const DRAFT_STORAGE_KEY = 'planic:estimate-generator:draft:v1'
-/** 업체 원문(vendorBrief) 최소 길이 — 채팅·마법사 동일 */
-const VENDOR_BRIEF_MIN_CHARS = 10
+/** 업체 원문 최소 길이 — 채팅 한 줄 허용(Claude처럼 짧은 브리핑 가능) */
+const VENDOR_BRIEF_MIN_CHARS = 2
 /** Tailwind `md`(768px) 미만 — `max-md`와 동일한 구간 */
 const ESTIMATE_NARROW_MQ = '(max-width: 767px)'
 
@@ -201,6 +201,7 @@ function EstimateGeneratorContent() {
   const [showWizardPanel, setShowWizardPanel] = useState(false)
   const vendorBriefRef = useRef('')
   const chatBriefSentRef = useRef(false)
+  const chatGenerateBusyRef = useRef(false)
   /** md 미만: 입력 / 미리보기 전환 — SSR 스냅샷 false, 클라이언트는 matchMedia와 동기(하이드레이션 안전) */
   const isNarrowViewport = useSyncExternalStore(
     subscribeEstimateNarrowMq,
@@ -694,6 +695,7 @@ function EstimateGeneratorContent() {
           ? `${firstLine.slice(0, 97)}…`
           : firstLine
         : ''
+      const inferredFromRaw = inferEventTypeFromBriefText(raw)
       return {
         eventDate: '',
         eventDuration: '',
@@ -712,7 +714,7 @@ function EstimateGeneratorContent() {
         generationMode: 'vendorBrief' as const,
         eventName: eventNameFromBrief || topic.trim() || '업체 견적 기반',
         quoteDate: todayStr(),
-        eventType: eventType.trim() || '기타',
+        eventType: inferredFromRaw || eventType.trim() || '기타',
       }
     },
     [budget, eventType, topic],
@@ -969,55 +971,60 @@ function EstimateGeneratorContent() {
   }, [])
 
   const handleChatSubmit = useCallback(
-    async (text: string): Promise<boolean> => {
+    async (text: string): Promise<boolean | undefined> => {
       const trimmed = text.trim()
-      if (!trimmed) return false
-      if (generating) {
-        showToast('이전 제안서를 만드는 중이에요. 잠시만 기다려 주세요.')
-        return false
+      if (!trimmed.length) return false
+
+      if (chatGenerateBusyRef.current) {
+        showToast('제안서를 만들고 있어요. 완료되면 다시 보내 주세요.')
+        return undefined
       }
 
-      const prevBrief = chatBriefSentRef.current ? vendorBriefRef.current.trim() : ''
-      const isFollowUp = prevBrief.length > 0
-      const newBrief = isFollowUp ? `${prevBrief}\n${trimmed}` : trimmed
+      chatGenerateBusyRef.current = true
+      try {
+        const prevBrief = chatBriefSentRef.current ? vendorBriefRef.current.trim() : ''
+        const isFollowUp = prevBrief.length > 0
+        const newBrief = isFollowUp ? `${prevBrief}\n${trimmed}` : trimmed
 
-      const body = buildVendorBriefRequestBody(newBrief)
-      if (!body) {
-        showToast(
-          `행사·견적 내용을 ${VENDOR_BRIEF_MIN_CHARS}자 이상 입력해 주세요. (한 줄 요약만 있어도 됩니다.)`,
-        )
-        return false
-      }
+        const body = buildVendorBriefRequestBody(newBrief)
+        if (!body) {
+          showToast(`행사·견적 내용을 ${VENDOR_BRIEF_MIN_CHARS}자 이상 입력해 주세요.`)
+          return false
+        }
 
-      if (!isFollowUp) {
-        const p = parseLooseBrief(trimmed)
-        setSourceMode('fromPrompt')
-        setEventType((et) => et.trim() || '기타')
-        if (looksLikeVendorQuoteBlock(p)) {
-          setTopic(
-            (prev) => prev.trim() || (p.supplierHint?.slice(0, 120) ?? '') || '업체 견적 기반',
-          )
-        } else {
-          const firstLine = trimmed
-            .split(/\r?\n/)
-            .map((l) => l.trim())
-            .find((l) => l.length > 0)
-          if (firstLine) {
-            setTopic((prev) =>
-              prev.trim() ? prev : firstLine.length > 100 ? `${firstLine.slice(0, 97)}…` : firstLine,
+        if (!isFollowUp) {
+          const inferredEt = inferEventTypeFromBriefText(trimmed)
+          const p = parseLooseBrief(trimmed)
+          setSourceMode('fromPrompt')
+          setEventType((et) => (et.trim() ? et : inferredEt || '기타'))
+          if (looksLikeVendorQuoteBlock(p)) {
+            setTopic(
+              (prev) => prev.trim() || (p.supplierHint?.slice(0, 120) ?? '') || '업체 견적 기반',
             )
+          } else {
+            const firstLine = trimmed
+              .split(/\r?\n/)
+              .map((l) => l.trim())
+              .find((l) => l.length > 0)
+            if (firstLine) {
+              setTopic((prev) =>
+                prev.trim() ? prev : firstLine.length > 100 ? `${firstLine.slice(0, 97)}…` : firstLine,
+              )
+            }
           }
         }
+
+        setVendorBrief(newBrief)
+        vendorBriefRef.current = newBrief
+        chatBriefSentRef.current = true
+        setPasteFlowCommitted(true)
+
+        return await handleGenerateEstimate(body)
+      } finally {
+        chatGenerateBusyRef.current = false
       }
-
-      setVendorBrief(newBrief)
-      vendorBriefRef.current = newBrief
-      chatBriefSentRef.current = true
-      setPasteFlowCommitted(true)
-
-      return handleGenerateEstimate(body)
     },
-    [buildVendorBriefRequestBody, handleGenerateEstimate, showToast, generating],
+    [buildVendorBriefRequestBody, handleGenerateEstimate, showToast],
   )
 
   const applyPastedBrief = useCallback(
@@ -1349,6 +1356,10 @@ function EstimateGeneratorContent() {
   useEffect(() => {
     if (!showPreviewPane && isNarrowViewport) setMobileSheet('chat')
   }, [showPreviewPane, isNarrowViewport])
+
+  useEffect(() => {
+    if (!doc && !generating) setPreviewSessionActive(false)
+  }, [doc, generating])
 
   const onEstimateMobileTabKeyDown = useCallback(
     (e: KeyboardEvent<HTMLDivElement>) => {

@@ -44,8 +44,8 @@ type Props = {
   chatPrimaryMode?: boolean
   /** chatPrimaryMode일 때 단계별 마법사 패널 표시 여부(건너뛰기 시 true) */
   showWizardPanel?: boolean
-  /** chatPrimaryMode일 때 Enter 전송 — 첫 입력·후속 수정 공통. false면 안내 말풍선 생략(검증 실패 등) */
-  onChatSubmit?: (text: string) => void | boolean | Promise<boolean | void>
+  /** chatPrimaryMode 성공 여부 안내 시 true, 실패 시 false, 무응답(생성 진행 중 중복 등) 시 undefined·void */
+  onChatSubmit?: (text: string) => void | boolean | undefined | Promise<boolean | void | undefined>
   /** chatPrimaryMode 첫 전송 후 안내 말풍선 */
   chatSubmitAssistantReply?: string
   /** chatPrimaryMode 후속 전송 안내 말풍선 */
@@ -159,21 +159,20 @@ export function MacroPasteGate({
     async (text: string, assistantReply: string) => {
       setChatMessages((prev) => [...prev, { id: nextMsgId(), role: 'user', text }])
       setDraft('')
-      let ok = true
+      let assistantText: string | null | undefined = undefined
       try {
         const r = await onChatSubmit!(text)
-        ok = r !== false
+        if (r === false) assistantText = chatSubmitFailureReply
+        else if (r === true) assistantText = assistantReply
       } catch {
-        ok = false
+        assistantText = chatSubmitFailureReply
       }
-      setChatMessages((prev) => [
-        ...prev,
-        {
-          id: nextMsgId(),
-          role: 'assistant',
-          text: ok ? assistantReply : chatSubmitFailureReply,
-        },
-      ])
+      if (assistantText !== undefined && assistantText !== null) {
+        setChatMessages((prev) => [
+          ...prev,
+          { id: nextMsgId(), role: 'assistant', text: assistantText },
+        ])
+      }
       queueMicrotask(() => composerRef.current?.focus())
     },
     [onChatSubmit, nextMsgId, chatSubmitFailureReply],

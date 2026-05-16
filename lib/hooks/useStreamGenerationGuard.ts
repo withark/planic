@@ -17,7 +17,7 @@ export function useStreamGenerationGuard() {
     isMountedRef.current = true
     return () => {
       isMountedRef.current = false
-      genSessionRef.current += 1
+      /** 세션 카운터는 증가시키지 않음(Strict 모드 재마운트 시 첫 요청이 헛도는 것 방지). 무효화는 abort + 새 startSession 카운터로만 처리. */
       abortRef.current?.abort()
     }
   }, [])
