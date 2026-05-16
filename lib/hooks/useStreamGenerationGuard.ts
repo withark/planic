@@ -4,8 +4,8 @@ import { useCallback, useEffect, useRef } from 'react'
 
 /**
  * `apiGenerateStream` 등 장시간 요청에 대해
- * - 언마운트 시 AbortSignal로 네트워크 중단
- * - 재시도·연속 클릭 시 이전 세션 무시
+ * - 새 생성 시작 시 `startSession` 안에서만 이전 요청 abort (중복 클릭 차단)
+ * - 언마운트에서는 abort 하지 않음(일시 재마운트·Strict로 생성이 끊기는 현상 방지)
  * - `stillCurrent(session)`으로 setState·토스트 가드
  */
 export function useStreamGenerationGuard() {
@@ -17,8 +17,6 @@ export function useStreamGenerationGuard() {
     isMountedRef.current = true
     return () => {
       isMountedRef.current = false
-      /** 세션 카운터는 증가시키지 않음(Strict 모드 재마운트 시 첫 요청이 헛도는 것 방지). 무효화는 abort + 새 startSession 카운터로만 처리. */
-      abortRef.current?.abort()
     }
   }, [])
 
