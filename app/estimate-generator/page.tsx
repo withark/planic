@@ -1,1860 +1,535 @@
 'use client'
 
-import Link from 'next/link'
-import { Suspense, useCallback, useEffect, useMemo, useRef, useState, useSyncExternalStore, type KeyboardEvent } from 'react'
-import { useSearchParams } from 'next/navigation'
+import { Suspense, useCallback, useEffect, useRef, useState } from 'react'
 import { GNB } from '@/components/GNB'
-import QuoteResult from '@/components/quote/QuoteResult'
-import SimpleGeneratorWizard, { type WizardMode } from '@/components/generators/SimpleGeneratorWizard'
-import { MacroPasteGate } from '@/components/generators/MacroPasteGate'
-import { looksLikeVendorQuoteBlock, parseLooseBrief } from '@/lib/brief-text-parse'
-import { CalendarPicker, Input, Textarea, Toast } from '@/components/ui'
-import type { CompanySettings, HistoryRecord, PriceCategory, QuoteDoc, TaskOrderDoc } from '@/lib/types'
-import { apiFetch, apiGenerateStream } from '@/lib/api/client'
+import { QuoteResult } from '@/components/quote/QuoteResult'
+import { apiGenerateStream, apiFetch } from '@/lib/api/client'
 import { toUserMessage } from '@/lib/errors/toUserMessage'
-import { LoadingState } from '@/components/ui/AsyncState'
-import { ESTIMATE_BUDGET_OPTIONS } from '@/lib/estimate-budget-options'
-import { EVENT_TYPE_GROUPS, inferEventTypeFromBriefText } from '@/lib/estimate/event-types'
 import { exportToExcel } from '@/lib/exportExcel'
 import { exportToPdf } from '@/lib/exportPdf'
-import { isPaidPlan, type PlanType } from '@/lib/plans'
-import { isFeatureAllowedForPlan } from '@/lib/plan-access'
-import { isExcludedSupplyLineItem } from '@/lib/quote/supply-line-filter'
-import { calcTotals, normalizeQuoteUnitPricesToThousand } from '@/lib/calc'
 import { exportProgramProposalDocxFromDoc } from '@/lib/export/exportDocxFromQuoteDoc'
-import { useStreamGenerationGuard } from '@/lib/hooks/useStreamGenerationGuard'
-import { useGeneratorRefineQueue } from '@/lib/hooks/use-generator-refine-queue'
-import { useCompanyOnboardingRedirect } from '@/lib/hooks/use-company-onboarding-redirect'
-import { warnDevFetchFailure } from '@/lib/log-dev-fetch-failure'
-import BriefEnrichSummaryCard, {
-  type BriefEnrichSummary,
-  parseBriefEnrichSummary,
-} from '@/components/generators/BriefEnrichSummaryCard'
-import GenerationResultNextSteps from '@/components/generators/GenerationResultNextSteps'
+import { calcTotals, normalizeQuoteUnitPricesToThousand } from '@/lib/calc'
+import { isExcludedSupplyLineItem } from '@/lib/quote/supply-line-filter'
+import type { CompanySettings, PriceCategory, QuoteDoc } from '@/lib/types'
+import type { ChatIntentParams, ChatIntentResult } from '@/app/api/chat-intent/route'
+import clsx from 'clsx'
+
+// ─── Types ───────────────────────────────────────────────────────────────────
+
+type ChatMessage = {
+  id: string
+  role: 'user' | 'assistant'
+  content: string
+  stage?: string
+  isGenerating?: boolean
+  isError?: boolean
+}
 
 type MeLite = {
-  user?: { id?: string | null; email?: string | null } | null
-  subscription: { planType: PlanType }
-  usage: { quoteGeneratedCount: number; premiumGeneratedCount: number }
-  limits: { monthlyQuoteGenerateLimit: number; monthlyPremiumGenerationLimit: number }
+  user?: { id?: string | null } | null
+  subscription: { planType: string }
+  usage: { quoteGeneratedCount: number }
+  limits: { monthlyQuoteGenerateLimit: number }
 }
 
-type SourceMode = 'fromEstimate' | 'fromTaskOrder' | 'fromTopic' | 'fromPrompt'
-const DRAFT_STORAGE_KEY = 'planic:estimate-generator:draft:v1'
-/** 업체 원문 최소 길이 — 채팅 한 줄 허용(Claude처럼 짧은 브리핑 가능) */
-const VENDOR_BRIEF_MIN_CHARS = 2
-/** Tailwind `md`(768px) 미만 — `max-md`와 동일한 구간 */
-const ESTIMATE_NARROW_MQ = '(max-width: 767px)'
-
-function subscribeEstimateNarrowMq(onChange: () => void) {
-  if (typeof window === 'undefined') return () => {}
-  const mq = window.matchMedia(ESTIMATE_NARROW_MQ)
-  mq.addEventListener('change', onChange)
-  return () => mq.removeEventListener('change', onChange)
-}
-
-function estimateNarrowMatchesSnapshot() {
-  return typeof window !== 'undefined' && window.matchMedia(ESTIMATE_NARROW_MQ).matches
-}
-
-type TaskOrderSummaryParsed = {
-  projectTitle?: string
-  orderingOrganization?: string
-  oneLineSummary?: string
-  purpose?: string
-  mainScope?: string
-  deliverables?: string
-  restrictionsCautions?: string
-  requiredStaffing?: string
-  eventRange?: string
-  timelineDuration?: string
-  evaluationSelection?: string
+function uid() {
+  return Math.random().toString(36).slice(2)
 }
 
 function todayStr() {
   return new Date().toISOString().slice(0, 10)
 }
 
-function formatSavedAtLabel(savedAtIso: string | null): string {
-  if (!savedAtIso) return '아직 저장 기록 없음'
-  const d = new Date(savedAtIso)
-  if (Number.isNaN(d.getTime())) return '방금 저장됨'
-  return `마지막 임시저장 ${d.toLocaleTimeString('ko-KR', { hour: '2-digit', minute: '2-digit' })}`
+const STAGE_LABELS: Record<string, string> = {
+  enrich: '브리프 분석 중...',
+  'enrich-done': '분석 완료',
+  draft: '초안 작성 중...',
+  'draft-done': '초안 완성',
+  refine: '문서 다듬는 중...',
+  'refine-done': '정제 완료',
+  repair: '검수 중...',
+  done: '완성',
 }
 
-function safeParseJson(v: string) {
-  try {
-    return JSON.parse(v || '{}') as unknown
-  } catch {
-    return null
+// ─── Empty State ──────────────────────────────────────────────────────────────
+
+function EmptyPreview() {
+  return (
+    <div className="flex flex-col items-center justify-center h-full text-center px-8 gap-6 select-none">
+      <div className="w-16 h-16 rounded-2xl bg-violet-50 flex items-center justify-center">
+        <svg viewBox="0 0 24 24" fill="none" className="w-8 h-8 text-violet-400" aria-hidden>
+          <path d="M9 12h6M9 16h4M7 4H5a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2V8l-4-4H7Z"
+            stroke="currentColor" strokeWidth="1.6" strokeLinejoin="round" />
+          <path d="M15 4v4h4" stroke="currentColor" strokeWidth="1.6" strokeLinejoin="round" />
+        </svg>
+      </div>
+      <div>
+        <p className="text-slate-700 font-medium text-[15px]">문서가 여기에 표시됩니다</p>
+        <p className="text-slate-400 text-sm mt-1.5 leading-relaxed">
+          왼쪽 채팅창에 행사 내용을 입력하면<br />제안서, 견적서, 큐시트 등을 바로 만들어 드려요
+        </p>
+      </div>
+      <div className="flex flex-col gap-2 w-full max-w-xs">
+        {[
+          '삼성전자 임직원 체육대회 300명 올림픽공원 10월',
+          '스타트업 데모데이 100명 강남 컨퍼런스홀',
+          '고등학교 졸업식 500명 학교 강당 2월',
+        ].map((ex) => (
+          <div key={ex} className="text-xs text-slate-400 bg-slate-50 rounded-lg px-3 py-2 text-left">
+            &ldquo;{ex}&rdquo;
+          </div>
+        ))}
+      </div>
+    </div>
+  )
+}
+
+// ─── Generating Dots ──────────────────────────────────────────────────────────
+
+function GeneratingDots({ stage }: { stage?: string }) {
+  const label = stage ? (STAGE_LABELS[stage] ?? stage) : '생성 중...'
+  return (
+    <div className="flex items-center gap-2 text-slate-500 text-sm">
+      <span className="flex gap-1">
+        {[0, 1, 2].map((i) => (
+          <span
+            key={i}
+            className="w-1.5 h-1.5 rounded-full bg-violet-400 animate-bounce"
+            style={{ animationDelay: `${i * 0.15}s` }}
+          />
+        ))}
+      </span>
+      <span>{label}</span>
+    </div>
+  )
+}
+
+// ─── Message Bubble ───────────────────────────────────────────────────────────
+
+function MessageBubble({ msg }: { msg: ChatMessage }) {
+  const isUser = msg.role === 'user'
+  return (
+    <div className={clsx('flex gap-2.5', isUser ? 'justify-end' : 'justify-start')}>
+      {!isUser && (
+        <div className="w-7 h-7 rounded-full bg-violet-600 flex items-center justify-center shrink-0 mt-0.5">
+          <svg viewBox="0 0 24 24" fill="none" className="w-4 h-4 text-white" aria-hidden>
+            <path d="M12 3C7 3 4 7 4 11c0 2.5 1.2 4.7 3 6v3l3-1.5c.6.1 1.3.2 2 .2 5 0 9-3.6 9-8S17 3 12 3Z"
+              fill="currentColor" />
+          </svg>
+        </div>
+      )}
+      <div
+        className={clsx(
+          'max-w-[85%] rounded-2xl px-4 py-2.5 text-sm leading-relaxed',
+          isUser
+            ? 'bg-violet-600 text-white rounded-tr-sm'
+            : msg.isError
+              ? 'bg-red-50 text-red-700 border border-red-200 rounded-tl-sm'
+              : 'bg-white text-slate-800 border border-slate-100 shadow-sm rounded-tl-sm',
+        )}
+      >
+        {msg.isGenerating
+          ? <GeneratingDots stage={msg.stage} />
+          : <span style={{ whiteSpace: 'pre-wrap' }}>{msg.content}</span>
+        }
+      </div>
+      {isUser && (
+        <div className="w-7 h-7 rounded-full bg-slate-200 flex items-center justify-center shrink-0 mt-0.5">
+          <svg viewBox="0 0 24 24" fill="none" className="w-4 h-4 text-slate-500" aria-hidden>
+            <circle cx="12" cy="8" r="4" stroke="currentColor" strokeWidth="1.6" />
+            <path d="M4 20c0-4 3.6-7 8-7s8 3 8 7" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" />
+          </svg>
+        </div>
+      )}
+    </div>
+  )
+}
+
+// ─── Chat Input ───────────────────────────────────────────────────────────────
+
+function ChatInput({
+  onSend,
+  disabled,
+  placeholder,
+}: {
+  onSend: (text: string) => void
+  disabled: boolean
+  placeholder?: string
+}) {
+  const [text, setText] = useState('')
+  const ref = useRef<HTMLTextAreaElement>(null)
+
+  const send = () => {
+    const t = text.trim()
+    if (!t || disabled) return
+    onSend(t)
+    setText('')
+    if (ref.current) ref.current.style.height = 'auto'
   }
+
+  const onKey = (e: React.KeyboardEvent) => {
+    if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); send() }
+  }
+
+  const onInput = (e: React.ChangeEvent<HTMLTextAreaElement>) => {
+    setText(e.target.value)
+    const el = e.target
+    el.style.height = 'auto'
+    el.style.height = `${Math.min(el.scrollHeight, 160)}px`
+  }
+
+  return (
+    <div className="border-t border-slate-100 bg-white px-4 py-3">
+      <div className="flex gap-3 items-end bg-slate-50 rounded-2xl px-4 py-3 border border-slate-200 focus-within:border-violet-300 focus-within:bg-white transition-colors">
+        <textarea
+          ref={ref}
+          value={text}
+          onChange={onInput}
+          onKeyDown={onKey}
+          disabled={disabled}
+          placeholder={placeholder ?? '행사 내용을 자유롭게 입력하세요...'}
+          rows={1}
+          className="flex-1 resize-none bg-transparent text-sm text-slate-800 placeholder:text-slate-400 outline-none leading-relaxed"
+          style={{ maxHeight: 160 }}
+        />
+        <button
+          onClick={send}
+          disabled={!text.trim() || disabled}
+          aria-label="전송"
+          className="shrink-0 w-8 h-8 rounded-xl bg-violet-600 flex items-center justify-center text-white disabled:opacity-40 hover:bg-violet-700 transition-colors"
+        >
+          <svg viewBox="0 0 24 24" fill="none" className="w-4 h-4" aria-hidden>
+            <path d="M12 20V4M5 11l7-7 7 7" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
+          </svg>
+        </button>
+      </div>
+      <p className="text-[11px] text-slate-400 mt-2 text-center">Enter 전송 · Shift+Enter 줄바꿈</p>
+    </div>
+  )
 }
 
-function getTaskOrderParsed(t: TaskOrderDoc): TaskOrderSummaryParsed | null {
-  const parsed = safeParseJson(t.summary)
-  return parsed && typeof parsed === 'object' ? (parsed as TaskOrderSummaryParsed) : null
+// ─── Download Bar ─────────────────────────────────────────────────────────────
+
+function DownloadBar({
+  doc,
+  companySettings,
+  onSave,
+  saving,
+}: {
+  doc: QuoteDoc
+  companySettings?: CompanySettings | null
+  onSave?: () => void
+  saving?: boolean
+}) {
+  const [busy, setBusy] = useState<string | null>(null)
+
+  const run = (key: string, fn: () => Promise<void>) => async () => {
+    setBusy(key)
+    try { await fn() } finally { setBusy(null) }
+  }
+
+  const handleWord = run('word', async () => {
+    const cloned: QuoteDoc = JSON.parse(JSON.stringify(doc))
+    normalizeQuoteUnitPricesToThousand(cloned)
+    cloned.quoteItems = cloned.quoteItems.map(cat => ({
+      ...cat,
+      items: cat.items.filter(it => !isExcludedSupplyLineItem(it)),
+    }))
+    await exportProgramProposalDocxFromDoc(cloned, { company: companySettings ?? undefined })
+  })
+
+  return (
+    <div className="border-t border-slate-100 px-4 py-3 flex items-center gap-2 bg-white shrink-0">
+      <button onClick={run('xl', () => exportToExcel(doc, companySettings ?? undefined))}
+        disabled={!!busy}
+        className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-emerald-50 text-emerald-700 text-xs font-medium hover:bg-emerald-100 transition-colors disabled:opacity-50">
+        {busy === 'xl' ? '...' : 'Excel'}
+      </button>
+      <button onClick={run('pdf', () => exportToPdf(doc, companySettings ?? undefined))}
+        disabled={!!busy}
+        className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-red-50 text-red-700 text-xs font-medium hover:bg-red-100 transition-colors disabled:opacity-50">
+        {busy === 'pdf' ? '...' : 'PDF'}
+      </button>
+      <button onClick={handleWord}
+        disabled={!!busy}
+        className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-blue-50 text-blue-700 text-xs font-medium hover:bg-blue-100 transition-colors disabled:opacity-50">
+        {busy === 'word' ? '...' : 'Word'}
+      </button>
+      {onSave && (
+        <button onClick={onSave} disabled={saving}
+          className="ml-auto px-3 py-1.5 rounded-lg bg-slate-100 text-slate-600 text-xs font-medium hover:bg-slate-200 transition-colors disabled:opacity-50">
+          {saving ? '저장 중...' : '저장'}
+        </button>
+      )}
+    </div>
+  )
 }
+
+// ─── Main ─────────────────────────────────────────────────────────────────────
 
 function EstimateGeneratorContent() {
-  useCompanyOnboardingRedirect()
-  const proposalLabel = '행사 제안서'
-  const searchParams = useSearchParams()
-  const [toast, setToast] = useState<string | null>(null)
-  const toastTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
-  const { isMountedRef, startSession, clearAbortIfCurrent, stillCurrent } = useStreamGenerationGuard()
-  const estimateBadLinkWarnedRef = useRef(false)
-  const pdfExportingRef = useRef(false)
-
-  const dismissToast = useCallback(() => {
-    if (toastTimerRef.current) {
-      clearTimeout(toastTimerRef.current)
-      toastTimerRef.current = null
-    }
-    setToast(null)
-  }, [])
-
-  const showToast = useCallback((m: string) => {
-    setToast(m)
-    if (toastTimerRef.current) clearTimeout(toastTimerRef.current)
-    toastTimerRef.current = setTimeout(() => {
-      setToast(null)
-      toastTimerRef.current = null
-    }, 3000)
-  }, [])
-
-  const refetchMe = useCallback(() => {
-    setMeLoadError(null)
-    apiFetch<MeLite>('/api/me')
-      .then((data) => {
-        if (!isMountedRef.current) return
-        setMe(data)
-        setMeLoadError(null)
-      })
-      .catch((e) => {
-        if (!isMountedRef.current) return
-        setMeLoadError(toUserMessage(e, '내 정보를 불러오지 못했습니다.'))
-      })
-  }, [])
-
-  useEffect(
-    () => () => {
-      if (toastTimerRef.current) clearTimeout(toastTimerRef.current)
-    },
-    [],
-  )
-
   const [me, setMe] = useState<MeLite | null>(null)
-  const [meLoadError, setMeLoadError] = useState<string | null>(null)
   const [companySettings, setCompanySettings] = useState<CompanySettings | null>(null)
   const [prices, setPrices] = useState<PriceCategory[]>([])
 
-  const [sourceMode, setSourceMode] = useState<SourceMode>('fromTopic')
+  const [messages, setMessages] = useState<ChatMessage[]>([{
+    id: 'welcome',
+    role: 'assistant',
+    content: '안녕하세요! 어떤 행사 문서가 필요한가요?\n\n행사 내용을 자유롭게 말씀해 주세요. 견적서·기획안·큐시트·시나리오 등을 바로 만들어 드립니다.',
+  }])
+  const [isGenerating, setIsGenerating] = useState(false)
 
-  const [historyList, setHistoryList] = useState<HistoryRecord[]>([])
-  const [selectedEstimateId, setSelectedEstimateId] = useState<string | null>(null)
-  /** 우측 패널「저장된 견적 불러오기」전용 선택값 */
-  const [loadPickerId, setLoadPickerId] = useState<string>('')
-
-  const [taskOrderRefs, setTaskOrderRefs] = useState<TaskOrderDoc[]>([])
-  const [selectedTaskOrderId, setSelectedTaskOrderId] = useState<string | null>(null)
-
-
-  /** 견적서에 들어가는 수신/행사 기본 정보 */
-  const [clientName, setClientName] = useState('')
-  const [clientManager, setClientManager] = useState('')
-  const [clientTel, setClientTel] = useState('')
-  const [topic, setTopic] = useState('') // 행사명
-  const [eventDate, setEventDate] = useState<Date | null>(null)
-  const [eventDuration, setEventDuration] = useState('')
-  // (선택) 시작/종료 시간(HH:mm) — UI에서는 현재 필수로 받지 않음
-  const [startHHmm, setStartHHmm] = useState('')
-  const [endHHmm, setEndHHmm] = useState('')
-  const [headcount, setHeadcount] = useState('')
-  const [venue, setVenue] = useState('')
-  const [notes, setNotes] = useState('') // 추가 요청사항(선택)
-  /** 업체 원문만 모드: 들은 내용 전체 */
-  const [vendorBrief, setVendorBrief] = useState('')
-  const [budget, setBudget] = useState('미정')
-  /** 행사 종류 — 단가표 필터·AI 프롬프트에 사용 (InputForm과 동일 옵션) */
-  const [eventType, setEventType] = useState('')
-  const [draftSavedAt, setDraftSavedAt] = useState<string | null>(null)
-
-  const [doc, setDoc] = useState<QuoteDoc | null>(null)
-  const [generatedDocId, setGeneratedDocId] = useState<string | null>(null)
-  const [generating, setGenerating] = useState(false)
-  /** 채팅 전송 직후 미리보기 패널을 즉시 열기(setGenerating 비동기 보완) */
-  const [previewSessionActive, setPreviewSessionActive] = useState(false)
-  const [generationProgressLabel, setGenerationProgressLabel] = useState<string | null>(null)
-  /** 생성 스트림 단계 로그(우측 채팅형 진행 UI) */
-  const [generationStageLog, setGenerationStageLog] = useState<string[]>([])
-  /** Stage 0 — AI가 사용자 입력을 어떻게 정리했는지 요약(없으면 비어 있음) */
-  const [briefEnrich, setBriefEnrich] = useState<BriefEnrichSummary | null>(null)
-  const [refinementCount, setRefinementCount] = useState(0)
-  const { enqueue: enqueueRefineBrief, flushQueuedIntoNotes, queuedCount: queuedRefineCount, resetQueue: resetRefineQueue } =
-    useGeneratorRefineQueue(showToast)
+  const [currentDoc, setCurrentDoc] = useState<QuoteDoc | null>(null)
+  const [currentDocId, setCurrentDocId] = useState<string | null>(null)
+  const [currentParams, setCurrentParams] = useState<Partial<ChatIntentParams>>({})
   const [saving, setSaving] = useState(false)
-  const [proposalGenerating, setProposalGenerating] = useState(false)
-  const generatingTabs = useMemo(() => ({ estimate: generating }), [generating])
-  /** 붙여넣기 전송 또는 건너뛰기 이후 — 하단 state-bar 단계 표시용 */
-  const [pasteFlowCommitted, setPasteFlowCommitted] = useState(false)
-  /** 채팅-primary 모드에서만 — 「건너뛰고 단계별 입력」 시 좌측 마법사 표시 */
-  const [showWizardPanel, setShowWizardPanel] = useState(false)
-  const vendorBriefRef = useRef('')
-  const chatBriefSentRef = useRef(false)
-  const chatGenerateBusyRef = useRef(false)
-  /** md 미만: 입력 / 미리보기 전환 — SSR 스냅샷 false, 클라이언트는 matchMedia와 동기(하이드레이션 안전) */
-  const isNarrowViewport = useSyncExternalStore(
-    subscribeEstimateNarrowMq,
-    estimateNarrowMatchesSnapshot,
-    () => false,
-  )
-  const [mobileSheet, setMobileSheet] = useState<'chat' | 'preview'>('chat')
-  const [pdfExporting, setPdfExporting] = useState(false)
+  const [mobilePanel, setMobilePanel] = useState<'chat' | 'preview'>('chat')
 
-  const userDraftStorageKey = useMemo(() => {
-    const userId = me?.user?.id
-    if (!userId) return null
-    return `${DRAFT_STORAGE_KEY}:${userId}`
-  }, [me?.user?.id])
-
-  const selectedHistory = useMemo(
-    () => (selectedEstimateId ? historyList.find((r) => r.id === selectedEstimateId) || null : null),
-    [historyList, selectedEstimateId],
-  )
-  const selectedHistoryDoc = selectedHistory?.doc || null
-
-  const selectedTaskOrder = useMemo(
-    () => (selectedTaskOrderId ? taskOrderRefs.find((r) => r.id === selectedTaskOrderId) || null : null),
-    [taskOrderRefs, selectedTaskOrderId],
-  )
-  const selectedTaskOrderParsed = useMemo(
-    () => (selectedTaskOrder ? getTaskOrderParsed(selectedTaskOrder) : null),
-    [selectedTaskOrder],
-  )
-
-  const priceItemCount = useMemo(
-    () =>
-      prices.reduce(
-        (count, category) => count + (Array.isArray(category.items) ? category.items.length : 0),
-        0,
-      ),
-    [prices],
-  )
-
-  /** 베이직 이상만 저장형 단가표가 열리며, 이때는 생성 전 단가표에 최소 1품목 필요 */
-  const pricingSheetRequired = isFeatureAllowedForPlan(me?.subscription?.planType ?? 'FREE', 'pricingTable')
-
-  const modes: WizardMode[] = useMemo(
-    () => [
-      {
-        id: 'fromTopic',
-        title: '주제만 입력',
-        desc: pricingSheetRequired
-          ? `수신처·행사 정보를 채우면 단가표와 맞춰 ${proposalLabel} 초안을 만듭니다.`
-          : `수신처·행사 정보를 채우면 시장 단가를 참고해 ${proposalLabel} 초안을 만듭니다. (저장형 단가표는 베이직부터)`,
-      },
-      {
-        id: 'fromPrompt',
-        title: '업체 원문만',
-        desc: `들은 내용·메모를 그대로 붙여 넣어 ${proposalLabel} 형식으로 정리합니다.`,
-      },
-      {
-        id: 'fromTaskOrder',
-        title: '과업지시서 기준',
-        desc: `업로드한 과업지시서 요지를 반영해 ${proposalLabel}을 구성합니다.`,
-      },
-      {
-        id: 'fromEstimate',
-        title: '저장된 제안서 기준',
-        desc: '이전에 저장한 문서를 불러와 수정·재발행합니다.',
-      },
-    ],
-    [pricingSheetRequired, proposalLabel],
-  )
-  /** 무료: 주제·업체 원문만 사용 가능 / 유료: 과업지시서·저장 견적 포함 전체 */
-  const modesForWizard = useMemo(() => {
-    const paid = isPaidPlan(me?.subscription?.planType ?? 'FREE')
-    return modes.map((m) => ({
-      ...m,
-      disabled:
-        paid
-          ? false
-          : m.id === 'fromTaskOrder' || m.id === 'fromEstimate',
-    }))
-  }, [modes, me?.subscription?.planType])
+  const abortRef = useRef<AbortController | null>(null)
+  const bottomRef = useRef<HTMLDivElement>(null)
 
   useEffect(() => {
-    refetchMe()
-    apiFetch<CompanySettings>('/api/settings')
-      .then(setCompanySettings)
-      .catch((e) => warnDevFetchFailure('GET /api/settings (estimate-generator)', e))
-    apiFetch<PriceCategory[]>('/api/prices').then(setPrices).catch(() => setPrices([]))
-  }, [refetchMe])
-
-  useEffect(() => {
-    if (!isNarrowViewport) setMobileSheet('chat')
-  }, [isNarrowViewport])
-
-  useEffect(() => {
-    vendorBriefRef.current = vendorBrief
-  }, [vendorBrief])
-
-  useEffect(() => {
-    try {
-      if (typeof window !== 'undefined' && window.sessionStorage.getItem('planic:skip-paste-gate:estimate') === '1') {
-        setShowWizardPanel(true)
-        setPasteFlowCommitted(true)
-      }
-    } catch {
-      /* ignore */
-    }
+    apiFetch<MeLite>('/api/me').then(r => { if (r) setMe(r) }).catch(() => {})
+    apiFetch<{ settings: CompanySettings }>('/api/settings').then(r => {
+      if (r?.settings) setCompanySettings(r.settings)
+    }).catch(() => {})
+    apiFetch<{ categories: PriceCategory[] }>('/api/prices').then(r => {
+      if (r?.categories) setPrices(r.categories)
+    }).catch(() => {})
   }, [])
 
   useEffect(() => {
-    apiFetch<HistoryRecord[]>('/api/history')
-      .then((list) => {
-        const ordered = [...list].reverse().slice(0, 20)
-        setHistoryList(ordered)
-        setLoadPickerId((prev) => {
-          if (prev && ordered.some((r) => r.id === prev)) return prev
-          return ordered[0]?.id ?? ''
-        })
-      })
-      .catch(() => setHistoryList([]))
-    apiFetch<TaskOrderDoc[]>('/api/task-order-references').then(setTaskOrderRefs).catch(() => setTaskOrderRefs([]))
+    bottomRef.current?.scrollIntoView({ behavior: 'smooth' })
+  }, [messages])
+
+  const updateMessage = useCallback((id: string, patch: Partial<ChatMessage>) => {
+    setMessages(prev => prev.map(m => m.id === id ? { ...m, ...patch } : m))
   }, [])
 
-  useEffect(() => {
-    if (typeof window === 'undefined' || !userDraftStorageKey) return
-    const raw = window.localStorage.getItem(userDraftStorageKey)
-    if (!raw) return
-    const parsed = safeParseJson(raw)
-    if (!parsed || typeof parsed !== 'object') return
-    const draft = parsed as Partial<{
-      sourceMode: SourceMode
-      selectedEstimateId: string | null
-      selectedTaskOrderId: string | null
-      clientName: string
-      clientManager: string
-      clientTel: string
-      topic: string
-      eventDateIso: string
-      eventDuration: string
-      startHHmm: string
-      endHHmm: string
-      headcount: string
-      venue: string
-      notes: string
-      vendorBrief: string
-      budget: string
-      eventType: string
-      savedAt: string
-    }>
+  const runGenerate = useCallback(async (
+    params: Partial<ChatIntentParams>,
+    assistantId: string,
+  ) => {
+    if (abortRef.current) abortRef.current.abort()
+    const ctrl = new AbortController()
+    abortRef.current = ctrl
 
-    if (draft.sourceMode) setSourceMode(draft.sourceMode)
-    if (typeof draft.selectedEstimateId !== 'undefined') setSelectedEstimateId(draft.selectedEstimateId)
-    if (typeof draft.selectedTaskOrderId !== 'undefined') setSelectedTaskOrderId(draft.selectedTaskOrderId)
-    if (typeof draft.clientName === 'string') setClientName(draft.clientName)
-    if (typeof draft.clientManager === 'string') setClientManager(draft.clientManager)
-    if (typeof draft.clientTel === 'string') setClientTel(draft.clientTel)
-    if (typeof draft.topic === 'string') setTopic(draft.topic)
-    if (typeof draft.eventDateIso === 'string') {
-      const m = draft.eventDateIso.match(/^(\d{4})-(\d{2})-(\d{2})$/)
-      if (m) {
-        const y = Number(m[1])
-        const mo = Number(m[2]) - 1
-        const d = Number(m[3])
-        if (Number.isFinite(y) && Number.isFinite(mo) && Number.isFinite(d)) setEventDate(new Date(y, mo, d))
-      }
-    }
-    if (typeof draft.eventDuration === 'string') setEventDuration(draft.eventDuration)
-    if (typeof draft.startHHmm === 'string') setStartHHmm(draft.startHHmm)
-    if (typeof draft.endHHmm === 'string') setEndHHmm(draft.endHHmm)
-    if (typeof draft.headcount === 'string') setHeadcount(draft.headcount)
-    if (typeof draft.venue === 'string') setVenue(draft.venue)
-    if (typeof draft.notes === 'string') setNotes(draft.notes)
-    if (typeof draft.vendorBrief === 'string') setVendorBrief(draft.vendorBrief)
-    if (typeof draft.budget === 'string') setBudget(draft.budget)
-    if (typeof draft.eventType === 'string') setEventType(draft.eventType)
-    if (typeof draft.savedAt === 'string') setDraftSavedAt(draft.savedAt)
-
-    const hasMeaningful =
-      (typeof draft.topic === 'string' && draft.topic.trim().length > 0) ||
-      (typeof draft.vendorBrief === 'string' && draft.vendorBrief.trim().length > 0) ||
-      (typeof draft.clientName === 'string' && draft.clientName.trim().length > 0) ||
-      (typeof draft.eventType === 'string' && draft.eventType.trim().length > 0) ||
-      (typeof draft.notes === 'string' && draft.notes.trim().length > 0)
-    if (hasMeaningful) setPasteFlowCommitted(true)
-  }, [userDraftStorageKey])
-
-  useEffect(() => {
-    if (typeof window === 'undefined' || !userDraftStorageKey) return
-    const timer = window.setTimeout(() => {
-      const savedAt = new Date().toISOString()
-      const payload = {
-        sourceMode,
-        selectedEstimateId,
-        selectedTaskOrderId,
-        clientName,
-        clientManager,
-        clientTel,
-        topic,
-        eventDateIso: eventDate ? `${eventDate.getFullYear()}-${String(eventDate.getMonth() + 1).padStart(2, '0')}-${String(eventDate.getDate()).padStart(2, '0')}` : '',
-        eventDuration,
-        startHHmm,
-        endHHmm,
-        headcount,
-        venue,
-        notes,
-        vendorBrief,
-        budget,
-        eventType,
-        savedAt,
-      }
-      window.localStorage.setItem(userDraftStorageKey, JSON.stringify(payload))
-      setDraftSavedAt(savedAt)
-    }, 500)
-    return () => {
-      window.clearTimeout(timer)
-    }
-  }, [userDraftStorageKey, sourceMode, selectedEstimateId, selectedTaskOrderId, clientName, clientManager, clientTel, topic, eventDate, eventDuration, startHHmm, endHHmm, headcount, venue, notes, vendorBrief, budget, eventType])
-
-  useEffect(() => {
-    if (sourceMode !== 'fromEstimate') return
-    const et = selectedHistoryDoc?.eventType
-    if (typeof et === 'string' && et.trim()) setEventType(et)
-  }, [sourceMode, selectedEstimateId, selectedHistoryDoc?.eventType])
-
-  useEffect(() => {
-    const q = searchParams.get('estimate')
-    if (!q) return
-    if (historyList.length === 0) return
-
-    const found = historyList.some((h) => h.id === q)
-    if (found) {
-      setSourceMode('fromEstimate')
-      setSelectedEstimateId(q)
-      try {
-        window.history.replaceState({}, '', '/estimate-generator')
-      } catch {
-        /* ignore */
-      }
-      return
-    }
+    const merged = { ...currentParams, ...params }
+    setCurrentParams(merged)
 
     try {
-      window.history.replaceState({}, '', '/estimate-generator')
-    } catch {
-      /* ignore */
-    }
-    if (!estimateBadLinkWarnedRef.current) {
-      estimateBadLinkWarnedRef.current = true
-      showToast('링크에 적힌 문서를 목록에서 찾지 못했어요. 작업 이력에서 확인해 주세요.')
-    }
-  }, [searchParams, historyList, showToast])
-
-  useEffect(() => {
-    setDoc(null)
-    setGeneratedDocId(null)
-    if (sourceMode === 'fromEstimate') setSelectedTaskOrderId(null)
-    if (sourceMode === 'fromTaskOrder') setSelectedEstimateId(null)
-    if (sourceMode === 'fromTopic' || sourceMode === 'fromPrompt') {
-      setSelectedEstimateId(null)
-      setSelectedTaskOrderId(null)
-    }
-  }, [sourceMode])
-
-  // 저장 견적(fromEstimate)을 고르면 공통 입력값을 자동으로 채웁니다.
-  useEffect(() => {
-    if (sourceMode !== 'fromEstimate') return
-    if (!selectedHistoryDoc) return
-    const d = selectedHistoryDoc
-    setClientName(d.clientName || '')
-    setClientManager(d.clientManager || '')
-    setClientTel(d.clientTel || '')
-    setTopic(d.eventName || '')
-    setVenue(d.venue || '')
-    setHeadcount(d.headcount || '')
-    setNotes(d.notes || '')
-    setEventDuration(d.eventDuration || '')
-
-    const iso = String(d.eventDate || '').trim()
-    const m = iso.match(/^(\d{4})-(\d{2})-(\d{2})$/)
-    if (m) {
-      setEventDate(new Date(Number(m[1]), Number(m[2]) - 1, Number(m[3])))
-    } else {
-      const dt = new Date(iso)
-      setEventDate(Number.isNaN(dt.getTime()) ? null : dt)
-    }
-  }, [sourceMode, selectedHistoryDoc])
-
-  // 과업지시서(fromTaskOrder) 선택 시 가능한 범위에서 공통 입력값을 채웁니다.
-  useEffect(() => {
-    if (sourceMode !== 'fromTaskOrder') return
-    if (!selectedTaskOrderParsed) return
-
-    const p = selectedTaskOrderParsed
-    const derivedEventName =
-      p.projectTitle ||
-      p.orderingOrganization ||
-      selectedTaskOrder?.filename ||
-      '행사'
-    const derivedNotes = p.oneLineSummary || p.purpose || p.mainScope || selectedTaskOrder?.summary || ''
-
-    if (!topic.trim()) setTopic(derivedEventName)
-    if (!clientName.trim() && p.orderingOrganization) setClientName(p.orderingOrganization)
-    if (!venue.trim() && p.eventRange) setVenue(p.eventRange)
-    if (!notes.trim() && derivedNotes) setNotes(derivedNotes)
-
-    if (!headcount.trim() && p.requiredStaffing) {
-      const raw = p.requiredStaffing
-      const range = raw.match(/(\d{1,3}(?:,\d{3})?)\s*명?\s*[~\-–]\s*(\d{1,3}(?:,\d{3})?)\s*명?/)
-      if (range) {
-        const a = range[1].replace(/,/g, '')
-        const b = range[2].replace(/,/g, '')
-        setHeadcount(`${a}~${b}`)
-      } else {
-        const one = raw.match(/(\d{1,3}(?:,\d{3})?)\s*명/)
-        if (one) setHeadcount(one[1].replace(/,/g, ''))
-      }
-    }
-
-    if (!eventDuration.trim() && p.timelineDuration) {
-      const h = p.timelineDuration.match(/(\d{1,2})\s*시간/)
-      const m = p.timelineDuration.match(/(\d{1,2})\s*분/)
-      if (h) {
-        setEventDuration(m ? `${h[1]}시간 ${m[1]}분` : `${h[1]}시간`)
-      }
-    }
-
-    if (!eventDate && p.timelineDuration) {
-      const dtm = p.timelineDuration.match(/(20\d{2})[.\-/](\d{1,2})[.\-/](\d{1,2})/)
-      if (dtm) setEventDate(new Date(Number(dtm[1]), Number(dtm[2]) - 1, Number(dtm[3])))
-    }
-  }, [sourceMode, selectedTaskOrderParsed, selectedTaskOrder, topic, clientName, venue, notes, headcount, eventDuration, eventDate])
-
-  useEffect(() => {
-    if (!me) return
-    const paid = isPaidPlan(me.subscription.planType)
-    if (!paid && (sourceMode === 'fromTaskOrder' || sourceMode === 'fromEstimate')) {
-      setSourceMode('fromTopic')
-    }
-  }, [me, sourceMode])
-
-  const requestBodyForEstimate = useCallback(() => {
-    const eventDateIso = eventDate
-      ? `${eventDate.getFullYear()}-${String(eventDate.getMonth() + 1).padStart(2, '0')}-${String(eventDate.getDate()).padStart(
-          2,
-          '0',
-        )}`
-      : ''
-    const safeClientName = clientName.trim()
-    const safeClientManager = clientManager.trim()
-    const safeClientTel = clientTel.trim()
-    const safeTopic = topic.trim()
-    const safeNotes = notes.trim()
-    const safeHeadcount = headcount.trim()
-    const safeVenue = venue.trim()
-    const safeEventDuration = eventDuration.trim()
-    const safeStartHHmm = startHHmm.trim()
-    const safeEndHHmm = endHHmm.trim()
-    const promptRequirements = safeNotes ? `추가 메모: ${safeNotes}` : ''
-
-    if (sourceMode === 'fromPrompt') {
-      const raw = vendorBrief.trim()
-      if (!raw) return null
-      const et = eventType.trim()
-      return {
-        eventDate: '',
-        eventDuration: '',
-        eventStartHHmm: '',
-        eventEndHHmm: '',
-        headcount: '',
-        venue: '',
-        budget,
-        documentTarget: 'estimate' as const,
-        clientName: '',
+      const result = await apiGenerateStream({
+        eventName: merged.eventName || '행사',
+        clientName: merged.clientName || '',
         clientManager: '',
         clientTel: '',
-        requirements:
-          '업체 견적·브리핑 원문을 기준으로 행사 제안서를 구성합니다. 원문의 품목·수량·단가·조건을 반영하고, 사용자 단가표와 조합해 합리적인 항목을 만드세요.',
-        briefNotes: raw,
-        generationMode: 'vendorBrief' as const,
-        eventName: topic.trim() || '업체 견적 기반',
         quoteDate: todayStr(),
-        eventType: et || '기타',
-      }
-    }
-
-    const base = {
-      eventDate: eventDateIso,
-      eventDuration: safeEventDuration,
-      eventStartHHmm: safeStartHHmm,
-      eventEndHHmm: safeEndHHmm,
-      headcount: safeHeadcount,
-      venue: safeVenue,
-      budget,
-      documentTarget: 'estimate' as const,
-      clientName: safeClientName,
-      clientManager: safeClientManager,
-      clientTel: safeClientTel,
-      requirements: promptRequirements,
-    }
-
-    if (sourceMode === 'fromEstimate') {
-      const d = selectedHistoryDoc
-      if (!d) return null
-      const effectiveNotes = safeNotes || d.notes || ''
-      const effectiveRequirements = effectiveNotes ? `추가 메모: ${effectiveNotes}` : ''
-      return {
-        ...base,
-        quoteDate: d.quoteDate,
-        eventName: safeTopic || d.eventName,
-        eventType: eventType.trim() || d.eventType || '기타',
-        clientName: safeClientName || d.clientName || '',
-        clientManager: safeClientManager || d.clientManager || '',
-        clientTel: safeClientTel || d.clientTel || '',
-        headcount: safeHeadcount || d.headcount || '',
-        venue: safeVenue || d.venue || '',
-        eventDate: eventDateIso || d.eventDate || '',
-        eventDuration: safeEventDuration || d.eventDuration || '',
-        existingDoc: d,
-        requirements: effectiveRequirements,
-        briefNotes: effectiveNotes,
-      }
-    }
-
-    if (sourceMode === 'fromTaskOrder') {
-      if (!selectedTaskOrder) return null
-      const derivedNotes =
-        selectedTaskOrderParsed?.oneLineSummary ||
-        selectedTaskOrderParsed?.purpose ||
-        selectedTaskOrderParsed?.mainScope ||
-        selectedTaskOrder.summary ||
-        ''
-      const effectiveNotes = safeNotes || derivedNotes
-      const effectiveRequirements = effectiveNotes ? `추가 메모: ${effectiveNotes}` : ''
-      return {
-        ...base,
-        eventName:
-          safeTopic ||
-          selectedTaskOrderParsed?.projectTitle ||
-          selectedTaskOrderParsed?.orderingOrganization ||
-          selectedTaskOrder.filename ||
-          '행사',
-        quoteDate: todayStr(),
-        eventType: eventType.trim() || '기타',
-        clientName: safeClientName || selectedTaskOrderParsed?.orderingOrganization || '',
-        requirements: effectiveRequirements,
-        briefNotes: effectiveNotes,
-        generationMode: 'taskOrderBase' as const,
-        taskOrderBaseId: selectedTaskOrder.id,
-      }
-    }
-
-    return {
-      ...base,
-      eventName: safeTopic || '행사',
-      quoteDate: todayStr(),
-      eventType: eventType.trim() || '기타',
-      briefNotes: safeNotes,
-    }
-  }, [
-    budget,
-    eventType,
-    selectedHistoryDoc,
-    selectedTaskOrder,
-    selectedTaskOrderParsed,
-    clientName,
-    clientManager,
-    clientTel,
-    eventDate,
-    eventDuration,
-    startHHmm,
-    endHHmm,
-    sourceMode,
-    topic,
-    headcount,
-    venue,
-    notes,
-    vendorBrief,
-  ])
-
-  type EstimateGenerateBody = NonNullable<ReturnType<typeof requestBodyForEstimate>>
-
-  const buildVendorBriefRequestBody = useCallback(
-    (rawBrief: string): EstimateGenerateBody | null => {
-      const raw = rawBrief.trim()
-      if (raw.length < VENDOR_BRIEF_MIN_CHARS) return null
-      const firstLine = raw
-        .split(/\r?\n/)
-        .map((l) => l.trim())
-        .find((l) => l.length > 0)
-      const eventNameFromBrief = firstLine
-        ? firstLine.length > 100
-          ? `${firstLine.slice(0, 97)}…`
-          : firstLine
-        : ''
-      const inferredFromRaw = inferEventTypeFromBriefText(raw)
-      return {
-        eventDate: '',
-        eventDuration: '',
-        eventStartHHmm: '',
-        eventEndHHmm: '',
-        headcount: '',
-        venue: '',
-        budget,
-        documentTarget: 'estimate' as const,
-        clientName: '',
-        clientManager: '',
-        clientTel: '',
-        requirements:
-          '업체 견적·브리핑 원문을 기준으로 행사 제안서를 구성합니다. 원문의 품목·수량·단가·조건을 반영하고, 사용자 단가표와 조합해 합리적인 항목을 만드세요.',
-        briefNotes: raw,
-        generationMode: 'vendorBrief' as const,
-        eventName: eventNameFromBrief || topic.trim() || '업체 견적 기반',
-        quoteDate: todayStr(),
-        eventType: inferredFromRaw || eventType.trim() || '기타',
-      }
-    },
-    [budget, eventType, topic],
-  )
-
-  const handleGenerateEstimate = useCallback(async (bodyOverride?: EstimateGenerateBody): Promise<boolean> => {
-    const body = bodyOverride ?? requestBodyForEstimate()
-    if (!body) {
-      if (sourceMode === 'fromEstimate') {
-        showToast('저장된 문서를 불러올 수 없습니다. 목록에서 다시 선택해 주세요.')
-      } else if (sourceMode === 'fromTaskOrder') {
-        showToast('과업지시서 정보를 불러올 수 없습니다. 다시 선택해 주세요.')
-      } else if (sourceMode === 'fromPrompt') {
-        showToast('업체에서 들은 내용을 입력해 주세요.')
-      } else {
-        showToast('필수 입력을 확인해 주세요.')
-      }
-      return false
-    }
-
-    const { session, signal, ac } = startSession()
-
-    let completedOk = false
-    setPreviewSessionActive(true)
-    setGenerating(true)
-    setGenerationStageLog(['요청을 서버로 보내는 중…'])
-    setGenerationProgressLabel('입력 확인 중')
-    setBriefEnrich(null)
-    try {
-      const data = await apiGenerateStream(body, {
-        signal: ac.signal,
-        onStage: ({ stage, label, details }) => {
-          if (!stillCurrent(session)) return
-          setGenerationProgressLabel(label)
-          setGenerationStageLog((prev) => (prev[prev.length - 1] === label ? prev : [...prev, label]))
-          if (stage === 'enrich-done') {
-            const summary = parseBriefEnrichSummary(details)
-            if (summary) setBriefEnrich(summary)
-          }
+        eventDate: merged.eventDate || '',
+        eventDuration: merged.eventDuration || '',
+        venue: merged.venue || '',
+        headcount: merged.headcount || '',
+        eventType: merged.eventType || '일반',
+        budget: merged.budget || '',
+        requirements: merged.requirements || '',
+        briefNotes: merged.requirements || '',
+        documentTarget: (merged.documentTarget || 'estimate') as string,
+        generationMode: 'normal',
+        prices: prices.length > 0 ? prices : undefined,
+      }, {
+        signal: ctrl.signal,
+        onStage: ({ stage, label }) => {
+          updateMessage(assistantId, { stage, content: label ?? stage })
         },
       })
-      if (!stillCurrent(session)) return false
-      setDoc(data.doc)
-      setGeneratedDocId(data.id)
-      completedOk = true
-      if (isNarrowViewport) {
-        setMobileSheet('preview')
-      }
-      if (data.doc.quoteTemplate === 'fixed-v2' && priceItemCount > 0) {
-        showToast(
-          `단가표 ${priceItemCount}개 품목 기준으로 맞췄고, 없는 항목은 시장가로 채웠습니다. (「단가표」에서 확인)`,
-        )
-      } else {
-        showToast('행사 제안서 생성 완료!')
-      }
-    } catch (e) {
-      if (e instanceof DOMException && e.name === 'AbortError') return false
-      if (!stillCurrent(session)) return false
-      showToast(toUserMessage(e, '행사 제안서 생성에 실패했습니다.'))
-    } finally {
-      clearAbortIfCurrent(ac)
-      if (stillCurrent(session)) {
-        setGenerating(false)
-        setGenerationProgressLabel(null)
-        setGenerationStageLog([])
-        flushQueuedIntoNotes(setNotes, { success: completedOk })
-        if (!completedOk) setPreviewSessionActive(false)
-      }
-    }
-    return completedOk
-  }, [requestBodyForEstimate, showToast, sourceMode, priceItemCount, isNarrowViewport, startSession, stillCurrent, clearAbortIfCurrent, flushQueuedIntoNotes])
 
-  const handleRefineBrief = useCallback(
-    (note: string) => {
-      const trimmed = note.trim()
-      if (!trimmed) return
-      if (generating) return
-      setNotes((prev) => {
-        const base = (prev || '').trim()
-        const refinement = `[보강 메모] ${trimmed}`
-        return base ? `${base}\n\n${refinement}` : refinement
-      })
-      setRefinementCount((n) => n + 1)
-      const id = window.setTimeout(() => {
-        void handleGenerateEstimate()
-      }, 0)
-      return () => window.clearTimeout(id)
-    },
-    [generating, handleGenerateEstimate],
-  )
+      if (result?.doc) {
+        setCurrentDoc(result.doc)
+        setCurrentDocId(result.id ?? null)
 
-  const handleSaveDoc = useCallback(
-    async (nextDoc: QuoteDoc) => {
-      if (!generatedDocId) return
-      normalizeQuoteUnitPricesToThousand(nextDoc)
-      const persistedDoc: QuoteDoc = briefEnrich
-        ? { ...nextDoc, briefEnrich: briefEnrich as QuoteDoc['briefEnrich'] }
-        : nextDoc
-      setSaving(true)
-      try {
-        await apiFetch(`/api/generated-docs/${generatedDocId}`, {
-          method: 'PATCH',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ doc: persistedDoc }),
-        })
-        await apiFetch(`/api/quotes/${generatedDocId}`, {
-          method: 'PATCH',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ doc: persistedDoc }),
-        })
-        const updatedHistory = await apiFetch<HistoryRecord[]>('/api/history')
-        setHistoryList([...updatedHistory].reverse().slice(0, 20))
-        showToast('저장이 완료되었습니다.')
-      } catch (e) {
-        if (!isMountedRef.current) return
-        showToast(toUserMessage(e, '저장에 실패했습니다.'))
-      } finally {
-        if (isMountedRef.current) setSaving(false)
-      }
-    },
-    [generatedDocId, showToast, briefEnrich],
-  )
-
-  const handleProposalDownload = useCallback(async () => {
-    if (proposalGenerating) return
-    const proposalSource = doc ?? selectedHistoryDoc
-    if (!proposalSource) {
-      showToast('제안서로 내보낼 문서 정보가 없습니다.')
-      return
-    }
-
-    setProposalGenerating(true)
-    try {
-      await exportProgramProposalDocxFromDoc(proposalSource, {
-        includeQuote: true,
-        allowEmptyProgram: true,
-        budget,
-        company: companySettings,
-      })
-      if (!isMountedRef.current) return
-      showToast('워드(.docx) 다운로드를 시작했어요. 견적표·프로그램 본문이 함께 들어가요.')
-    } catch (e) {
-      if (!isMountedRef.current) return
-      if (e instanceof Error && e.name === 'AbortError') return
-      showToast(toUserMessage(e, '제안서 생성에 실패했습니다.'))
-    } finally {
-      if (isMountedRef.current) setProposalGenerating(false)
-    }
-  }, [proposalGenerating, doc, selectedHistoryDoc, showToast, budget, companySettings])
-
-  const handleLoadSavedEstimate = useCallback(() => {
-    const id = loadPickerId.trim()
-    if (!id) {
-      showToast('불러올 문서를 목록에서 선택해 주세요.')
-      return
-    }
-    const rec = historyList.find((r) => r.id === id)
-    if (!rec?.doc) {
-      showToast('문서를 불러올 수 없습니다. 작업 이력을 확인해 주세요.')
-      return
-    }
-    const next = structuredClone(rec.doc) as QuoteDoc
-    normalizeQuoteUnitPricesToThousand(next)
-    setDoc(next)
-    setGeneratedDocId(rec.id)
-    setBriefEnrich(next.briefEnrich ? (next.briefEnrich as BriefEnrichSummary) : null)
-    setRefinementCount(0)
-    resetRefineQueue()
-    setPasteFlowCommitted(true)
-    setPreviewSessionActive(true)
-    showToast('저장된 문서를 불러왔습니다. 수신처·항목만 수정한 뒤 저장하거나 보내세요.')
-    if (isNarrowViewport) setMobileSheet('preview')
-  }, [historyList, loadPickerId, showToast, resetRefineQueue, isNarrowViewport])
-
-  const generateDisabled = useMemo(() => {
-    if (pricingSheetRequired && priceItemCount === 0) return true
-    if (!eventType.trim()) return true
-    if (sourceMode === 'fromPrompt') {
-      return vendorBrief.trim().length < VENDOR_BRIEF_MIN_CHARS
-    }
-    const commonValid =
-      clientName.trim() &&
-      clientManager.trim() &&
-      clientTel.trim() &&
-      topic.trim() &&
-      !!eventDate &&
-      eventDuration.trim() &&
-      headcount.trim() &&
-      venue.trim()
-
-    if (sourceMode === 'fromEstimate') return !selectedEstimateId || !selectedHistoryDoc || !commonValid
-    if (sourceMode === 'fromTaskOrder') return !selectedTaskOrderId || !selectedTaskOrder || !commonValid
-    return !commonValid
-  }, [
-    pricingSheetRequired,
-    priceItemCount,
-    selectedEstimateId,
-    selectedHistoryDoc,
-    selectedTaskOrderId,
-    selectedTaskOrder,
-    sourceMode,
-    topic,
-    clientName,
-    clientManager,
-    clientTel,
-    eventDate,
-    eventDuration,
-    headcount,
-    venue,
-    vendorBrief,
-    eventType,
-  ])
-
-  const exportEstimatePdf = useCallback(async () => {
-    if (!doc || pdfExportingRef.current) return
-    pdfExportingRef.current = true
-    setPdfExporting(true)
-    try {
-      await exportToPdf(doc, companySettings ?? undefined)
-      showToast('PDF 저장 완료!')
-    } catch (e) {
-      showToast(toUserMessage(e, '저장 실패'))
-    } finally {
-      pdfExportingRef.current = false
-      setPdfExporting(false)
-    }
-  }, [doc, companySettings, showToast])
-
-  const scrollPreviewPanelTop = useCallback(() => {
-    document.getElementById('estimate-preview-scroll')?.scrollTo({ top: 0, behavior: 'smooth' })
-    if (isNarrowViewport) {
-      setMobileSheet('preview')
-    }
-  }, [isNarrowViewport])
-
-  const focusEstimateTable = useCallback(() => {
-    const root = document.getElementById('estimate-result-body')
-    root?.scrollIntoView({ behavior: 'smooth', block: 'start' })
-    window.setTimeout(() => {
-      const first =
-        root?.querySelector<HTMLTextAreaElement>('tr.group textarea') ??
-        root?.querySelector<HTMLTextAreaElement>('textarea')
-      first?.focus()
-    }, 450)
-  }, [])
-
-  const scrollToWizardTop = useCallback(() => {
-    document.getElementById('estimate-wizard-top')?.scrollIntoView({ behavior: 'smooth', block: 'start' })
-  }, [])
-
-  /** MacroPasteGate 세션 복원 effect가 참조하므로 useCallback으로 고정 */
-  const markPasteFlowCommitted = useCallback(() => {
-    setPasteFlowCommitted(true)
-  }, [])
-
-  const handleChatSubmit = useCallback(
-    async (text: string): Promise<boolean | undefined> => {
-      const trimmed = text.trim()
-      if (!trimmed.length) return false
-
-      if (chatGenerateBusyRef.current) {
-        showToast('제안서를 만들고 있어요. 완료되면 다시 보내 주세요.')
-        return undefined
-      }
-
-      chatGenerateBusyRef.current = true
-      try {
-        const prevBrief = chatBriefSentRef.current ? vendorBriefRef.current.trim() : ''
-        const isFollowUp = prevBrief.length > 0
-        const newBrief = isFollowUp ? `${prevBrief}\n${trimmed}` : trimmed
-
-        const body = buildVendorBriefRequestBody(newBrief)
-        if (!body) {
-          showToast(`행사·견적 내용을 ${VENDOR_BRIEF_MIN_CHARS}자 이상 입력해 주세요.`)
-          return false
+        const docLabels: Record<string, string> = {
+          estimate: '행사 제안서', program: '프로그램 제안서', planning: '기획안',
+          cuesheet: '큐시트', scenario: '시나리오', emceeScript: '사회자 멘트 원고', timetable: '타임테이블',
         }
-
-        if (!isFollowUp) {
-          const inferredEt = inferEventTypeFromBriefText(trimmed)
-          const p = parseLooseBrief(trimmed)
-          setSourceMode('fromPrompt')
-          setEventType((et) => (et.trim() ? et : inferredEt || '기타'))
-          if (looksLikeVendorQuoteBlock(p)) {
-            setTopic(
-              (prev) => prev.trim() || (p.supplierHint?.slice(0, 120) ?? '') || '업체 견적 기반',
-            )
-          } else {
-            const firstLine = trimmed
-              .split(/\r?\n/)
-              .map((l) => l.trim())
-              .find((l) => l.length > 0)
-            if (firstLine) {
-              setTopic((prev) =>
-                prev.trim() ? prev : firstLine.length > 100 ? `${firstLine.slice(0, 97)}…` : firstLine,
-              )
-            }
-          }
-        }
-
-        setVendorBrief(newBrief)
-        vendorBriefRef.current = newBrief
-        chatBriefSentRef.current = true
-        setPasteFlowCommitted(true)
-
-        return await handleGenerateEstimate(body)
-      } finally {
-        chatGenerateBusyRef.current = false
+        const label = docLabels[merged.documentTarget ?? 'estimate'] ?? '문서'
+        updateMessage(assistantId, {
+          isGenerating: false,
+          content: `${label}를 완성했어요 ✓\n\n수정이 필요하면 말씀해 주세요.\n예) "인원 200명으로", "큐시트도 만들어줘"`,
+          stage: undefined,
+        })
+        if (window.innerWidth < 768) setMobilePanel('preview')
       }
-    },
-    [buildVendorBriefRequestBody, handleGenerateEstimate, showToast],
-  )
+    } catch (err: unknown) {
+      if ((err as { name?: string }).name === 'AbortError') return
+      updateMessage(assistantId, {
+        isGenerating: false,
+        isError: true,
+        content: toUserMessage(err) ?? '문서 생성 중 오류가 발생했습니다.',
+        stage: undefined,
+      })
+    } finally {
+      setIsGenerating(false)
+      abortRef.current = null
+    }
+  }, [currentParams, prices, updateMessage])
 
-  const applyPastedBrief = useCallback(
-    (text: string) => {
-      const trimmed = text.trim()
-      const p = parseLooseBrief(trimmed)
-      if (looksLikeVendorQuoteBlock(p)) {
-        setSourceMode('fromPrompt')
-        setVendorBrief(trimmed)
-        setTopic((prev) => prev.trim() || (p.supplierHint?.slice(0, 120) ?? '') || '업체 견적 기반')
-        setEventType((et) => et.trim() || '기타')
-        showToast('업체 원문 모드로 맞췄어요. 행사 종류를 선택한 뒤 생성해 주세요.')
+  const handleSend = useCallback(async (text: string) => {
+    if (isGenerating) return
+
+    const userMsgId = uid()
+    setMessages(prev => [...prev, { id: userMsgId, role: 'user', content: text }])
+    setIsGenerating(true)
+
+    const assistantId = uid()
+    setMessages(prev => [...prev, {
+      id: assistantId, role: 'assistant',
+      content: '분석 중...', isGenerating: true, stage: 'enrich',
+    }])
+
+    try {
+      const history = messages
+        .filter(m => !m.isGenerating)
+        .slice(-6)
+        .map(m => ({ role: m.role, content: m.content }))
+
+      const intent = await apiFetch<ChatIntentResult>('/api/chat-intent', {
+        method: 'POST',
+        body: JSON.stringify({ message: text, history, currentParams }),
+      })
+
+      if (!intent) throw new Error('응답이 없습니다.')
+
+      if (intent.action === 'clarify') {
+        updateMessage(assistantId, { isGenerating: false, content: intent.question, stage: undefined })
+        setIsGenerating(false)
         return
       }
-      setSourceMode('fromTopic')
-      if (p.supplierHint) setClientName(p.supplierHint)
-      if (p.representativeHint) {
-        const parts = p.representativeHint.split(/\s+/).filter(Boolean)
-        setClientManager(parts[parts.length - 1] || p.representativeHint)
-      }
-      if (p.phones[0]) setClientTel(p.phones[0])
-      const metaBits = [
-        p.bizNumbers.length ? `사업자등록번호: ${p.bizNumbers.join(', ')}` : '',
-        p.priceLines.length ? `금액 요약:\n${p.priceLines.join('\n')}` : '',
-      ].filter(Boolean)
-      setNotes(metaBits.length ? `${trimmed}\n\n---\n${metaBits.join('\n')}` : trimmed)
-      setTopic((prev) => {
-        if (prev.trim()) return prev
-        const first = trimmed
-          .split(/\r?\n/)
-          .map((l) => l.trim())
-          .find((l) => l.length > 0)
-        if (!first) return prev
-        return first.length > 100 ? `${first.slice(0, 97)}…` : first
+
+      const params = intent.action === 'modify'
+        ? { ...currentParams, ...intent.params }
+        : (intent.params ?? {})
+
+      updateMessage(assistantId, { content: '문서 작성 중...', stage: 'draft' })
+      await runGenerate(params, assistantId)
+    } catch (err) {
+      updateMessage(assistantId, {
+        isGenerating: false, isError: true,
+        content: toUserMessage(err) ?? '오류가 발생했습니다.',
+        stage: undefined,
       })
-      showToast('필드를 채웠어요. 일정·인원을 확인한 뒤 생성해 주세요.')
-    },
-    [showToast],
-  )
-
-  const validationMessage = useMemo(() => {
-    if (!generateDisabled) return null
-    if (pricingSheetRequired && priceItemCount === 0) {
-      return '단가표에 항목이 없습니다. 단가표 메뉴에서 항목을 입력하거나 .xlsx를 업로드한 뒤 다시 시도해 주세요.'
+      setIsGenerating(false)
     }
-    if (!eventType.trim()) return '행사 종류를 선택해 주세요. (체육대회·워크숍·팀빌딩 등)'
-    if (sourceMode === 'fromPrompt') {
-      return vendorBrief.trim().length < VENDOR_BRIEF_MIN_CHARS
-        ? `업체에서 들은 내용을 ${VENDOR_BRIEF_MIN_CHARS}자 이상 붙여 넣어 주세요. (한 줄 요약도 가능합니다.)`
-        : null
-    }
-    if (sourceMode === 'fromEstimate') {
-      if (!selectedEstimateId) return '저장된 문서를 선택해 주세요.'
-      if (!selectedHistoryDoc) return '선택한 견적 문서를 불러올 수 없습니다. 다른 항목을 선택해 주세요.'
-    }
-    if (sourceMode === 'fromTaskOrder') {
-      if (!selectedTaskOrderId) return '과업지시서를 선택해 주세요.'
-      if (!selectedTaskOrder) return '선택한 과업지시서를 불러오지 못했습니다.'
-    }
-    if (!clientName.trim()) return '업체명을 입력해 주세요.'
-    if (!clientManager.trim()) return '담당자를 입력해 주세요.'
-    if (!clientTel.trim()) return '연락처를 입력해 주세요.'
-    if (!topic.trim()) return '행사명을 입력해 주세요.'
-    if (!eventDate) return '행사 날짜를 입력해 주세요.'
-    if (!eventDuration.trim()) return '행사 시간(소요/구간)을 입력해 주세요.'
-    if (!venue.trim()) return '행사장소를 입력해 주세요.'
-    if (!headcount.trim()) return '인원을 입력해 주세요.'
-    return null
-  }, [
-    generateDisabled,
-    pricingSheetRequired,
-    priceItemCount,
-    sourceMode,
-    topic,
-    selectedTaskOrderId,
-    selectedTaskOrder,
-    selectedEstimateId,
-    selectedHistoryDoc,
-    clientName,
-    clientManager,
-    clientTel,
-    eventDate,
-    eventDuration,
-    venue,
-    headcount,
-    vendorBrief,
-    eventType,
-  ])
+  }, [isGenerating, messages, currentParams, updateMessage, runGenerate])
 
-  const docSummary = useMemo(() => {
-    if (!doc) return null
-    const lineCount = doc.quoteItems.reduce(
-      (count, category) =>
-        count + (category.items?.filter((item) => !isExcludedSupplyLineItem(item)).length ?? 0),
-      0,
-    )
-    const optionalCount = doc.quoteItems.reduce(
-      (count, category) =>
-        count +
-        (category.items?.filter((item) => {
-          const kind = item.kind || category.category
-          return kind === '선택1' || kind === '선택2'
-        }).length ?? 0),
-      0,
-    )
-    return { lineCount, optionalCount }
-  }, [doc])
-
-  const promptOnlyInputs = (
-    <div className="space-y-3">
-      <div className="rounded-2xl border border-slate-200 bg-white px-4 py-4 space-y-3">
-        <p className="text-xs leading-relaxed text-slate-600">
-          업체·행사사 등에서 들은 내용을 그대로 붙여 넣으면, 단가표를 반영해 행사 제안서 형식으로 정리합니다. 행사명·수신처·일정은
-          원문에서 찾거나 AI가 채웁니다.
-        </p>
-        <div>
-          <label className="mb-1.5 block text-sm font-medium text-slate-800">
-            행사 종류<span className="text-red-500">*</span>
-          </label>
-          <p className="mb-1.5 text-xs text-slate-500">
-            체육대회·워크숍·팀빌딩 등에 맞게 단가표에서 가져올 카테고리와 AI가 넣을 품목이 달라집니다.
-          </p>
-          <select
-            value={eventType}
-            onChange={(e) => setEventType(e.target.value)}
-            className="w-full rounded-xl border border-slate-200 bg-white px-3.5 py-3 text-[15px] text-slate-900 shadow-sm focus:outline-none focus:border-primary-400 focus:ring-4 focus:ring-primary-100/70"
-          >
-            <option value="">선택하세요</option>
-            {EVENT_TYPE_GROUPS.map((g) => (
-              <optgroup key={g.group} label={g.group}>
-                {g.options.map((o) => (
-                  <option key={o} value={o}>
-                    {o}
-                  </option>
-                ))}
-              </optgroup>
-            ))}
-          </select>
-        </div>
-        <Textarea
-          label="업체에서 들은 내용"
-          showRequiredMark
-          required
-          value={vendorBrief}
-          onChange={(e) => setVendorBrief(e.target.value)}
-          placeholder="예) ○○업체 담당 ○○○ / 4/12 잠실 ○○홀 / 인원 200명 전후 / MC 180만, 음향 350만, 현수막 2개 각 15만… (메모·카톡·이메일 그대로)"
-          rows={12}
-        />
-        <Input
-          label="행사명(선택)"
-          value={topic}
-          onChange={(e) => setTopic(e.target.value)}
-          placeholder="비워 두면 원문·문서 제목에서 추정합니다"
-        />
-        <div>
-          <label className="mb-1.5 block text-sm font-medium text-slate-800">예산 범위</label>
-          <select
-            value={budget}
-            onChange={(e) => setBudget(e.target.value)}
-            className="w-full rounded-xl border border-slate-200 bg-white px-3.5 py-3 text-[15px] text-slate-900 shadow-sm focus:outline-none focus:border-primary-400 focus:ring-4 focus:ring-primary-100/70"
-          >
-            {ESTIMATE_BUDGET_OPTIONS.map((o) => (
-              <option key={o.value} value={o.value}>
-                {o.label}
-              </option>
-            ))}
-          </select>
-        </div>
-      </div>
-    </div>
-  )
-
-  const topicInputs = (
-    <div className="space-y-3">
-      <div className="rounded-2xl border border-slate-200 bg-white px-4 py-4 space-y-3">
-        <div>
-          <label className="mb-1.5 block text-sm font-medium text-slate-800">
-            행사 종류<span className="text-red-500">*</span>
-          </label>
-          <p className="mb-1.5 text-xs text-slate-500">
-            업로드한 단가표에서 이 유형에 맞는 카테고리만 펼치고, AI도 이 유형에 맞는 항목을 우선합니다.
-          </p>
-          <select
-            value={eventType}
-            onChange={(e) => setEventType(e.target.value)}
-            className="w-full rounded-xl border border-slate-200 bg-white px-3.5 py-3 text-[15px] text-slate-900 shadow-sm focus:outline-none focus:border-primary-400 focus:ring-4 focus:ring-primary-100/70"
-          >
-            <option value="">선택하세요</option>
-            {EVENT_TYPE_GROUPS.map((g) => (
-              <optgroup key={g.group} label={g.group}>
-                {g.options.map((o) => (
-                  <option key={o} value={o}>
-                    {o}
-                  </option>
-                ))}
-              </optgroup>
-            ))}
-          </select>
-        </div>
-        <Input
-          label="업체명"
-          showRequiredMark
-          required
-          value={clientName}
-          onChange={(e) => setClientName(e.target.value)}
-          placeholder="예) ㈜OOO"
-        />
-        <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
-          <Input
-            label="담당자"
-            showRequiredMark
-            required
-            value={clientManager}
-            onChange={(e) => setClientManager(e.target.value)}
-            placeholder="예) 김OO"
-          />
-          <Input
-            label="연락처"
-            showRequiredMark
-            required
-            value={clientTel}
-            onChange={(e) => setClientTel(e.target.value)}
-            placeholder="예) 010-1234-5678"
-          />
-        </div>
-        <Input
-          label="행사명"
-          showRequiredMark
-          required
-          value={topic}
-          onChange={(e) => setTopic(e.target.value)}
-          placeholder="예) 2026 상반기 임직원 워크숍"
-        />
-        <Input
-          label="행사장소"
-          showRequiredMark
-          required
-          value={venue}
-          onChange={(e) => setVenue(e.target.value)}
-          placeholder="예) 잠실 롯데호텔"
-        />
-        <div className="space-y-3">
-          <CalendarPicker
-            label="행사 날짜"
-            value={eventDate}
-            onChange={setEventDate}
-            placeholder="날짜 선택"
-          />
-          <Input
-            label="행사 시간"
-            showRequiredMark
-            required
-            value={eventDuration}
-            onChange={(e) => setEventDuration(e.target.value)}
-            placeholder="예) 10:00~12:00 / 2시간"
-          />
-        </div>
-        <Input
-          label="인원"
-          showRequiredMark
-          required
-          value={headcount}
-          onChange={(e) => setHeadcount(e.target.value)}
-          placeholder="예) 80"
-          inputMode="numeric"
-        />
-        <div>
-          <label className="mb-1.5 block text-sm font-medium text-slate-800">예산 범위</label>
-          <p className="mb-1.5 text-xs text-slate-500">AI가 총액·항목 구성을 맞출 때 참고합니다.</p>
-          <select
-            value={budget}
-            onChange={(e) => setBudget(e.target.value)}
-            className="w-full rounded-xl border border-slate-200 bg-white px-3.5 py-3 text-[15px] text-slate-900 shadow-sm focus:outline-none focus:border-primary-400 focus:ring-4 focus:ring-primary-100/70"
-          >
-            {ESTIMATE_BUDGET_OPTIONS.map((o) => (
-              <option key={o.value} value={o.value}>
-                {o.label}
-              </option>
-            ))}
-          </select>
-        </div>
-        <Textarea
-          label="추가 요청사항(선택)"
-          value={notes}
-          onChange={(e) => setNotes(e.target.value)}
-          placeholder="필요할 때만 적어 주세요. 예) CEO 인사말, VIP 동선, 특수 장비 등"
-          rows={4}
-        />
-      </div>
-    </div>
-  )
-
-  const totalsForHeader = useMemo(() => {
-    if (!doc) return null
-    return calcTotals(doc)
-  }, [doc])
-
-  /** Claude형: 채팅만 보이다가 생성·불러오기 시 오른쪽 미리보기 패널 표시 */
-  const showPreviewPane = previewSessionActive || generating || doc != null
-
-  const chatSubmitAssistantReply = useMemo(
-    () =>
-      isNarrowViewport
-        ? '제안서를 만들고 있어요. 「미리보기」 탭에서 진행 상황을 확인할 수 있어요.'
-        : '제안서를 만들고 있어요. 오른쪽 패널에서 진행 상황을 확인할 수 있어요.',
-    [isNarrowViewport],
-  )
-
-  const chatFollowUpAssistantReply = useMemo(
-    () =>
-      isNarrowViewport
-        ? '수정 내용을 반영해 다시 만들고 있어요. 「미리보기」 탭을 확인해 주세요.'
-        : '수정 내용을 반영해 다시 만들고 있어요. 오른쪽 패널을 확인해 주세요.',
-    [isNarrowViewport],
-  )
-
-  useEffect(() => {
-    if (!isNarrowViewport || mobileSheet !== 'preview') return
-    const id = requestAnimationFrame(() => {
-      document.getElementById('estimate-preview-heading')?.focus()
-    })
-    return () => cancelAnimationFrame(id)
-  }, [mobileSheet, isNarrowViewport])
-
-  useEffect(() => {
-    if (isNarrowViewport && generating) setMobileSheet('preview')
-  }, [isNarrowViewport, generating])
-
-  useEffect(() => {
-    if (!showPreviewPane && isNarrowViewport) setMobileSheet('chat')
-  }, [showPreviewPane, isNarrowViewport])
-
-  useEffect(() => {
-    if (!doc && !generating) setPreviewSessionActive(false)
-  }, [doc, generating])
-
-  const onEstimateMobileTabKeyDown = useCallback(
-    (e: KeyboardEvent<HTMLDivElement>) => {
-      if (!isNarrowViewport) return
-      if (e.key === 'ArrowRight' || e.key === 'ArrowDown') {
-        e.preventDefault()
-        setMobileSheet('preview')
-        requestAnimationFrame(() => document.getElementById('estimate-tab-preview')?.focus())
-      } else if (e.key === 'ArrowLeft' || e.key === 'ArrowUp') {
-        e.preventDefault()
-        setMobileSheet('chat')
-        requestAnimationFrame(() => document.getElementById('estimate-tab-chat')?.focus())
-      } else if (e.key === 'Home') {
-        e.preventDefault()
-        setMobileSheet('chat')
-        requestAnimationFrame(() => document.getElementById('estimate-tab-chat')?.focus())
-      } else if (e.key === 'End') {
-        e.preventDefault()
-        setMobileSheet('preview')
-        requestAnimationFrame(() => document.getElementById('estimate-tab-preview')?.focus())
-      }
-    },
-    [isNarrowViewport],
-  )
+  const limitReached = me && me.usage.quoteGeneratedCount >= me.limits.monthlyQuoteGenerateLimit
 
   return (
-    <div className="flex h-screen overflow-hidden bg-gray-50/50">
+    <div className="flex h-screen overflow-hidden bg-slate-50">
       <GNB />
-      <div className="flex min-h-0 flex-1 flex-col overflow-hidden">
-        <header className="flex flex-shrink-0 items-center gap-2 border-b border-slate-200 bg-white px-4 py-2 sm:px-5">
-          <h1 className="text-sm font-semibold text-slate-900">행사 제안서 생성</h1>
-          <p className="hidden text-[11px] text-slate-500 sm:block">
-            타임테이블 등 세부 문서는 생성 완료 후 같은 행사 정보로 이어서 만들 수 있어요.
-          </p>
-        </header>
 
-        {meLoadError ? (
-          <div
-            role="alert"
-            className="flex shrink-0 items-center justify-between gap-2 border-b border-amber-200 bg-amber-50 px-4 py-2 text-xs text-amber-950"
-          >
-            <p className="min-w-0 leading-snug">
-              {meLoadError} — 플랜·사용량 표시가 지연될 수 있어요.
-            </p>
+      {/* Mobile panel toggle */}
+      {currentDoc && (
+        <div className="md:hidden fixed bottom-5 left-1/2 -translate-x-1/2 z-50 flex bg-white rounded-full shadow-lg border border-slate-200 p-1 gap-1">
+          {(['chat', 'preview'] as const).map(p => (
             <button
-              type="button"
-              onClick={() => void refetchMe()}
-              className="shrink-0 rounded-md border border-amber-300 bg-white px-2.5 py-1 text-[11px] font-semibold text-amber-900 hover:bg-amber-100"
-            >
-              다시 시도
-            </button>
-          </div>
-        ) : null}
-
-        {/* md부터 좌 340px 고정 — lg(1024)만 쓰면 창이 좁을 때 좌열이 전체 너비로 보임 */}
-        {/* md 미만: 한 화면에 입력 또는 미리보기 */}
-        {isNarrowViewport && showPreviewPane ? (
-          <div
-            className="flex shrink-0 gap-1 border-b border-slate-200 bg-white px-2 py-1.5 md:hidden"
-            role="tablist"
-            aria-label="입력과 미리보기 전환"
-            onKeyDown={onEstimateMobileTabKeyDown}
-          >
-            <button
-              type="button"
-              role="tab"
-              id="estimate-tab-chat"
-              aria-controls="estimate-panel-chat"
-              aria-selected={mobileSheet === 'chat'}
-              tabIndex={mobileSheet === 'chat' ? 0 : -1}
-              onClick={() => setMobileSheet('chat')}
-              className={`min-h-9 flex-1 rounded-lg px-2 text-xs font-semibold ${
-                mobileSheet === 'chat' ? 'bg-primary-600 text-white' : 'bg-slate-100 text-slate-700'
-              }`}
-            >
-              입력·채팅
-            </button>
-            <button
-              type="button"
-              role="tab"
-              id="estimate-tab-preview"
-              aria-controls="estimate-panel-preview"
-              aria-selected={mobileSheet === 'preview'}
-              tabIndex={mobileSheet === 'preview' ? 0 : -1}
-              onClick={() => setMobileSheet('preview')}
-              className={`min-h-9 flex-1 rounded-lg px-2 text-xs font-semibold ${
-                mobileSheet === 'preview' ? 'bg-primary-600 text-white' : 'bg-slate-100 text-slate-700'
-              }`}
-            >
-              미리보기
-            </button>
-          </div>
-        ) : null}
-
-        <div className="flex min-h-0 flex-1 flex-col md:flex-row">
-          <div
-            id="estimate-panel-chat"
-            role={isNarrowViewport ? 'tabpanel' : undefined}
-            aria-labelledby={isNarrowViewport ? 'estimate-tab-chat' : undefined}
-            hidden={isNarrowViewport && showPreviewPane && mobileSheet !== 'chat'}
-            className={`flex min-h-0 w-full flex-col overflow-hidden border-slate-200 bg-white transition-[flex,width,max-width] duration-300 ease-out ${
-              showPreviewPane
-                ? 'md:w-[340px] md:min-w-[340px] md:max-w-[340px] md:flex-none md:border-r md:border-slate-200'
-                : 'md:flex-1 md:min-w-0 md:max-w-none md:border-r-0'
-            }`}
-          >
-            <div id="estimate-wizard-top" className="flex min-h-0 flex-1 flex-col overflow-hidden">
-              {me ? (
-                <div className="flex-shrink-0 border-b border-slate-100 bg-white px-3 py-2 text-[11px] text-slate-500 tabular-nums">
-                  {me.subscription.planType}
-                  {' · '}
-                  {me.usage.quoteGeneratedCount}/{me.limits.monthlyQuoteGenerateLimit}
-                  {me.subscription.planType === 'PREMIUM'
-                    ? ` · 프리미엄 ${me.usage.premiumGeneratedCount}/${me.limits.monthlyPremiumGenerationLimit}`
-                    : ''}
-                </div>
-              ) : null}
-              <section className="flex min-h-0 min-w-0 flex-1 flex-col">
-              <MacroPasteGate
-                skipStorageKey="planic:skip-paste-gate:estimate"
-                layout="chat"
-                chatPanelStyle="split"
-                chatPrimaryMode
-                showWizardPanel={showWizardPanel}
-                onChatSubmit={handleChatSubmit}
-                onSkipPaste={() => setShowWizardPanel(true)}
-                chatSubmitAssistantReply={chatSubmitAssistantReply}
-                chatFollowUpAssistantReply={chatFollowUpAssistantReply}
-                chatSubmitFailureReply="제안서를 시작하지 못했어요. 내용을 조금 더 적거나, 잠시 후 다시 보내 주세요."
-                title="행사 제안서"
-                description="행사·견적 내용을 입력하고 보내 주세요."
-                chatWelcome={`행사·견적 내용을 아래에 입력한 뒤 보내 주세요.\n보내시면 제안서 초안을 바로 만들어 드립니다.`}
-                placeholder={`예)\n공급자 : (주)OOO 대표이사 홍길동\n사업자번호 : 000-00-00000\n연락처 : 010-0000-0000\n사회자 1명 330만원\n붐어 MC 4명 …`}
-                onApplyPaste={applyPastedBrief}
-                onWizardEntered={markPasteFlowCommitted}
-              >
-              <SimpleGeneratorWizard
-            title="행사 제안서 생성하기"
-            step1Label="생성 방식"
-            showHeaderEyebrow={false}
-            preStepContent={null}
-            modes={modesForWizard}
-            modeId={sourceMode}
-            onBlockedModeClick={() => showToast('베이직 이상 플랜에서 사용할 수 있어요.')}
-            onModeChange={(id) => {
-              const next = id as SourceMode
-              setSourceMode(next)
-              setClientName('')
-              setClientManager('')
-              setClientTel('')
-              setTopic('')
-              setEventDate(null)
-              setEventDuration('')
-              setStartHHmm('')
-              setEndHHmm('')
-              setHeadcount('')
-              setVenue('')
-              setNotes('')
-              setVendorBrief('')
-              setBudget('미정')
-              setEventType('')
-            }}
-            requiredInput={
-              sourceMode === 'fromEstimate' ? (
-                <>
-                  <select
-                    value={selectedEstimateId || ''}
-                    onChange={(e) => {
-                      setSelectedEstimateId(e.target.value || null)
-                      setDoc(null)
-                      setGeneratedDocId(null)
-                    }}
-                    className="w-full rounded-xl border border-slate-200 bg-white px-3.5 py-3 text-[15px] text-slate-900 shadow-sm focus:outline-none focus:border-primary-400 focus:ring-4 focus:ring-primary-100/70"
-                  >
-                    <option value="" disabled>
-                      저장된 문서를 선택하세요
-                    </option>
-                    {historyList.slice(0, 20).map((r) => (
-                      <option key={r.id} value={r.id}>
-                        {r.eventName || '행사'} · {r.quoteDate}
-                      </option>
-                    ))}
-                  </select>
-                  <div className="mt-3">{topicInputs}</div>
-                </>
-              ) : sourceMode === 'fromTaskOrder' ? (
-                <>
-                  <select
-                    value={selectedTaskOrderId || ''}
-                    onChange={(e) => {
-                      setSelectedTaskOrderId(e.target.value || null)
-                      setDoc(null)
-                      setGeneratedDocId(null)
-                    }}
-                    className="w-full rounded-xl border border-slate-200 bg-white px-3.5 py-3 text-[15px] text-slate-900 shadow-sm focus:outline-none focus:border-primary-400 focus:ring-4 focus:ring-primary-100/70"
-                  >
-                    <option value="" disabled>
-                      과업지시서를 선택하세요
-                    </option>
-                    {taskOrderRefs.slice(0, 20).map((t) => (
-                      <option key={t.id} value={t.id}>
-                        {t.filename || '문서'}
-                      </option>
-                    ))}
-                  </select>
-                  <div className="mt-3">{topicInputs}</div>
-                </>
-              ) : sourceMode === 'fromPrompt' ? (
-                promptOnlyInputs
-              ) : (
-                topicInputs
-              )
-            }
-            generateLabel="행사 제안서 생성하기"
-            onGenerate={() => void handleGenerateEstimate()}
-            generating={generating}
-            generationProgressLabel={generationProgressLabel}
-            generateDisabled={generateDisabled}
-            validationMessage={validationMessage}
-            showValidationBanner
-            step2ActionLabel="행사 제안서 생성으로 이동"
-              />
-              </MacroPasteGate>
-            </section>
-            {!showPreviewPane ? (
-              <div className="flex-shrink-0 border-t border-slate-100 bg-slate-50/90 px-3 py-2.5">
-                <p className="text-[10.5px] font-semibold text-slate-600">저장된 문서 불러오기</p>
-                <div className="mt-1.5 flex gap-1.5">
-                  <select
-                    value={loadPickerId}
-                    onChange={(e) => setLoadPickerId(e.target.value)}
-                    disabled={historyList.length === 0}
-                    className="min-w-0 flex-1 rounded-lg border border-slate-200 bg-white px-2 py-1.5 text-[11px] text-slate-900 disabled:opacity-50"
-                  >
-                    {historyList.length === 0 ? (
-                      <option value="">저장된 문서 없음</option>
-                    ) : (
-                      historyList.map((r) => (
-                        <option key={r.id} value={r.id}>
-                          {r.eventName || '행사'} · {r.quoteDate}
-                        </option>
-                      ))
-                    )}
-                  </select>
-                  <button
-                    type="button"
-                    onClick={() => void handleLoadSavedEstimate()}
-                    disabled={historyList.length === 0 || !loadPickerId}
-                    className="shrink-0 rounded-lg bg-slate-800 px-2.5 py-1.5 text-[11px] font-semibold text-white hover:bg-slate-900 disabled:cursor-not-allowed disabled:opacity-50"
-                  >
-                    불러오기
-                  </button>
-                </div>
-                <Link
-                  href="/history"
-                  className="mt-1.5 inline-block text-[10.5px] font-medium text-primary-700 underline decoration-primary-300 underline-offset-2"
-                >
-                  작업 이력 전체 보기
-                </Link>
-              </div>
-            ) : null}
-            </div>
-          </div>
-
-          {showPreviewPane ? (
-          <div
-            id="estimate-panel-preview"
-            role={isNarrowViewport ? 'tabpanel' : undefined}
-            aria-labelledby={isNarrowViewport ? 'estimate-tab-preview' : undefined}
-            hidden={isNarrowViewport && mobileSheet !== 'preview'}
-            className="flex min-h-0 min-w-0 flex-1 flex-col overflow-hidden bg-slate-50 animate-in fade-in duration-300"
-          >
-              <div className="flex flex-shrink-0 flex-wrap items-center gap-2 border-b border-slate-200 bg-white px-4 py-2.5">
-              <h2
-                id="estimate-preview-heading"
-                tabIndex={-1}
-                className="min-w-0 flex-1 rounded-sm text-[13px] font-medium text-slate-900 outline-none focus-visible:ring-2 focus-visible:ring-primary-400 focus-visible:ring-offset-2"
-              >
-                행사 제안서 미리보기
-              </h2>
-              {doc && generatedDocId ? (
-                <span className="rounded-full border border-emerald-200 bg-emerald-50 px-2 py-0.5 text-[10.5px] font-medium text-emerald-800">
-                  확인됨
-                </span>
-              ) : generating ? (
-                <span className="rounded-full border border-amber-200 bg-amber-50 px-2 py-0.5 text-[10.5px] font-medium text-amber-900">
-                  생성 중…
-                </span>
-              ) : (
-                <span className="rounded-full border border-amber-200 bg-[#fef9c3] px-2 py-0.5 text-[10.5px] font-medium text-[#854d0e]">
-                  초안
-                </span>
+              key={p}
+              onClick={() => setMobilePanel(p)}
+              className={clsx(
+                'px-4 py-1.5 rounded-full text-xs font-medium transition-colors',
+                mobilePanel === p ? 'bg-violet-600 text-white' : 'text-slate-500',
               )}
-              <div className="flex flex-shrink-0 flex-wrap items-center gap-2">
-                <button
-                  type="button"
-                  data-testid="estimate-preview-scroll-top"
-                  onClick={() => scrollPreviewPanelTop()}
-                  className="rounded-md border border-slate-200 bg-white px-2.5 py-1 text-[11.5px] font-medium text-slate-600 hover:bg-slate-50"
-                >
-                  미리보기로
-                </button>
-                <button
-                  type="button"
-                  data-testid="estimate-focus-table"
-                  disabled={!(doc && generatedDocId)}
-                  title={doc && generatedDocId ? '표 편집으로 이동' : '문서를 만든 뒤 사용할 수 있어요'}
-                  onClick={() => focusEstimateTable()}
-                  className="rounded-md border border-slate-200 bg-white px-2.5 py-1 text-[11.5px] font-medium text-slate-600 hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-40"
-                >
-                  직접 편집
-                </button>
-                {doc && generatedDocId ? (
-                  <button
-                    type="button"
-                    data-testid="estimate-header-pdf"
-                    disabled={pdfExporting}
-                    onClick={() => void exportEstimatePdf()}
-                    className="rounded-md border border-primary-600 bg-primary-600 px-2.5 py-1 text-[11.5px] font-medium text-white hover:bg-primary-700 disabled:opacity-60"
-                  >
-                    {pdfExporting ? 'PDF…' : 'PDF'}
-                  </button>
-                ) : null}
-              </div>
-            </div>
-            <div id="estimate-preview-scroll" className="min-h-0 flex-1 overflow-y-auto p-4 sm:p-5">
-              {doc && generatedDocId ? (
-                <div className="flex flex-col gap-3 min-w-0">
-                  {briefEnrich ? (
-                    <BriefEnrichSummaryCard
-                      summary={briefEnrich}
-                      active={false}
-                      onRefine={handleRefineBrief}
-                      onQueueRefine={enqueueRefineBrief}
-                      refining={generating}
-                      refinementCount={refinementCount}
-                      queuedRefineCount={queuedRefineCount}
-                      defaultOpen={false}
-                    />
-                  ) : null}
-                  <GenerationResultNextSteps
-                    headline="견적 초안"
-                    hint="표를 편집한 뒤 저장하거나, 엑셀·PDF로 보낼 수 있어요. 왼쪽 입력을 바꾼 뒤 다시 생성할 수도 있어요."
-                    onScrollToInput={() => scrollToWizardTop()}
-                    onRegenerate={() => {
-                      void handleGenerateEstimate()
-                    }}
-                    onSave={doc ? () => void handleSaveDoc(doc) : undefined}
-                    saving={saving}
-                  />
-                  <div className="min-w-0 rounded-2xl border border-slate-200/80 bg-white shadow-sm">
-                  {totalsForHeader && docSummary ? (
-                    <div className="sticky top-0 z-10 flex flex-wrap items-center gap-3 border-b border-slate-100 bg-white/95 px-3 py-2.5 backdrop-blur sm:px-4">
-                      <div className="min-w-0">
-                        <p className="text-[11px] font-semibold text-slate-500">총액(VAT포함)</p>
-                        <p className="text-lg font-bold tabular-nums text-slate-900 sm:text-xl">
-                          {totalsForHeader.grand.toLocaleString('ko-KR')}원
-                        </p>
-                      </div>
-                      <div className="text-xs text-slate-600 sm:border-l sm:border-slate-200 sm:pl-3">
-                        <span className="font-medium text-slate-700">{doc.headcount || '—'}명</span>
-                        <span className="mx-1.5 text-slate-300">·</span>
-                        <span>{doc.eventDate || '행사일 미정'}</span>
-                        <span className="mx-1.5 text-slate-300">·</span>
-                        <span>
-                          품목 {docSummary.lineCount}개
-                        </span>
-                      </div>
-                      <div className="ml-auto flex flex-wrap items-center gap-2">
-                        <button
-                          type="button"
-                          onClick={() => void handleProposalDownload()}
-                          disabled={proposalGenerating}
-                          className="rounded-lg border border-slate-300 bg-slate-100 px-3 py-1.5 text-xs font-semibold text-slate-700 hover:bg-slate-200 disabled:opacity-60 sm:text-sm"
-                        >
-                          {proposalGenerating ? '생성 중...' : '행사 제안서 생성'}
-                        </button>
-                        <button
-                          type="button"
-                          onClick={() => void handleSaveDoc(doc)}
-                          disabled={saving}
-                          className="rounded-lg bg-slate-900 px-3 py-1.5 text-xs font-semibold text-white hover:bg-slate-800 disabled:opacity-60 sm:text-sm"
-                        >
-                          {saving ? '저장 중...' : '저장'}
-                        </button>
-                        <button
-                          type="button"
-                          onClick={() => scrollToWizardTop()}
-                          className="rounded-lg border border-slate-200 bg-white px-2.5 py-1.5 text-xs font-semibold text-slate-700 hover:bg-slate-50 sm:text-sm"
-                        >
-                          입력으로
-                        </button>
-                        <span className="hidden text-[11px] text-slate-400 xl:inline">{formatSavedAtLabel(draftSavedAt)}</span>
-                      </div>
-                    </div>
-                  ) : null}
-                  <div id="estimate-result-body" className="min-w-0">
-                    <QuoteResult
-                      doc={doc}
-                      docId={generatedDocId}
-                      onSaveDoc={handleSaveDoc}
-                      saving={saving}
-                      companySettings={companySettings}
-                      prices={prices}
-                      onChange={setDoc}
-                      generatingTabs={generatingTabs}
-                      generationProgressLabel={generationProgressLabel}
-                      visibleTabs={['estimate']}
-                      initialTab="estimate"
-                      showTabButtons={false}
-                      disableAutoGenerate
-                      hideOnDemandGenerate
-                      disableInternalScroll
-                      estimateToolbar="exportOnly"
-                      estimateSingleTabLayout="compact"
-                      estimateDisplayName={proposalLabel}
-                      onExcel={async (view) => {
-                        try {
-                          await exportToExcel(doc, companySettings ?? undefined, view)
-                          showToast('엑셀 다운로드 완료!')
-                        } catch (e) {
-                          showToast(toUserMessage(e, '엑셀 다운로드 실패'))
-                        }
-                      }}
-                      onPdf={async () => {
-                        await exportEstimatePdf()
-                      }}
-                    />
-                  </div>
-                </div>
-                </div>
-              ) : generating ? (
-                <div className="space-y-3">
-                  <div className="rounded-xl border border-primary-200 bg-primary-50/30 p-3 shadow-sm">
-                    <div className="flex items-center gap-2 text-[12px] text-slate-800">
-                      <span
-                        className="inline-block h-3 w-3 shrink-0 animate-spin rounded-full border-2 border-primary-200 border-t-primary-600"
-                        aria-hidden
-                      />
-                      <span className="font-medium">
-                        {generationProgressLabel ?? 'AI가 행사 제안서를 구성하고 있습니다…'}
-                      </span>
-                    </div>
-                    {generationStageLog.length > 0 ? (
-                      <details className="mt-2 group">
-                        <summary className="cursor-pointer text-[11px] font-medium text-slate-600 hover:text-slate-900">
-                          단계 로그 펼치기
-                        </summary>
-                        <ol className="mt-2 max-h-48 list-decimal space-y-1 overflow-y-auto pl-5 text-[11px] text-slate-600">
-                          {generationStageLog.map((line, i) => (
-                            <li key={`${i}-${line}`}>{line}</li>
-                          ))}
-                        </ol>
-                      </details>
-                    ) : (
-                      <p className="mt-2 text-[11px] text-slate-500">단계 로그가 곧 여기에 쌓입니다.</p>
-                    )}
-                  </div>
-                  <BriefEnrichSummaryCard
-                    summary={briefEnrich}
-                    active={generating}
-                    onRefine={handleRefineBrief}
-                    onQueueRefine={enqueueRefineBrief}
-                    refining={generating}
-                    refinementCount={refinementCount}
-                    queuedRefineCount={queuedRefineCount}
-                    defaultOpen={false}
-                  />
-                </div>
-              ) : null}
-            </div>
-          </div>
-          ) : null}
+            >
+              {p === 'chat' ? '채팅' : '문서'}
+            </button>
+          ))}
         </div>
+      )}
+
+      {/* Left: Chat */}
+      <div className={clsx(
+        'flex flex-col bg-white border-r border-slate-200 shrink-0',
+        'w-full md:w-[400px] lg:w-[440px]',
+        currentDoc && mobilePanel === 'preview' ? 'hidden md:flex' : 'flex',
+      )}>
+        <div className="px-5 py-4 border-b border-slate-100">
+          <h1 className="text-[15px] font-semibold text-slate-800">행사 문서 생성</h1>
+          {me && (
+            <p className="text-xs text-slate-400 mt-0.5">
+              이번 달 {me.usage.quoteGeneratedCount} / {me.limits.monthlyQuoteGenerateLimit}회
+            </p>
+          )}
+        </div>
+
+        <div className="flex-1 overflow-y-auto px-4 py-4 space-y-4 min-h-0">
+          {messages.map(msg => <MessageBubble key={msg.id} msg={msg} />)}
+          <div ref={bottomRef} />
+        </div>
+
+        {limitReached ? (
+          <div className="px-4 py-4 border-t border-slate-100 text-center space-y-1">
+            <p className="text-sm text-slate-500">이번 달 생성 한도에 도달했습니다.</p>
+            <a href="/plans" className="text-violet-600 text-sm font-medium hover:underline">
+              플랜 업그레이드 →
+            </a>
+          </div>
+        ) : (
+          <ChatInput
+            onSend={handleSend}
+            disabled={isGenerating}
+            placeholder={currentDoc
+              ? '수정 요청 입력... (예: 인원 200명으로, 큐시트도 만들어줘)'
+              : undefined}
+          />
+        )}
       </div>
 
-      {toast && <Toast message={toast} onClose={dismissToast} />}
+      {/* Right: Preview */}
+      <div className={clsx(
+        'flex-1 flex flex-col min-w-0 overflow-hidden',
+        currentDoc && mobilePanel === 'chat' ? 'hidden md:flex' : 'flex',
+      )}>
+        {currentDoc ? (
+          <>
+            <div className="flex-1 overflow-auto min-h-0">
+              <QuoteResult
+                doc={currentDoc}
+                companySettings={companySettings}
+                prices={prices}
+                onChange={(doc) => setCurrentDoc(doc)}
+                docId={currentDocId ?? undefined}
+                saving={saving}
+                showTabButtons
+                disableAutoGenerate
+                onExcel={(view) => exportToExcel(currentDoc, companySettings ?? undefined, view)}
+                onPdf={() => exportToPdf(currentDoc, companySettings ?? undefined)}
+              />
+            </div>
+            <DownloadBar
+              doc={currentDoc}
+              companySettings={companySettings}
+              onSave={async () => {
+                if (!currentDoc || !currentDocId) return
+                setSaving(true)
+                try {
+                  await apiFetch(`/api/generated-docs/${currentDocId}`, {
+                    method: 'PATCH',
+                    body: JSON.stringify({ doc: currentDoc }),
+                  })
+                } finally { setSaving(false) }
+              }}
+              saving={saving}
+            />
+          </>
+        ) : (
+          <EmptyPreview />
+        )}
+      </div>
     </div>
   )
 }
 
 export default function EstimateGeneratorPage() {
   return (
-    <Suspense
-      fallback={
-        <div className="flex h-screen overflow-hidden bg-gray-50/50">
-          <GNB />
-          <div className="flex-1 flex items-center justify-center px-4">
-            <div className="w-full max-w-md">
-              <LoadingState label="로딩 중…" />
-            </div>
-          </div>
-        </div>
-      }
-    >
+    <Suspense>
       <EstimateGeneratorContent />
     </Suspense>
   )

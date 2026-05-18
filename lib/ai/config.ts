@@ -7,10 +7,10 @@ import type { PlanType } from '@/lib/plans'
 
 /** Stage 1 기본 (요구사항: gpt-5.4-mini) */
 export const DEFAULT_OPENAI_STRUCT_MODEL = 'gpt-5.4-mini'
-/** Stage 2 기본 정제 (요구사항: Claude Sonnet 4) */
-export const DEFAULT_ANTHROPIC_FINAL_MODEL = 'claude-sonnet-4-20250514'
-/** Stage 2 프리미엄 정제 (요구사항: Claude Opus 4.1) */
-export const DEFAULT_ANTHROPIC_PREMIUM_MODEL = 'claude-opus-4-1-20250805'
+/** 기본 생성 모델: Claude Sonnet 4.6 */
+export const DEFAULT_ANTHROPIC_FINAL_MODEL = 'claude-sonnet-4-6'
+/** 프리미엄 생성 모델: Claude Opus 4.7 */
+export const DEFAULT_ANTHROPIC_PREMIUM_MODEL = 'claude-opus-4-7'
 
 function parsePositiveInt(value: string | undefined, fallback: number): number {
   const n = Number.parseInt(String(value ?? ''), 10)
