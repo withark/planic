@@ -1,6 +1,7 @@
 'use client'
 
 import { Suspense, useCallback, useEffect, useRef, useState } from 'react'
+import { useRouter } from 'next/navigation'
 import { GNB } from '@/components/GNB'
 import { QuoteResult } from '@/components/quote/QuoteResult'
 import { apiGenerateStream, apiFetch } from '@/lib/api/client'
@@ -268,6 +269,7 @@ function DownloadBar({
 // ─── Main ─────────────────────────────────────────────────────────────────────
 
 function EstimateGeneratorContent() {
+  const router = useRouter()
   const [me, setMe] = useState<MeLite | null>(null)
   const [companySettings, setCompanySettings] = useState<CompanySettings | null>(null)
   const [prices, setPrices] = useState<PriceCategory[]>([])
@@ -290,7 +292,9 @@ function EstimateGeneratorContent() {
   const bottomRef = useRef<HTMLDivElement>(null)
 
   useEffect(() => {
-    apiFetch<MeLite>('/api/me').then(r => { if (r) setMe(r) }).catch(() => {})
+    apiFetch<MeLite>('/api/me').then(r => { if (r) setMe(r) }).catch((err: unknown) => {
+      if ((err as { status?: number }).status === 401) router.replace('/login')
+    })
     apiFetch<{ settings: CompanySettings }>('/api/settings').then(r => {
       if (r?.settings) setCompanySettings(r.settings)
     }).catch(() => {})
