@@ -310,6 +310,7 @@ function EstimateGeneratorContent() {
   const runGenerate = useCallback(async (
     params: Partial<ChatIntentParams>,
     assistantId: string,
+    isModify?: boolean,
   ) => {
     if (abortRef.current) abortRef.current.abort()
     const ctrl = new AbortController()
@@ -335,6 +336,7 @@ function EstimateGeneratorContent() {
         briefNotes: merged.requirements || '',
         documentTarget: (merged.documentTarget || 'estimate') as string,
         generationMode: 'normal',
+        existingDoc: isModify && currentDoc ? currentDoc : undefined,
         prices: prices.length > 0 ? prices : undefined,
       }, {
         signal: ctrl.signal,
@@ -371,7 +373,7 @@ function EstimateGeneratorContent() {
       setIsGenerating(false)
       abortRef.current = null
     }
-  }, [currentParams, prices, updateMessage])
+  }, [currentParams, currentDoc, prices, updateMessage])
 
   const handleGenerateTab = useCallback(async (tab: string) => {
     if (!currentDoc) return
@@ -460,12 +462,13 @@ function EstimateGeneratorContent() {
         return
       }
 
-      const params = intent.action === 'modify'
+      const isModify = intent.action === 'modify'
+      const params = isModify
         ? { ...currentParams, ...intent.params }
         : (intent.params ?? {})
 
       updateMessage(assistantId, { content: '문서 작성 중...', stage: 'draft' })
-      await runGenerate(params, assistantId)
+      await runGenerate(params, assistantId, isModify)
     } catch (err) {
       updateMessage(assistantId, {
         isGenerating: false, isError: true,
