@@ -1,5 +1,6 @@
 'use client'
 import { useEffect, useState, useCallback } from 'react'
+import Link from 'next/link'
 import { GNB, GNB_MOBILE_MAIN_COLUMN_PADDING } from '@/components/GNB'
 import { Button, Toast } from '@/components/ui'
 import { ErrorState, LoadingState } from '@/components/ui/AsyncState'
@@ -137,6 +138,12 @@ export default function HistoryPage() {
                   <div className="text-sm font-semibold tabular-nums flex-shrink-0">
                     {fmtKRW(h.total)}원
                   </div>
+                  <Link
+                    href={`/estimate-generator?estimate=${encodeURIComponent(h.id)}`}
+                    className="shrink-0 text-xs font-semibold text-primary-700 hover:text-primary-900 opacity-0 group-hover:opacity-100 transition-opacity"
+                  >
+                    이어서 →
+                  </Link>
                   <Button size="sm" variant="danger"
                     className="opacity-0 group-hover:opacity-100 flex-shrink-0"
                     onClick={() => delOne(h.id)}>

@@ -6,8 +6,6 @@ import { GNB, GNB_MOBILE_MAIN_COLUMN_PADDING } from '@/components/GNB'
 import { apiFetch } from '@/lib/api/client'
 import { toUserMessage } from '@/lib/errors/toUserMessage'
 import { LoadingState } from '@/components/ui/AsyncState'
-import { CORE_DOCUMENT_COUNT, CORE_DOCUMENT_HREFS, CREATE_DOCUMENT_HUB_ITEMS } from '@/lib/marketing-documents'
-import { PlanGatedQuickLink } from '@/components/plan/PlanGatedQuickLink'
 import type { PlanLimits, PlanType } from '@/lib/plans'
 import { planLabelKo } from '@/lib/plans'
 import type { HistoryRecord } from '@/lib/types'
@@ -192,17 +190,13 @@ function DashboardContent() {
         <header className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between px-6 py-4 border-b border-gray-100 bg-white/90 flex-shrink-0">
           <div>
             <h1 className="text-lg font-bold tracking-tight text-gray-900">홈</h1>
-            <p className="text-sm text-slate-600 mt-1">현재 상태를 빠르게 확인하고 필요한 작업으로 이동하세요.</p>
+            <p className="text-sm text-slate-500 mt-0.5">행사 문서를 AI와 함께 빠르게 만들어 보세요.</p>
           </div>
-          <div className="flex flex-wrap items-center gap-2 sm:justify-end">
-            <span className="text-xs text-gray-500">플랜</span>
-            <span className="px-2.5 py-1 rounded-lg bg-primary-50 text-primary-700 text-xs font-semibold">
-              {planLabelKo(plan)}
-            </span>
-            <Link href="/plans" className="text-xs font-semibold text-primary-700 hover:text-primary-800 underline underline-offset-2">
-              요금제 업그레이드
+          {me && plan !== 'PREMIUM' && (
+            <Link href="/plans" className="text-xs font-semibold text-primary-700 hover:text-primary-800 underline underline-offset-2 shrink-0">
+              요금제 업그레이드 →
             </Link>
-          </div>
+          )}
         </header>
 
         <div className="flex-1 overflow-y-auto p-6 flex flex-col gap-4 max-w-4xl mx-auto w-full">
@@ -252,50 +246,35 @@ function DashboardContent() {
             </section>
           )}
 
-          <section className="order-5 rounded-2xl border-2 border-primary-100 bg-white p-5 shadow-card ring-1 ring-primary-50/70">
-            <div className="flex items-center justify-between gap-3">
-              <h2 className="text-base font-bold text-gray-900">바로 시작</h2>
-              <Link href="/create-documents" className="text-xs font-semibold text-primary-700 hover:text-primary-800 underline underline-offset-2">
-                전체 문서 보기
+          <section className="order-5 rounded-2xl border-2 border-primary-100 bg-gradient-to-br from-primary-50/60 via-white to-white p-6 shadow-card ring-1 ring-primary-50/70">
+            <div className="flex flex-col sm:flex-row sm:items-center gap-4">
+              <div className="flex-1">
+                <h2 className="text-base font-bold text-gray-900">새 문서 만들기</h2>
+                <p className="mt-1.5 text-sm text-slate-600 leading-relaxed">
+                  행사 내용을 채팅으로 입력하면 AI가 견적서·기획안·큐시트 등을 즉시 만들어 드립니다.
+                </p>
+              </div>
+              <Link
+                href="/estimate-generator"
+                className="inline-flex items-center justify-center gap-2 rounded-xl bg-primary-600 px-5 py-3 text-sm font-semibold text-white hover:bg-primary-700 transition-colors shrink-0"
+              >
+                <svg viewBox="0 0 24 24" fill="none" className="w-4 h-4" aria-hidden>
+                  <path d="M12 20V4M5 11l7-7 7 7" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
+                </svg>
+                문서 생성 시작
               </Link>
             </div>
-            <p className="mt-2 text-xs text-slate-600">핵심 문서 {CORE_DOCUMENT_COUNT}종을 빠르게 시작할 수 있어요.</p>
-            {plan === 'FREE' && me ? (
-              <p className="mt-1.5 text-[11px] text-amber-800/90 leading-relaxed">
-                무료 플랜: 제안서·기획안·프로그램 제안서 · 베이직 이상: 큐시트·사회자 멘트·과업지시서 등
-              </p>
-            ) : null}
-            <div className="mt-4 flex flex-col sm:flex-row sm:flex-wrap gap-2">
-              {CORE_DOCUMENT_HREFS.map((href, idx) => {
-                const doc = CREATE_DOCUMENT_HUB_ITEMS.find((d) => d.href === href)
-                const label = doc?.title ?? href
-                return (
-                  <PlanGatedQuickLink
-                    key={href}
-                    href={href}
-                    plan={plan}
-                    planResolved={!!me}
-                    variant={idx === 0 ? 'primary' : 'secondary'}
-                  >
-                    {idx === 0 ? `새 ${label.replace(/ 생성$/, '')} 생성` : label}
-                  </PlanGatedQuickLink>
-                )
-              })}
-              {latestRecord ? (
+            {latestRecord && (
+              <div className="mt-4 pt-4 border-t border-primary-100/80 flex items-center gap-3">
+                <span className="text-xs text-slate-500 shrink-0">최근 작업</span>
                 <Link
                   href={`/estimate-generator?estimate=${encodeURIComponent(latestRecord.id)}`}
-                  className="inline-flex items-center justify-center rounded-xl border border-primary-200 bg-primary-50 px-4 py-2.5 text-sm font-semibold text-primary-800 hover:bg-primary-100 transition-colors"
+                  className="flex-1 min-w-0 text-sm font-medium text-primary-700 hover:text-primary-900 truncate hover:underline underline-offset-2"
                 >
-                  최근 작업 이어서
+                  {latestRecord.eventName || '이름 없음'} 이어서 →
                 </Link>
-              ) : null}
-              <Link
-                href="/create-documents"
-                className="inline-flex items-center justify-center rounded-xl border border-gray-200 bg-white px-4 py-2.5 text-sm font-semibold text-gray-800 hover:bg-gray-50 transition-colors"
-              >
-                다른 문서 선택
-              </Link>
-            </div>
+              </div>
+            )}
           </section>
 
           {showDetails && me && lines.length > 0 && (
@@ -450,7 +429,7 @@ function DashboardContent() {
                       href="/estimate-generator"
                       className="inline-flex items-center justify-center rounded-xl bg-primary-600 px-4 py-2.5 text-xs font-semibold text-white hover:bg-primary-700 transition-colors"
                     >
-                      견적서 생성 시작
+                      문서 만들기 시작
                     </Link>
                   </div>
                 </div>
