@@ -5,10 +5,9 @@ import { signOut, useSession } from 'next-auth/react'
 import clsx from 'clsx'
 
 const NAV_LINKS = [
-  { href: '/estimate-generator', label: '제안서' },
-  { href: '/cue-sheet-generator', label: '큐시트' },
-  { href: '/emcee-script-generator', label: '사회자 멘트' },
-  { href: '/task-order-summary', label: '과업지시서 요약' },
+  { href: '/estimate-generator', label: '문서 생성' },
+  { href: '/history', label: '작업 이력' },
+  { href: '/settings', label: '설정' },
 ] as const
 
 export default function DocNav() {

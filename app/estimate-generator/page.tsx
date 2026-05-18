@@ -1,7 +1,7 @@
 'use client'
 
 import { Suspense, useCallback, useEffect, useRef, useState } from 'react'
-import { useRouter } from 'next/navigation'
+import { useRouter, useSearchParams } from 'next/navigation'
 import { GNB } from '@/components/GNB'
 import { QuoteResult } from '@/components/quote/QuoteResult'
 import { apiGenerateStream, apiFetch } from '@/lib/api/client'
@@ -270,6 +270,7 @@ function DownloadBar({
 
 function EstimateGeneratorContent() {
   const router = useRouter()
+  const searchParams = useSearchParams()
   const [me, setMe] = useState<MeLite | null>(null)
   const [companySettings, setCompanySettings] = useState<CompanySettings | null>(null)
   const [prices, setPrices] = useState<PriceCategory[]>([])
@@ -302,6 +303,33 @@ function EstimateGeneratorContent() {
       if (r?.categories) setPrices(r.categories)
     }).catch(() => {})
   }, [])
+
+  useEffect(() => {
+    const estimateId = searchParams.get('estimate')
+    if (!estimateId) return
+    apiFetch<{ id: string; doc: QuoteDoc }>(`/api/generated-docs/${encodeURIComponent(estimateId)}`)
+      .then(r => {
+        if (!r?.doc) return
+        setCurrentDoc(r.doc)
+        setCurrentDocId(r.id)
+        const eventName = r.doc.eventName || '이전 행사'
+        setCurrentParams({
+          eventName: r.doc.eventName,
+          clientName: r.doc.clientName,
+          eventType: r.doc.eventType,
+          venue: r.doc.venue,
+          headcount: r.doc.headcount,
+          eventDate: r.doc.eventDate,
+          eventDuration: r.doc.eventDuration,
+        })
+        setMessages(prev => [...prev, {
+          id: uid(), role: 'assistant',
+          content: `"${eventName}" 문서를 불러왔습니다.\n수정이 필요하면 말씀해 주세요. 예) "인원 200명으로", "기획안도 만들어줘"`,
+        }])
+        if (window.innerWidth < 768) setMobilePanel('preview')
+      })
+      .catch(() => {})
+  }, [searchParams])
 
   useEffect(() => {
     bottomRef.current?.scrollIntoView({ behavior: 'smooth' })
