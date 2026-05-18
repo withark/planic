@@ -434,61 +434,6 @@ function EstimateGeneratorContent() {
     }
   }, [currentDoc, currentParams, prices, updateMessage])
 
-  const handleGenerateTab = useCallback(async (tab: string) => {
-    if (!currentDoc) return
-    setGeneratingTabs(prev => ({ ...prev, [tab]: true }))
-    const assistantId = uid()
-    const tabLabels: Record<string, string> = {
-      program: '프로그램 제안서', timetable: '타임테이블', planning: '기획안',
-      scenario: '시나리오', emceeScript: '사회자 멘트 원고', cuesheet: '큐시트',
-    }
-    setMessages(prev => [...prev, {
-      id: assistantId, role: 'assistant',
-      content: `${tabLabels[tab] ?? tab} 생성 중...`,
-      isGenerating: true,
-    }])
-    try {
-      const result = await apiGenerateStream({
-        eventName: currentParams.eventName || currentDoc.eventName || '행사',
-        clientName: currentParams.clientName || currentDoc.clientName || '',
-        clientManager: currentDoc.clientManager || '',
-        clientTel: currentDoc.clientTel || '',
-        quoteDate: todayStr(),
-        eventDate: currentParams.eventDate || currentDoc.eventDate || '',
-        eventDuration: currentParams.eventDuration || currentDoc.eventDuration || '',
-        venue: currentParams.venue || currentDoc.venue || '',
-        headcount: currentParams.headcount || currentDoc.headcount || '',
-        eventType: (currentParams.eventType || currentDoc.eventType || '일반행사').trim() || '일반행사',
-        budget: currentParams.budget || '',
-        requirements: currentParams.requirements || '',
-        briefNotes: currentParams.requirements || '',
-        documentTarget: tab,
-        generationMode: 'normal',
-        existingDoc: currentDoc,
-        prices: prices.length > 0 ? prices : undefined,
-      })
-      if (result?.doc) {
-        setCurrentDoc(result.doc)
-        setCurrentDocId(result.id ?? null)
-        updateMessage(assistantId, {
-          isGenerating: false,
-          content: `${tabLabels[tab] ?? tab}를 완성했어요 ✓`,
-          stage: undefined,
-        })
-      }
-    } catch (err: unknown) {
-      if ((err as { name?: string }).name !== 'AbortError') {
-        updateMessage(assistantId, {
-          isGenerating: false,
-          isError: true,
-          content: toUserMessage(err) ?? '생성 중 오류가 발생했습니다.',
-        })
-      }
-    } finally {
-      setGeneratingTabs(prev => ({ ...prev, [tab]: false }))
-    }
-  }, [currentDoc, currentParams, prices, updateMessage])
-
   const handleSend = useCallback(async (text: string) => {
     if (isGenerating) return
 
