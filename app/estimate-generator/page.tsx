@@ -562,6 +562,7 @@ function EstimateGeneratorContent() {
                 saving={saving}
                 showTabButtons
                 disableAutoGenerate
+                visibleTabs={['estimate', 'program', 'timetable', 'planning', 'scenario', 'emceeScript']}
                 onGenerateTab={handleGenerateTab}
                 generatingTabs={generatingTabs}
                 onExcel={(view) => exportToExcel(currentDoc, companySettings ?? undefined, view)}
