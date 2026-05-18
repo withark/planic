@@ -467,9 +467,10 @@ function EstimateGeneratorContent() {
       }
 
       const isModify = intent.action === 'modify'
+      const intentParams = intent.params ?? {}
       const params = isModify
-        ? { ...currentParams, ...intent.params }
-        : (intent.params ?? {})
+        ? { ...currentParams, ...intentParams }
+        : { requirements: text, ...intentParams }
 
       updateMessage(assistantId, { content: '문서 작성 중...', stage: 'draft' })
       await runGenerate(params, assistantId, isModify)
