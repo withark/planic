@@ -8,7 +8,7 @@ import { toUserMessage } from '@/lib/errors/toUserMessage'
 import { exportToExcel } from '@/lib/exportExcel'
 import { exportToPdf } from '@/lib/exportPdf'
 import { exportProgramProposalDocxFromDoc } from '@/lib/export/exportDocxFromQuoteDoc'
-import { calcTotals, normalizeQuoteUnitPricesToThousand } from '@/lib/calc'
+import { normalizeQuoteUnitPricesToThousand } from '@/lib/calc'
 import { isExcludedSupplyLineItem } from '@/lib/quote/supply-line-filter'
 import type { CompanySettings, PriceCategory, QuoteDoc } from '@/lib/types'
 import type { ChatIntentParams, ChatIntentResult } from '@/app/api/chat-intent/route'
@@ -328,7 +328,7 @@ function EstimateGeneratorContent() {
         eventDuration: merged.eventDuration || '',
         venue: merged.venue || '',
         headcount: merged.headcount || '',
-        eventType: merged.eventType || '일반',
+        eventType: merged.eventType?.trim() || '일반행사',
         budget: merged.budget || '',
         requirements: merged.requirements || '',
         briefNotes: merged.requirements || '',
