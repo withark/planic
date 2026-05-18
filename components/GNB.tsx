@@ -26,10 +26,11 @@ const NAVS: NavItem[] = [
     ),
   },
   {
-    href: '/create-documents',
+    href: '/estimate-generator',
     text: '문서 생성',
     matchPrefixes: [
       '/estimate-generator',
+      '/create-documents',
       '/program-proposal-generator',
       '/planning-generator',
       '/scenario-generator',
@@ -43,17 +44,6 @@ const NAVS: NavItem[] = [
         <path d="M12 3.5h4.5L20 7v13.5A2 2 0 0 1 18 22.5H6A2 2 0 0 1 4 20.5V5.5A2 2 0 0 1 6 3.5h6Z" stroke="currentColor" strokeWidth="1.8" strokeLinejoin="round" />
         <path d="M16.5 3.5V7a1 1 0 0 0 1 1h2.5" stroke="currentColor" strokeWidth="1.8" strokeLinejoin="round" />
         <path d="M8 12h8M8 15.5h6M8 9h5" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" />
-      </svg>
-    ),
-  },
-  {
-    href: '/prices',
-    text: '단가표',
-    icon: ({ className }) => (
-      <svg viewBox="0 0 24 24" fill="none" className={className} aria-hidden>
-        <path d="M6.5 3.5h11A2.5 2.5 0 0 1 20 6v14.5A2.5 2.5 0 0 1 17.5 23h-11A2.5 2.5 0 0 1 4 20.5V6A2.5 2.5 0 0 1 6.5 3.5Z" stroke="currentColor" strokeWidth="1.8" strokeLinejoin="round" />
-        <path d="M8 9h8M8 12.5h8M8 16h5" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" />
-        <path d="M15.5 18.5h3" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" />
       </svg>
     ),
   },
