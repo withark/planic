@@ -1,6 +1,7 @@
 'use client'
 
 import { Suspense, useCallback, useEffect, useRef, useState } from 'react'
+import { useRouter } from 'next/navigation'
 import { GNB } from '@/components/GNB'
 import { QuoteResult } from '@/components/quote/QuoteResult'
 import { apiGenerateStream, apiFetch } from '@/lib/api/client'
@@ -268,6 +269,7 @@ function DownloadBar({
 // ─── Main ─────────────────────────────────────────────────────────────────────
 
 function EstimateGeneratorContent() {
+  const router = useRouter()
   const [me, setMe] = useState<MeLite | null>(null)
   const [companySettings, setCompanySettings] = useState<CompanySettings | null>(null)
   const [prices, setPrices] = useState<PriceCategory[]>([])
@@ -284,12 +286,15 @@ function EstimateGeneratorContent() {
   const [currentParams, setCurrentParams] = useState<Partial<ChatIntentParams>>({})
   const [saving, setSaving] = useState(false)
   const [mobilePanel, setMobilePanel] = useState<'chat' | 'preview'>('chat')
+  const [generatingTabs, setGeneratingTabs] = useState<Partial<Record<string, boolean>>>({})
 
   const abortRef = useRef<AbortController | null>(null)
   const bottomRef = useRef<HTMLDivElement>(null)
 
   useEffect(() => {
-    apiFetch<MeLite>('/api/me').then(r => { if (r) setMe(r) }).catch(() => {})
+    apiFetch<MeLite>('/api/me').then(r => { if (r) setMe(r) }).catch((err: unknown) => {
+      if ((err as { status?: number }).status === 401) router.replace('/login')
+    })
     apiFetch<{ settings: CompanySettings }>('/api/settings').then(r => {
       if (r?.settings) setCompanySettings(r.settings)
     }).catch(() => {})
@@ -309,6 +314,7 @@ function EstimateGeneratorContent() {
   const runGenerate = useCallback(async (
     params: Partial<ChatIntentParams>,
     assistantId: string,
+    isModify?: boolean,
   ) => {
     if (abortRef.current) abortRef.current.abort()
     const ctrl = new AbortController()
@@ -334,6 +340,7 @@ function EstimateGeneratorContent() {
         briefNotes: merged.requirements || '',
         documentTarget: (merged.documentTarget || 'estimate') as string,
         generationMode: 'normal',
+        existingDoc: isModify && currentDoc ? currentDoc : undefined,
         prices: prices.length > 0 ? prices : undefined,
       }, {
         signal: ctrl.signal,
@@ -370,7 +377,62 @@ function EstimateGeneratorContent() {
       setIsGenerating(false)
       abortRef.current = null
     }
-  }, [currentParams, prices, updateMessage])
+  }, [currentParams, currentDoc, prices, updateMessage])
+
+  const handleGenerateTab = useCallback(async (tab: string) => {
+    if (!currentDoc) return
+    setGeneratingTabs(prev => ({ ...prev, [tab]: true }))
+    const assistantId = uid()
+    const tabLabels: Record<string, string> = {
+      program: '프로그램 제안서', timetable: '타임테이블', planning: '기획안',
+      scenario: '시나리오', emceeScript: '사회자 멘트 원고', cuesheet: '큐시트',
+    }
+    setMessages(prev => [...prev, {
+      id: assistantId, role: 'assistant',
+      content: `${tabLabels[tab] ?? tab} 생성 중...`,
+      isGenerating: true,
+    }])
+    try {
+      const result = await apiGenerateStream({
+        eventName: currentParams.eventName || currentDoc.eventName || '행사',
+        clientName: currentParams.clientName || currentDoc.clientName || '',
+        clientManager: currentDoc.clientManager || '',
+        clientTel: currentDoc.clientTel || '',
+        quoteDate: todayStr(),
+        eventDate: currentParams.eventDate || currentDoc.eventDate || '',
+        eventDuration: currentParams.eventDuration || currentDoc.eventDuration || '',
+        venue: currentParams.venue || currentDoc.venue || '',
+        headcount: currentParams.headcount || currentDoc.headcount || '',
+        eventType: (currentParams.eventType || currentDoc.eventType || '일반행사').trim() || '일반행사',
+        budget: currentParams.budget || '',
+        requirements: currentParams.requirements || '',
+        briefNotes: currentParams.requirements || '',
+        documentTarget: tab,
+        generationMode: 'normal',
+        existingDoc: currentDoc,
+        prices: prices.length > 0 ? prices : undefined,
+      })
+      if (result?.doc) {
+        setCurrentDoc(result.doc)
+        setCurrentDocId(result.id ?? null)
+        updateMessage(assistantId, {
+          isGenerating: false,
+          content: `${tabLabels[tab] ?? tab}를 완성했어요 ✓`,
+          stage: undefined,
+        })
+      }
+    } catch (err: unknown) {
+      if ((err as { name?: string }).name !== 'AbortError') {
+        updateMessage(assistantId, {
+          isGenerating: false,
+          isError: true,
+          content: toUserMessage(err) ?? '생성 중 오류가 발생했습니다.',
+        })
+      }
+    } finally {
+      setGeneratingTabs(prev => ({ ...prev, [tab]: false }))
+    }
+  }, [currentDoc, currentParams, prices, updateMessage])
 
   const handleSend = useCallback(async (text: string) => {
     if (isGenerating) return
@@ -404,12 +466,13 @@ function EstimateGeneratorContent() {
         return
       }
 
-      const params = intent.action === 'modify'
+      const isModify = intent.action === 'modify'
+      const params = isModify
         ? { ...currentParams, ...intent.params }
         : (intent.params ?? {})
 
       updateMessage(assistantId, { content: '문서 작성 중...', stage: 'draft' })
-      await runGenerate(params, assistantId)
+      await runGenerate(params, assistantId, isModify)
     } catch (err) {
       updateMessage(assistantId, {
         isGenerating: false, isError: true,
@@ -499,6 +562,8 @@ function EstimateGeneratorContent() {
                 saving={saving}
                 showTabButtons
                 disableAutoGenerate
+                onGenerateTab={handleGenerateTab}
+                generatingTabs={generatingTabs}
                 onExcel={(view) => exportToExcel(currentDoc, companySettings ?? undefined, view)}
                 onPdf={() => exportToPdf(currentDoc, companySettings ?? undefined)}
               />
