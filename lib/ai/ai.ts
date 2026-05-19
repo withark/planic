@@ -2342,16 +2342,29 @@ export async function generateQuoteWithMeta(input: GenerateInput): Promise<{ doc
   let repairEngineUsedForCost: EffectiveEngineConfig | undefined
   let documentRefineSkipped = true
   let documentRefineSkipReason: string | undefined
-  const isOpenAIDraftAuthFailure = (err: unknown): boolean => {
-    const lowered = String((err as { message?: string } | null)?.message ?? err ?? '').toLowerCase()
+  /**
+   * OpenAI draft가 실패했을 때 Anthropic 메인 엔진으로 fallback해야 하는지 판단.
+   * auth·model_not_found·즉시 실패 등 복구 가능한 케이스를 포함.
+   * timeout은 제외 — Anthropic도 느릴 가능성이 있어 fallback 의미 없음.
+   */
+  const isOpenAIDraftFallbackNeeded = (err: unknown): boolean => {
+    const msg = String((err as { message?: string } | null)?.message ?? err ?? '').toLowerCase()
+    const isTimeout = !!(err as { timedOut?: boolean } | null)?.timedOut ||
+      msg.includes('timeout') || msg.includes('etimedout') || msg.includes('aborted')
+    if (isTimeout) return false
     return (
-      lowered.includes('openai 인증') ||
-      lowered.includes('openai_api_key') ||
-      lowered.includes('openai api key') ||
-      lowered.includes('invalid_api_key') ||
-      lowered.includes('authentication') ||
-      lowered.includes('unauthorized') ||
-      lowered.includes('forbidden')
+      msg.includes('openai 인증') ||
+      msg.includes('openai_api_key') ||
+      msg.includes('openai api key') ||
+      msg.includes('invalid_api_key') ||
+      msg.includes('authentication') ||
+      msg.includes('unauthorized') ||
+      msg.includes('forbidden') ||
+      msg.includes('model') ||
+      msg.includes('not found') ||
+      msg.includes('overloaded') ||
+      msg.includes('rate limit') ||
+      msg.includes('ai 요청 처리 중 오류')
     )
   }
 
@@ -2380,10 +2393,10 @@ export async function generateQuoteWithMeta(input: GenerateInput): Promise<{ doc
       return text
     } catch (e) {
       const err = e as any
-      if (draftEff.provider === 'openai' && eff.provider !== 'openai' && isOpenAIDraftAuthFailure(e)) {
+      if (draftEff.provider === 'openai' && eff.provider !== 'openai' && isOpenAIDraftFallbackNeeded(e)) {
         if (shouldLogPipelineStage()) {
           logInfo('ai.pipeline.draft.fallback', {
-            reason: 'openai_auth_failed',
+            reason: 'openai_draft_failed',
             fromProvider: draftEff.provider,
             toProvider: eff.provider,
             toModel: eff.model,
