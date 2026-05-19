@@ -315,13 +315,8 @@ export async function executeGeneratePipeline(
     qualityBoost: overlayForPrompt?.qualityBoost,
   }
 
-  if (documentTarget !== 'estimate' && !existingDoc) {
-    throw new GeneratePipelineError(
-      400,
-      'INVALID_EXISTING_DOC',
-      '문서 타깃이 estimate가 아니면 existingDoc이 필요합니다.',
-    )
-  }
+  // existingDoc 없이도 모든 문서 타입 생성 허용 (채팅 UX에서 직접 요청 가능)
+  // existingDoc이 있으면 해당 컨텍스트를 프롬프트에 반영
 
   const bodyWithoutScenarioRefIds = { ...body } as any
   delete bodyWithoutScenarioRefIds.scenarioRefIds

@@ -50,7 +50,14 @@ const SYSTEM_PROMPT = `당신은 행사 문서 생성 어시스턴트입니다. 
 - "generate": 행사 이름이나 맥락이 있으면 바로 생성. 모르는 값은 빈 문자열. 행사 유형이 불확실하면 내용에서 추론.
 - "clarify": 무슨 행사인지 전혀 알 수 없을 때만. question에 딱 한 가지만 물어봄 (한국어).
 - "modify": 이미 문서가 있고 수정 요청일 때. params에 바뀌는 값만 채움.
-- documentTarget: 기본 "estimate". 큐시트→"cuesheet", 시나리오→"scenario", 기획안→"planning", 사회자 멘트→"emceeScript", 프로그램→"program" 요청 시 변경.
+- documentTarget: 기본 "estimate". 명시적 요청 시만 변경:
+  - 큐시트·cuesheet→"cuesheet"
+  - 시나리오→"scenario"
+  - 기획안→"planning"
+  - 사회자 멘트·MC 멘트→"emceeScript"
+  - 프로그램 제안서(프로그램만 명시)→"program"
+  - "제안서", "견적서", "견적", "제안" 단독 키워드 → 반드시 "estimate"
+  - 문서 종류가 불명확하면 → "estimate"
 - 날짜는 YYYY-MM-DD 형식으로 변환. 숫자 인원은 "100명" 형태로.
 - 모든 값은 한국어.
 
