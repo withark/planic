@@ -60,7 +60,14 @@ function readableLLMError(input: unknown, provider: AIProvider): Error & { code?
     return out
   }
 
-  if (lowered.includes('rate limit') || lowered.includes('too many requests') || lowered.includes('429')) {
+  if (
+    lowered.includes('rate limit') ||
+    lowered.includes('too many requests') ||
+    lowered.includes('429') ||
+    lowered.includes('overloaded') ||
+    lowered.includes('529') ||
+    lowered.includes('capacity')
+  ) {
     out.message = '요청이 많아 잠시 제한되었습니다. 잠시 후 다시 시도해 주세요.'
     return out
   }

@@ -18,6 +18,7 @@ function hasSafeUserFacingMessage(raw: string): boolean {
   if (!raw || raw.length > 180 || raw.includes('\n')) return false
   return includesAny(raw, [
     'AI 크레딧이 부족',
+    'AI 요청 처리 중 오류',
     '인증에 실패',
     '응답 시간이 초과',
     '요청이 많아 잠시 제한',
@@ -53,8 +54,12 @@ export function toServerUserMessage(
     return 'AI 크레딧이 부족합니다. 결제/플랜에서 크레딧 상태를 확인한 뒤 다시 시도해 주세요.'
   }
 
-  if (includesAny(lowered, ['timeout', 'timed out', 'etimedout', 'econnaborted', 'upstream request timeout'])) {
+  if (includesAny(lowered, ['timeout', 'timed out', 'etimedout', 'econnaborted', 'upstream request timeout', 'aborted'])) {
     return '외부 AI 응답 시간이 초과되었습니다. 잠시 후 다시 시도해 주세요.'
+  }
+
+  if (includesAny(lowered, ['rate limit', 'too many requests', 'overloaded', '429', '529'])) {
+    return 'AI 서버 요청이 많아 잠시 제한되었습니다. 몇 초 후 다시 시도해 주세요.'
   }
 
   if (

@@ -241,6 +241,7 @@ export async function POST(req: NextRequest) {
             if (e instanceof GeneratePipelineError) {
               send({ type: 'error', code: e.code, message: e.message, status: e.httpStatus })
             } else {
+              logError('generate.stream', e)
               const msg = toServerUserMessage(e, '문서 생성에 실패했습니다.')
               send({ type: 'error', code: 'INTERNAL_ERROR', message: msg, status: 500 })
             }
