@@ -48,7 +48,7 @@ export interface EnrichedBrief {
   }
 }
 
-const ENRICH_TIMEOUT_MS = 25_000
+const ENRICH_TIMEOUT_MS = 6_000
 const ENRICH_MAX_TOKENS = 1_400
 
 function clampLine(input: string | null | undefined, max = 280): string {
