@@ -346,50 +346,53 @@ export function getOutputSchema(target: GenerateInput['documentTarget'], categor
 
   if (target === 'planning') {
     return `
-[출력 규칙 — 기획안(고객 제출용 워드 제안서 품질)]
+[출력 규칙 — 행사 기획 제안서 (고객 제출용 워드 문서 수준)]
 - JSON만 출력.
-- 목표: 참고 문서처럼 각 섹션마다 "어떤 프로그램인가요?", "왜 하나요?", "진행 흐름"이 명시되는 고밀도 제안서.
-- description 필드(actionProgramBlocks)는 반드시 아래 형식으로 작성(\\n으로 줄바꿈, 최소 200자):
-    "■ 어떤 프로그램인가요?\\n[1~2문장 설명]\\n\\n■ 왜 하나요?\\n[1~2문장 이유·목적]\\n\\n■ 진행 흐름\\n[시간대·단계별 흐름 3~5줄]\\n\\n■ 운영 방식\\n[조 편성·소재·방법 등]\\n\\n■ 준비물\\n[전지·마카·미션지 등]"
-- subtitle: 메인 타이틀 아래 한 줄 슬로건(영문+한글 혼용 가능).
-- backgroundStats: 2개. value는 수치·비율(예 "73%"), label은 한 줄 요약, detail은 근거·출처 힌트.
-- programOverviewRows: 5행. label은 목표/기간/대상/장소/예산 중 고정. value·detail에 구체 수치·일정·인원·장소명·금액대.
-- actionProgramBlocks: 최소 6개. dayLabel로 구분. title·description은 실행 가능한 액션(준비물·진행법·산출물 포함).
-  order는 01부터 연번. timeRange는 "14:00-15:30 (90분)" 형태. participants는 "전체 참가자" 등.
-  accent는 "blue"|"orange"|"green"|"yellow"|"slate"를 카드마다 번갈아 사용.
-- actionPlanTable: 최소 6행. step은 "1단계" 형태, timing은 D-60·D-45·D-Day·D+7 등, content는 구체 업무, owner는 담당(팀명).
-- expectedEffectsShortTerm·expectedEffectsLongTerm: 각 3개 이상 bullet 문장(단기·장기).
-- overview: 기획 의도 서술 — 단순 배경 나열이 아니라 "왜 이렇게 설계했는가"를 3~5문장으로 풀어씀.
-- approach: 핵심 운영 철학 2~4문장.
-- operationPlan: 시간축 운영 요약(본문) — 오전/오후/저녁 흐름 포함.
-- audienceAnalysis: 5개 이상 bullet. 참가자 성향·니즈·현재 상황·어떤 경험에 반응하는지 구체적으로 분석.
-- keyDirections: 5개 이상 ①②③④⑤ 핵심 운영 방향. "① 무엇을 하지 않는가" + "어떻게 대신 할 것인가" 쌍으로.
-- facilitatorNotes: 4개 이상. moment는 "오프닝·미션 시작 전·점심 전·오후 시작" 등, script는 실제 진행자가 읽을 수 있는 구어체 멘트(1~2문장).
-- contingencyPlan: 우천·돌발 상황 시 대체 운영안. 실내 대체 프로그램 전체 흐름을 오전/오후로 나눠 구체적으로 서술(최소 150자).
-- checklist: 8개 이상 실행 체크 항목.
+- 목표: 번호 붙은 섹션 구조의 단일 제안서. 각 프로그램 섹션마다 "어떤 프로그램인가요? + 왜 하나요? + 진행 흐름 + 운영 방식 + 준비물" 형식.
+- program.timeline: 전체 일정표. 최소 6행. time(HH:mm)·content(구간명)·detail(세부 운영)·manager(담당) 모두 채울 것.
+- program.concept: 행사 컨셉 2~3문장.
+- overview: 기획 의도 — "왜 이렇게 설계했는가" 3~5문장. 추상 총론 금지.
+- audienceAnalysis: 5개 이상. 참가자 성향·니즈·상황·어떤 경험에 반응하는지 구체 분석.
+- keyDirections: 5개 이상. ①②③④⑤ 형식. "단순 X가 아닌 Y" 구조로.
+- venueGuide: 장소 운영 방향. 오전/오후 장소 특성·주차·이동·우천 비고 등 실무 정보(최소 100자).
+- actionProgramBlocks: 최소 5개. 각 행사 세부 프로그램 1개 = 1블록. description은 반드시:
+    "■ 어떤 프로그램인가요?\\n[설명]\\n\\n■ 왜 하나요?\\n[이유]\\n\\n■ 진행 흐름\\n[시간대별 단계]\\n\\n■ 운영 방식\\n[조편성/방법]\\n\\n■ 준비물\\n[목록]"
+  형식으로 200자 이상 작성. \\n으로 줄바꿈.
+- facilitatorNotes: 4개 이상. moment = 시점, script = 실제 구어체 멘트.
+- contingencyPlan: 우천/돌발 대체 운영안. 오전/오후로 나눠 150자 이상.
+- programOverviewRows: 5행 (행사명/주최/대상 및 인원/장소/일정). label 고정, value·detail에 실제 값.
+- expectedEffectsShortTerm·Long: 각 3개 이상.
+- checklist: 8개 이상.
+- quoteItems: 실제 견적 항목. 카테고리 3개 이상, 각 2개 이상 품목. 금액 현실적으로.
 ${category === 'sports' ? '- 체육대회: 종목·안전·날씨·심판 반영.' : ''}
 
 {
   "eventName":"","clientName":"","quoteDate":"","eventDate":"","eventDuration":"","venue":"","headcount":"","eventType":"",
-  "quoteItems":[],"expenseRate":0,"profitRate":0,"cutAmount":0,"notes":"","paymentTerms":"","validDays":7,
-  "program":{"concept":"","programRows":[],"timeline":[],"staffing":[],"tips":[],"cueRows":[],"cueSummary":""},
+  "quoteItems":[{"category":"인건비","items":[{"name":"행사 기획 PM","spec":"1명×1일","qty":1,"unit":"식","unitPrice":500000,"total":500000,"note":"","kind":"인건비"}]}],
+  "expenseRate":7,"profitRate":5,"cutAmount":0,"notes":"","paymentTerms":"계약금 50% 선납","validDays":30,
+  "program":{
+    "concept":"행사 컨셉 2~3문장",
+    "programRows":[],
+    "timeline":[{"time":"09:00","content":"등록 및 개회","detail":"참가자 등록·자료 배포·착석 안내","manager":"진행스태프"}],
+    "staffing":[],"tips":[],"cueRows":[],"cueSummary":""
+  },
   "planning":{
     "subtitle":"슬로건 한 줄",
-    "overview":"기획 의도 — 왜 이렇게 설계했는가 3~5문장",
+    "overview":"기획 의도 3~5문장",
     "scope":"사전·현장·사후 범위",
-    "approach":"운영 철학·방법 2~4문장",
-    "operationPlan":"시간축 운영 요약(오전/오후 흐름)",
+    "approach":"운영 철학",
+    "operationPlan":"전체 운영 흐름 요약",
     "deliverablesPlan":"산출물·제출 시점",
     "staffingConditions":"역할·인원",
     "risksAndCautions":"리스크+대응",
-    "checklist":["8개 이상 실행 체크 항목"],
-    "audienceAnalysis":["참가자 성향 분석 1","성향 분석 2","니즈·기대 분석","현재 상황","어떤 경험에 반응하는지"],
-    "keyDirections":["① 단순 관광이 아닌 — [대안 설명]","② [운영 방향]","③ [연결 구조]","④ [자율성 확보 방법]","⑤ [몰입도 확보 방법]"],
-    "facilitatorNotes":[{"moment":"오프닝","script":"구어체 멘트"},{"moment":"미션 시작 전","script":"구어체 멘트"},{"moment":"오후 교육 시작","script":"구어체 멘트"},{"moment":"마무리","script":"구어체 멘트"}],
-    "contingencyPlan":"우천 시 실내 대체 프로그램 전체 흐름 — 오전/오후 나눠 구체 서술",
-    "backgroundStats":[{"value":"73%","label":"요약","detail":"근거 힌트"}],
-    "programOverviewRows":[{"label":"목표","value":"","detail":""},{"label":"기간","value":"","detail":""},{"label":"대상","value":"","detail":""},{"label":"장소","value":"","detail":""},{"label":"예산","value":"","detail":""}],
-    "actionProgramBlocks":[{"order":1,"dayLabel":"구간명 — 부제","title":"프로그램 제목","description":"■ 어떤 프로그램인가요?\\n[설명]\\n\\n■ 왜 하나요?\\n[이유]\\n\\n■ 진행 흐름\\n[단계별]\\n\\n■ 운영 방식\\n[방법]\\n\\n■ 준비물\\n[목록]","timeRange":"HH:mm-HH:mm (N분)","participants":"대상","accent":"blue"}],
+    "checklist":["체크 항목 8개 이상"],
+    "audienceAnalysis":["참가자 특성 1","특성 2","니즈 분석","현재 상황","반응 유형"],
+    "keyDirections":["① [방향1]","② [방향2]","③ [방향3]","④ [방향4]","⑤ [방향5]"],
+    "venueGuide":"오전 장소: [장소명] — 주차·이동·특성 설명\\n오후 장소: [장소명] — 수용 인원·시설·주의사항",
+    "facilitatorNotes":[{"moment":"오프닝","script":"멘트"},{"moment":"프로그램 시작 전","script":"멘트"},{"moment":"오후 교육 시작","script":"멘트"},{"moment":"마무리","script":"멘트"}],
+    "contingencyPlan":"우천 시 대체 운영안 — 오전/오후 나눠 서술",
+    "programOverviewRows":[{"label":"행사명","value":"","detail":""},{"label":"주최","value":"","detail":""},{"label":"대상 및 인원","value":"","detail":""},{"label":"장소","value":"","detail":""},{"label":"일정","value":"","detail":""}],
+    "actionProgramBlocks":[{"order":1,"dayLabel":"구간명","title":"프로그램명","description":"■ 어떤 프로그램인가요?\\n설명\\n\\n■ 왜 하나요?\\n이유\\n\\n■ 진행 흐름\\n단계별\\n\\n■ 운영 방식\\n방법\\n\\n■ 준비물\\n목록","timeRange":"HH:mm-HH:mm (N분)","participants":"전체 참가자","accent":"blue"}],
     "actionPlanTable":[{"step":"1단계","timing":"D-60","content":"구체 업무","owner":"담당팀"}],
     "expectedEffectsShortTerm":["단기 효과1","단기 효과2","단기 효과3"],
     "expectedEffectsLongTerm":["장기 효과1","장기 효과2","장기 효과3"]

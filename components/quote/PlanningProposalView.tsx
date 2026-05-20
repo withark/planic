@@ -1,275 +1,305 @@
 'use client'
 
-import type { PlanningDoc, PlanningActionBlock } from '@/lib/types'
-import clsx from 'clsx'
+import type { PlanningDoc, QuoteDoc } from '@/lib/types'
 
-function nl2br(text: string) {
-  return text.split('\n').map((line, i, arr) => (
-    <span key={i}>{line}{i < arr.length - 1 ? <br /> : null}</span>
-  ))
-}
-
-const ACCENT_BAR: Record<NonNullable<PlanningActionBlock['accent']>, string> = {
-  blue: 'border-l-[8px] border-l-blue-700 bg-gradient-to-r from-blue-50/80 to-white',
-  orange: 'border-l-[8px] border-l-amber-500 bg-gradient-to-r from-amber-50/80 to-white',
-  green: 'border-l-[8px] border-l-emerald-600 bg-gradient-to-r from-emerald-50/80 to-white',
-  yellow: 'border-l-[8px] border-l-yellow-500 bg-gradient-to-r from-yellow-50/70 to-white',
-  slate: 'border-l-[8px] border-l-slate-600 bg-gradient-to-r from-slate-50/80 to-white',
-}
-
-function hasStructuredPlanning(p: PlanningDoc): boolean {
-  return Boolean(
-    p.subtitle?.trim() ||
-      (p.backgroundStats && p.backgroundStats.length > 0) ||
-      (p.programOverviewRows && p.programOverviewRows.length > 0) ||
-      (p.actionProgramBlocks && p.actionProgramBlocks.length > 0) ||
-      (p.actionPlanTable && p.actionPlanTable.length > 0) ||
-      (p.expectedEffectsShortTerm && p.expectedEffectsShortTerm.length > 0) ||
-      (p.expectedEffectsLongTerm && p.expectedEffectsLongTerm.length > 0),
+// ─── 섹션 헤더 ────────────────────────────────────────────────────────────────
+function SectionHeader({ n, title }: { n: number; title: string }) {
+  return (
+    <div className="flex items-baseline gap-2.5 border-b-2 border-slate-800 pb-1 mb-3">
+      <span className="text-base font-extrabold text-slate-800 tabular-nums">{n}</span>
+      <h3 className="text-base font-bold text-slate-900 tracking-tight">{title}</h3>
+    </div>
   )
 }
 
+// ─── 나레이션 블록 ─────────────────────────────────────────────────────────────
+function Narrative({ text }: { text: string }) {
+  if (!text?.trim()) return null
+  return (
+    <p className="whitespace-pre-wrap text-sm leading-[1.9] text-slate-700">{text.trim()}</p>
+  )
+}
+
+// ─── 공통 테이블 ──────────────────────────────────────────────────────────────
+function DocTable({ head, rows }: {
+  head: string[]
+  rows: (string | React.ReactNode)[][]
+}) {
+  return (
+    <div className="overflow-x-auto">
+      <table className="w-full border-collapse text-sm">
+        <thead>
+          <tr className="bg-slate-800 text-white">
+            {head.map((h, i) => (
+              <th key={i} className="px-3 py-2 text-left text-xs font-semibold">{h}</th>
+            ))}
+          </tr>
+        </thead>
+        <tbody>
+          {rows.map((row, i) => (
+            <tr key={i} className={i % 2 === 0 ? 'bg-slate-50' : 'bg-white'}>
+              {row.map((cell, j) => (
+                <td key={j} className="border-b border-slate-200 px-3 py-2 text-slate-700 align-top text-xs sm:text-sm">
+                  {cell}
+                </td>
+              ))}
+            </tr>
+          ))}
+        </tbody>
+      </table>
+    </div>
+  )
+}
+
+// ─── 세부 프로그램 블록 ───────────────────────────────────────────────────────
+function ProgramBlock({ n, block }: { n: number; block: NonNullable<PlanningDoc['actionProgramBlocks']>[number] }) {
+  const desc = block.description?.trim() ?? ''
+
+  // description을 ■ 섹션 기준으로 파싱
+  const sections = desc.split(/(?=■)/).filter(Boolean)
+
+  return (
+    <div className="mb-6">
+      <SectionHeader n={n} title={`${block.dayLabel ? block.dayLabel + ' — ' : ''}${block.title}`} />
+      <div className="text-xs text-slate-500 mb-2">{block.timeRange} · {block.participants}</div>
+
+      {sections.length > 1 ? (
+        <div className="space-y-3">
+          {sections.map((sec, i) => {
+            const firstNl = sec.indexOf('\n')
+            const heading = firstNl > 0 ? sec.slice(0, firstNl).trim() : sec.trim()
+            const body = firstNl > 0 ? sec.slice(firstNl + 1).trim() : ''
+            return (
+              <div key={i}>
+                <div className="text-xs font-bold text-slate-700 mb-0.5">{heading}</div>
+                {body ? <p className="whitespace-pre-wrap text-xs leading-relaxed text-slate-600">{body}</p> : null}
+              </div>
+            )
+          })}
+        </div>
+      ) : (
+        <p className="whitespace-pre-wrap text-sm leading-relaxed text-slate-700">{desc}</p>
+      )}
+    </div>
+  )
+}
+
+// ─── 견적 요약 ────────────────────────────────────────────────────────────────
+function BudgetSection({ doc }: { doc: QuoteDoc }) {
+  const items = doc.quoteItems ?? []
+  if (items.length === 0 || items.every(c => (c.items ?? []).length === 0)) return null
+
+  const rows: [string, string, string, string, string][] = []
+  let subTotal = 0
+  for (const cat of items) {
+    for (const item of cat.items ?? []) {
+      const total = (item.unitPrice ?? 0) * (item.qty ?? 1)
+      subTotal += total
+      rows.push([
+        cat.category || '',
+        item.name,
+        item.spec || '',
+        `${(item.qty ?? 1)}${item.unit || '식'}`,
+        `${total.toLocaleString()}원`,
+      ])
+    }
+  }
+  const exp = Math.round(subTotal * (doc.expenseRate || 0) / 100)
+  const prof = Math.round(subTotal * (doc.profitRate || 0) / 100)
+  const supply = subTotal + exp + prof
+  const vat = Math.round(supply * 0.1)
+  const grand = supply + vat - (doc.cutAmount || 0)
+
+  return (
+    <div>
+      <DocTable
+        head={['카테고리', '항목', '규격', '수량', '금액']}
+        rows={rows}
+      />
+      <div className="mt-2 space-y-1 text-xs text-right text-slate-600">
+        <div>소 계: {subTotal.toLocaleString()}원</div>
+        {exp > 0 && <div>제경비 ({doc.expenseRate}%): {exp.toLocaleString()}원</div>}
+        {prof > 0 && <div>기업이윤 ({doc.profitRate}%): {prof.toLocaleString()}원</div>}
+        <div>공급가액: {supply.toLocaleString()}원</div>
+        <div>부가세 (10%): {vat.toLocaleString()}원</div>
+        <div className="text-sm font-bold text-slate-900 border-t border-slate-300 pt-1">
+          합 계: {grand.toLocaleString()}원
+        </div>
+      </div>
+      {doc.notes ? (
+        <p className="mt-2 text-xs text-slate-500 whitespace-pre-wrap">※ {doc.notes}</p>
+      ) : null}
+    </div>
+  )
+}
+
+// ─── Props ───────────────────────────────────────────────────────────────────
 type Props = {
   eventName: string
   planning: PlanningDoc
+  doc?: QuoteDoc
   onPatch: (patch: Partial<PlanningDoc>) => void
 }
 
-export default function PlanningProposalView({ eventName, planning: p, onPatch }: Props) {
-  if (!hasStructuredPlanning(p)) return null
+// ─── 메인 컴포넌트 ────────────────────────────────────────────────────────────
+export default function PlanningProposalView({ eventName, planning: p, doc }: Props) {
+  const timeline = doc?.program?.timeline ?? []
+  const hasTimeline = timeline.length > 0
+  const blocks = p.actionProgramBlocks ?? []
+  const hasBudget = (doc?.quoteItems ?? []).some(c => (c.items ?? []).length > 0)
+
+  // 섹션 번호 카운터
+  let sn = 0
+  const n = () => ++sn
 
   return (
-    <div className="planning-proposal-print mb-6 overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm">
-      <div className="border-b-4 border-blue-800 bg-white px-6 py-5 text-center">
-        <h2 className="text-xl font-bold tracking-tight text-blue-900 sm:text-2xl">{eventName || '행사 기획안'}</h2>
+    <div className="planning-proposal-print mx-auto max-w-3xl bg-white px-6 py-8 text-slate-900 print:px-0">
+
+      {/* ── 표지 ── */}
+      <div className="mb-10 border-b-4 border-slate-800 pb-6 text-center">
+        <p className="text-xs font-semibold uppercase tracking-widest text-slate-400 mb-2">행 사 제 안 서</p>
+        <h1 className="text-2xl font-extrabold leading-snug text-slate-900 sm:text-3xl">
+          {eventName || '행사 제안서'}
+        </h1>
         {p.subtitle ? (
-          <p className="mt-2 text-sm font-semibold text-amber-600 sm:text-base">{p.subtitle}</p>
+          <p className="mt-2 text-sm font-semibold text-amber-600">{p.subtitle}</p>
         ) : null}
-        <p className="mt-1 text-xs text-slate-500">기획 제안서 미리보기 · PDF 저장 시 이 영역이 함께 캡처됩니다</p>
+        <div className="mt-4 flex flex-wrap justify-center gap-x-6 gap-y-1 text-xs text-slate-500">
+          {doc?.clientName ? <span>의뢰처: <strong className="text-slate-700">{doc.clientName}</strong></span> : null}
+          {doc?.eventDate ? <span>일정: <strong className="text-slate-700">{doc.eventDate}</strong></span> : null}
+          {doc?.venue ? <span>장소: <strong className="text-slate-700">{doc.venue}</strong></span> : null}
+          {doc?.headcount ? <span>인원: <strong className="text-slate-700">{doc.headcount}</strong></span> : null}
+          {doc?.quoteDate ? <span>작성일: <strong className="text-slate-700">{doc.quoteDate}</strong></span> : null}
+        </div>
       </div>
 
-      <div className="space-y-8 px-4 py-6 sm:px-6">
+      <div className="space-y-10">
 
-        {/* 기획 의도 */}
-        {p.overview ? (
+        {/* ── 1. 행사 개요 ── */}
+        {p.programOverviewRows && p.programOverviewRows.length > 0 && (
           <section>
-            <h3 className="mb-3 border-b border-blue-200 pb-1 text-sm font-bold text-blue-800">기획 의도</h3>
-            <p className="whitespace-pre-wrap text-sm leading-relaxed text-slate-700">{p.overview}</p>
+            <SectionHeader n={n()} title="행사 개요" />
+            <DocTable
+              head={['구분', '내용', '비고']}
+              rows={p.programOverviewRows.map(r => [r.label, r.value, r.detail ?? ''])}
+            />
           </section>
-        ) : null}
+        )}
 
-        {/* 대상 특성 분석 */}
-        {p.audienceAnalysis && p.audienceAnalysis.length > 0 ? (
+        {/* ── 2. 기획 의도 ── */}
+        {p.overview?.trim() && (
           <section>
-            <h3 className="mb-3 border-b border-blue-200 pb-1 text-sm font-bold text-blue-800">대상 특성 분석</h3>
-            <ul className="space-y-2">
+            <SectionHeader n={n()} title="기획 의도" />
+            <Narrative text={p.overview} />
+          </section>
+        )}
+
+        {/* ── 3. 대상 특성 분석 ── */}
+        {p.audienceAnalysis && p.audienceAnalysis.length > 0 && (
+          <section>
+            <SectionHeader n={n()} title="대상 특성 분석" />
+            <ul className="space-y-1.5">
               {p.audienceAnalysis.map((item, i) => (
                 <li key={i} className="flex gap-2 text-sm text-slate-700">
-                  <span className="mt-0.5 h-5 w-5 shrink-0 rounded-full bg-blue-100 text-center text-xs font-bold leading-5 text-blue-700">{i + 1}</span>
+                  <span className="mt-0.5 shrink-0 text-slate-400">•</span>
                   <span>{item}</span>
                 </li>
               ))}
             </ul>
           </section>
-        ) : null}
+        )}
 
-        {/* 핵심 운영 방향 */}
-        {p.keyDirections && p.keyDirections.length > 0 ? (
+        {/* ── 4. 핵심 운영 방향 ── */}
+        {p.keyDirections && p.keyDirections.length > 0 && (
           <section>
-            <h3 className="mb-3 border-b border-blue-200 pb-1 text-sm font-bold text-blue-800">핵심 운영 방향</h3>
+            <SectionHeader n={n()} title="핵심 운영 방향" />
             <ul className="space-y-2">
               {p.keyDirections.map((dir, i) => (
-                <li key={i} className="rounded-lg border border-amber-100 bg-amber-50/60 px-4 py-2.5 text-sm text-slate-800">
-                  {dir}
+                <li key={i} className="flex gap-2 text-sm text-slate-700">
+                  <span className="shrink-0 font-bold text-slate-500">{i + 1}.</span>
+                  <span>{dir}</span>
                 </li>
               ))}
             </ul>
           </section>
-        ) : null}
+        )}
 
-        {p.backgroundStats && p.backgroundStats.length > 0 ? (
+        {/* ── 5. 장소 운영 방향 ── */}
+        {p.venueGuide?.trim() && (
           <section>
-            <h3 className="mb-3 border-b border-blue-200 pb-1 text-sm font-bold text-blue-800">1. 배경 및 필요성</h3>
-            <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
-              {p.backgroundStats.map((s, i) => (
-                <div
-                  key={i}
-                  className="rounded-xl border border-slate-200 bg-slate-50/80 p-4 text-center shadow-sm"
-                >
-                  <div className="text-3xl font-extrabold text-amber-600">{s.value || '—'}</div>
-                  <div className="mt-1 text-sm font-semibold text-slate-800">{s.label}</div>
-                  {s.detail ? <p className="mt-2 text-xs leading-relaxed text-slate-600">{s.detail}</p> : null}
-                </div>
-              ))}
-            </div>
+            <SectionHeader n={n()} title="장소 운영 방향" />
+            <Narrative text={p.venueGuide} />
           </section>
-        ) : null}
+        )}
 
-        {p.programOverviewRows && p.programOverviewRows.length > 0 ? (
+        {/* ── 6. 전체 일정표 ── */}
+        {hasTimeline && (
           <section>
-            <h3 className="mb-3 border-b border-blue-200 pb-1 text-sm font-bold text-blue-800">2. 프로그램 개요</h3>
-            <div className="overflow-hidden rounded-xl border border-slate-200">
-              <table className="w-full text-left text-xs sm:text-sm">
-                <tbody>
-                  {p.programOverviewRows.map((row, i) => (
-                    <tr key={i} className={i % 2 === 0 ? 'bg-slate-50/90' : 'bg-white'}>
-                      <th className="w-[28%] border-b border-slate-200 px-3 py-2.5 font-semibold text-blue-900">
-                        {row.label}
-                      </th>
-                      <td className="border-b border-slate-200 px-3 py-2.5 text-slate-800">
-                        <div className="font-medium">{row.value}</div>
-                        {row.detail ? <div className="mt-0.5 text-xs text-slate-600">{row.detail}</div> : null}
-                      </td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
+            <SectionHeader n={n()} title="전체 일정표" />
+            <DocTable
+              head={['시간', '구분 / 내용', '세부 운영', '담당']}
+              rows={timeline.map(row => [row.time, row.content, row.detail ?? '', row.manager ?? ''])}
+            />
           </section>
-        ) : null}
+        )}
 
-        {p.actionProgramBlocks && p.actionProgramBlocks.length > 0 ? (
+        {/* ── 7+. 세부 프로그램 (블록별 섹션) ── */}
+        {blocks.map((block) => (
+          <section key={block.order}>
+            <ProgramBlock n={n()} block={block} />
+          </section>
+        ))}
+
+        {/* ── 진행자 운영 멘트 예시 ── */}
+        {p.facilitatorNotes && p.facilitatorNotes.length > 0 && (
           <section>
-            <h3 className="mb-3 border-b border-blue-200 pb-1 text-sm font-bold text-blue-800">3. 세부 액션 프로그램</h3>
-            <div className="space-y-4">
-              {p.actionProgramBlocks.map((block, i) => {
-                const accent = block.accent && ACCENT_BAR[block.accent] ? block.accent : 'blue'
-                return (
-                  <div
-                    key={i}
-                    className={clsx(
-                      'flex overflow-hidden rounded-xl border border-slate-200 shadow-sm',
-                      ACCENT_BAR[accent],
-                    )}
-                  >
-                    <div className="flex w-14 shrink-0 flex-col items-center justify-center bg-slate-800/90 py-3 text-white sm:w-16">
-                      <span className="text-lg font-bold leading-none">
-                        {String(block.order).padStart(2, '0')}
-                      </span>
-                    </div>
-                    <div className="min-w-0 flex-1 p-3 sm:p-4">
-                      <div className="text-xs font-bold text-amber-700">{block.dayLabel}</div>
-                      <div className="mt-1 text-sm font-bold text-slate-900">{block.title}</div>
-                      <p className="mt-2 whitespace-pre-wrap text-xs leading-relaxed text-slate-700 sm:text-sm">
-                        {block.description}
-                      </p>
-                      <div className="mt-3 flex flex-wrap gap-x-4 gap-y-1 border-t border-slate-200/80 pt-2 text-[11px] text-slate-600">
-                        <span>
-                          <span className="font-medium text-slate-500">시간</span> {block.timeRange}
-                        </span>
-                        <span>
-                          <span className="font-medium text-slate-500">대상</span> {block.participants}
-                        </span>
-                      </div>
-                    </div>
-                  </div>
-                )
-              })}
-            </div>
+            <SectionHeader n={n()} title="진행자 운영 멘트 예시" />
+            <DocTable
+              head={['시점', '멘트']}
+              rows={p.facilitatorNotes.map(note => [
+                <span key="m" className="font-semibold text-slate-700">{note.moment}</span>,
+                <span key="s" className="italic text-slate-600">"{note.script}"</span>,
+              ])}
+            />
           </section>
-        ) : null}
+        )}
 
-        {p.actionPlanTable && p.actionPlanTable.length > 0 ? (
+        {/* ── 우천 · 돌발 상황 대체 운영안 ── */}
+        {p.contingencyPlan?.trim() && (
           <section>
-            <h3 className="mb-3 border-b border-blue-200 pb-1 text-sm font-bold text-blue-800">4. 액션 플랜</h3>
-            <div className="overflow-x-auto rounded-xl border border-slate-200">
-              <table className="w-full min-w-[520px] text-left text-xs sm:text-sm">
-                <thead>
-                  <tr className="bg-blue-900 text-white">
-                    <th className="px-3 py-2 font-semibold">단계</th>
-                    <th className="px-3 py-2 font-semibold">시기</th>
-                    <th className="px-3 py-2 font-semibold">주요 내용</th>
-                    <th className="px-3 py-2 font-semibold">담당</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {p.actionPlanTable.map((row, i) => (
-                    <tr key={i} className={i % 2 === 0 ? 'bg-slate-50' : 'bg-white'}>
-                      <td className="border-b border-slate-200 px-3 py-2 font-semibold text-amber-700">{row.step}</td>
-                      <td className="border-b border-slate-200 px-3 py-2 text-slate-800">{row.timing}</td>
-                      <td className="border-b border-slate-200 px-3 py-2 text-slate-700">{row.content}</td>
-                      <td className="border-b border-slate-200 px-3 py-2 text-slate-600">{row.owner}</td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
+            <SectionHeader n={n()} title="우천 · 돌발 상황 대체 운영안" />
+            <Narrative text={p.contingencyPlan} />
           </section>
-        ) : null}
+        )}
 
-        {(p.expectedEffectsShortTerm && p.expectedEffectsShortTerm.length > 0) ||
-        (p.expectedEffectsLongTerm && p.expectedEffectsLongTerm.length > 0) ? (
+        {/* ── 견적서 ── */}
+        {hasBudget && doc && (
           <section>
-            <h3 className="mb-3 border-b border-blue-200 pb-1 text-sm font-bold text-blue-800">5. 기대 효과</h3>
-            <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
-              <div className="rounded-xl border border-amber-200 bg-amber-50/50 p-4">
-                <div className="text-xs font-bold text-amber-800">단기 효과</div>
-                <ul className="mt-2 list-disc space-y-1.5 pl-4 text-xs text-slate-800 sm:text-sm">
-                  {(p.expectedEffectsShortTerm || []).map((line, i) => (
-                    <li key={i}>{line}</li>
-                  ))}
-                </ul>
-              </div>
-              <div className="rounded-xl border border-emerald-200 bg-emerald-50/50 p-4">
-                <div className="text-xs font-bold text-emerald-800">장기 효과</div>
-                <ul className="mt-2 list-disc space-y-1.5 pl-4 text-xs text-slate-800 sm:text-sm">
-                  {(p.expectedEffectsLongTerm || []).map((line, i) => (
-                    <li key={i}>{line}</li>
-                  ))}
-                </ul>
-              </div>
-            </div>
+            <SectionHeader n={n()} title="견적서" />
+            <BudgetSection doc={doc} />
           </section>
-        ) : null}
+        )}
 
-        {/* 진행자 멘트 예시 */}
-        {p.facilitatorNotes && p.facilitatorNotes.length > 0 ? (
+        {/* ── 기대 효과 ── */}
+        {((p.expectedEffectsShortTerm?.length ?? 0) > 0 || (p.expectedEffectsLongTerm?.length ?? 0) > 0) && (
           <section>
-            <h3 className="mb-3 border-b border-blue-200 pb-1 text-sm font-bold text-blue-800">진행자 운영 멘트 예시</h3>
-            <div className="overflow-hidden rounded-xl border border-slate-200">
-              <table className="w-full text-left text-xs sm:text-sm">
-                <thead>
-                  <tr className="bg-blue-900 text-white">
-                    <th className="px-3 py-2 font-semibold w-[28%]">시점</th>
-                    <th className="px-3 py-2 font-semibold">멘트</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {p.facilitatorNotes.map((note, i) => (
-                    <tr key={i} className={i % 2 === 0 ? 'bg-slate-50' : 'bg-white'}>
-                      <td className="border-b border-slate-200 px-3 py-2.5 font-semibold text-blue-800">{note.moment}</td>
-                      <td className="border-b border-slate-200 px-3 py-2.5 text-slate-700 italic">"{note.script}"</td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
+            <SectionHeader n={n()} title="기대 효과" />
+            <DocTable
+              head={['영역', '기대 효과']}
+              rows={[
+                ...(p.expectedEffectsShortTerm ?? []).map(e => ['단기', e]),
+                ...(p.expectedEffectsLongTerm ?? []).map(e => ['장기', e]),
+              ]}
+            />
           </section>
-        ) : null}
+        )}
 
-        {/* 우천 / 돌발 상황 대체 운영안 */}
-        {p.contingencyPlan ? (
-          <section>
-            <h3 className="mb-3 border-b border-blue-200 pb-1 text-sm font-bold text-blue-800">우천 · 돌발 상황 대체 운영안</h3>
-            <div className="rounded-xl border border-slate-200 bg-slate-50/60 px-4 py-3">
-              <p className="whitespace-pre-wrap text-sm leading-relaxed text-slate-700">{p.contingencyPlan}</p>
-            </div>
-          </section>
-        ) : null}
+        {/* ── 맺음말 ── */}
+        <div className="border-t border-slate-200 pt-6 text-center text-sm text-slate-500">
+          <p>위와 같이 제안드립니다. 검토 후 회신 부탁드립니다.</p>
+          {doc?.quoteDate ? <p className="mt-1">{doc.quoteDate.slice(0, 7).replace('-', '년 ').replace('-', '월')}</p> : null}
+        </div>
 
-        <p className="text-center text-[10px] text-slate-400">© {new Date().getFullYear()} Planic · 기획안 미리보기</p>
-
-        <details className="rounded-lg border border-dashed border-slate-300 bg-slate-50/50 p-3 text-xs">
-          <summary className="cursor-pointer font-semibold text-slate-600">구조화 필드 한 줄 수정 (부제)</summary>
-          <label className="mt-2 block text-[10px] text-slate-500">subtitle</label>
-          <input
-            type="text"
-            value={p.subtitle || ''}
-            onChange={(e) => onPatch({ subtitle: e.target.value })}
-            className="mt-1 w-full rounded border border-slate-200 px-2 py-1.5 text-sm"
-            placeholder="슬로건"
-          />
-        </details>
       </div>
     </div>
   )

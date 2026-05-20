@@ -1819,7 +1819,7 @@ export function QuoteResult({
                 const update = (patch: Partial<typeof p>) => patchDoc(base => ({ ...base, planning: { ...(base.planning || p), ...patch } as any }))
                 return (
                   <>
-                    <PlanningProposalView eventName={doc.eventName} planning={p} onPatch={update} />
+                    <PlanningProposalView eventName={doc.eventName} planning={p} doc={doc} onPatch={update} />
                     <p className="text-xs text-gray-500">아래는 섹션별 원문 편집입니다.</p>
                     {[
                       { key: 'overview', label: '개요', rows: 4, val: p.overview },

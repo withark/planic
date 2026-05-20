@@ -166,6 +166,8 @@ export interface PlanningDoc {
   facilitatorNotes?: { moment: string; script: string }[]
   /** 9. 우천/돌발 상황 대체 운영안 — 서술형 */
   contingencyPlan?: string
+  /** 10. 장소 운영 방향 — 오전/오후 장소별 운영 가이드 */
+  venueGuide?: string
 }
 
 // ─── Brief enrichment 영구 요약 (generated_docs.payload에 함께 저장) ─────────
