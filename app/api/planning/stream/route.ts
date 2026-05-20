@@ -7,7 +7,8 @@ import { ensureFreeSubscription, getActiveSubscription } from '@/lib/db/subscrip
 import { getOrCreateUsage } from '@/lib/db/usage-db'
 import { assertQuoteGenerateAllowed, EntitlementError } from '@/lib/entitlements'
 import { logError } from '@/lib/utils/logger'
-import { buildPlanningMarkdownPrompt } from '@/lib/ai/prompts/planningMarkdown'
+import { buildPlanningMarkdownPrompt, PLANNING_SYSTEM_PROMPT } from '@/lib/ai/prompts/planningMarkdown'
+import { savePlanningDoc } from '@/lib/db/planning-docs-db'
 import type { PlanType } from '@/lib/plans'
 
 export const maxDuration = 300
@@ -27,12 +28,6 @@ const RequestSchema = z.object({
   companyName: z.string().optional().default(''),
 })
 
-const SYSTEM_PROMPT = [
-  '당신은 대한민국 이벤트/행사 업계의 수석 기획자입니다.',
-  '고객에게 직접 제출 가능한 수준의 전문적인 기획 제안서를 마크다운 형식으로 작성합니다.',
-  '추상적인 표현 없이 구체적인 실행 정보를 담습니다.',
-  '마크다운만 출력하고 JSON이나 코드 블록은 사용하지 않습니다.',
-].join(' ')
 
 export async function POST(req: NextRequest) {
   try {
@@ -77,17 +72,26 @@ export async function POST(req: NextRequest) {
         try {
           const anthropicStream = anthropic.messages.stream({
             model: 'claude-sonnet-4-6',
-            max_tokens: 8000,
-            system: SYSTEM_PROMPT,
+            max_tokens: 12000,
+            system: PLANNING_SYSTEM_PROMPT,
             messages: [{ role: 'user', content: prompt }],
           })
 
+          let fullText = ''
           for await (const event of anthropicStream) {
             if (event.type === 'content_block_delta' && event.delta.type === 'text_delta') {
+              fullText += event.delta.text
               const chunk = JSON.stringify({ type: 'delta', text: event.delta.text }) + '\n'
               controller.enqueue(encoder.encode(chunk))
             }
           }
+
+          // 생성 완료 후 DB 저장 (비동기, 실패해도 응답에 영향 없음)
+          savePlanningDoc({
+            userId,
+            markdownContent: fullText,
+            formInput: parsed.data,
+          }).catch(err => logError('planning.save', err))
 
           controller.enqueue(encoder.encode(JSON.stringify({ type: 'done' }) + '\n'))
         } catch (e) {

@@ -18,6 +18,7 @@ export default function PlanningGeneratorPage() {
   const [error, setError] = useState<string | undefined>()
   const abortRef = useRef<AbortController | null>(null)
   const resultRef = useRef<HTMLDivElement>(null)
+  const lastFormRef = useRef<PlanningFormValues | null>(null)
 
   useEffect(() => {
     apiFetch<{ settings: CompanySettings }>('/api/settings')
@@ -33,6 +34,7 @@ export default function PlanningGeneratorPage() {
     const controller = new AbortController()
     abortRef.current = controller
 
+    lastFormRef.current = values
     setText('')
     setError(undefined)
     setStatus('streaming')
@@ -125,6 +127,29 @@ export default function PlanningGeneratorPage() {
     await navigator.clipboard.writeText(text)
   }
 
+  const handleExportDocx = async () => {
+    if (!text) return
+    const eventName = lastFormRef.current?.eventName || '기획 제안서'
+    try {
+      const res = await fetch('/api/planning/export', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        credentials: 'include',
+        body: JSON.stringify({ markdown: text, eventName }),
+      })
+      if (!res.ok) return
+      const blob = await res.blob()
+      const url = URL.createObjectURL(blob)
+      const a = document.createElement('a')
+      a.href = url
+      a.download = `[기획제안서] ${eventName}.docx`
+      a.click()
+      URL.revokeObjectURL(url)
+    } catch {
+      // silent
+    }
+  }
+
   return (
     <div className="min-h-screen bg-gray-50">
       <GNB />
@@ -159,13 +184,22 @@ export default function PlanningGeneratorPage() {
                     초기화
                   </button>
                   {status === 'done' && (
-                    <button
-                      type="button"
-                      onClick={handleCopy}
-                      className="flex-1 py-2 text-xs font-medium text-gray-600 bg-gray-100 rounded-lg hover:bg-gray-200 transition-colors"
-                    >
-                      텍스트 복사
-                    </button>
+                    <>
+                      <button
+                        type="button"
+                        onClick={handleCopy}
+                        className="flex-1 py-2 text-xs font-medium text-gray-600 bg-gray-100 rounded-lg hover:bg-gray-200 transition-colors"
+                      >
+                        텍스트 복사
+                      </button>
+                      <button
+                        type="button"
+                        onClick={handleExportDocx}
+                        className="flex-1 py-2 text-xs font-medium text-white bg-gray-800 rounded-lg hover:bg-gray-700 transition-colors"
+                      >
+                        Word 다운로드
+                      </button>
+                    </>
                   )}
                 </div>
               )}
