@@ -26,19 +26,9 @@ const NAVS: NavItem[] = [
     ),
   },
   {
-    href: '/estimate-generator',
-    text: '문서 생성',
-    matchPrefixes: [
-      '/estimate-generator',
-      '/create-documents',
-      '/program-proposal-generator',
-      '/planning-generator',
-      '/scenario-generator',
-      '/cue-sheet-generator',
-      '/emcee-script-generator',
-      '/task-order-summary',
-      '/documents',
-    ],
+    href: '/planning-generator',
+    text: '기획 제안서',
+    matchPrefixes: ['/planning-generator'],
     icon: ({ className }) => (
       <svg viewBox="0 0 24 24" fill="none" className={className} aria-hidden>
         <path d="M12 3.5h4.5L20 7v13.5A2 2 0 0 1 18 22.5H6A2 2 0 0 1 4 20.5V5.5A2 2 0 0 1 6 3.5h6Z" stroke="currentColor" strokeWidth="1.8" strokeLinejoin="round" />
