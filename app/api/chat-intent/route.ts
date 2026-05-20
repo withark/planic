@@ -42,7 +42,7 @@ const SYSTEM_PROMPT = `당신은 행사 문서 생성 어시스턴트입니다. 
     "eventDuration": "",
     "budget": "",
     "requirements": "",
-    "documentTarget": "estimate|program|planning|cuesheet|scenario|emceeScript"
+    "documentTarget": "estimate|program|planning|cuesheet|scenario|emceeScript|timetable"
   }
 }
 
@@ -56,6 +56,7 @@ const SYSTEM_PROMPT = `당신은 행사 문서 생성 어시스턴트입니다. 
   - 기획안→"planning"
   - 사회자 멘트·MC 멘트→"emceeScript"
   - 프로그램 제안서(프로그램만 명시)→"program"
+  - 타임테이블·timetable·시간표·진행표→"timetable"
   - "제안서", "견적서", "견적", "제안" 단독 키워드 → 반드시 "estimate"
   - 문서 종류가 불명확하면 → "estimate"
 - 날짜는 YYYY-MM-DD 형식으로 변환. 숫자 인원은 "100명" 형태로.
