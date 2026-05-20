@@ -13,6 +13,7 @@ import type {
   PlanningActionPlanRow,
 } from '../types'
 import { redistributeTimelineTimes } from './timeline-utils'
+import { sanitizeJsonLiteralControlChars } from './json-response'
 
 function extractCodeFence(text: string): string | null {
   const fenced = text.match(/```json([\s\S]*?)```/i) || text.match(/```([\s\S]*?)```/)
@@ -395,11 +396,13 @@ export function normalizeQuoteDoc(
 }
 
 export function safeParseQuoteJson(raw: string): QuoteDoc {
+  const sanitized = sanitizeJsonLiteralControlChars(raw)
   const attempts: string[] = []
-  attempts.push(raw)
+  attempts.push(sanitized)
+  if (sanitized !== raw) attempts.push(raw)
 
-  const cleaned = cleanJsonLoose(raw)
-  if (cleaned !== raw) attempts.push(cleaned)
+  const cleaned = cleanJsonLoose(sanitized)
+  if (cleaned !== sanitized) attempts.push(cleaned)
 
   for (const candidate of attempts) {
     try {
@@ -411,9 +414,9 @@ export function safeParseQuoteJson(raw: string): QuoteDoc {
   }
 
   try {
-    const lastBrace = raw.lastIndexOf('}')
+    const lastBrace = sanitized.lastIndexOf('}')
     if (lastBrace > 0) {
-      const truncated = raw.slice(0, lastBrace + 1)
+      const truncated = sanitized.slice(0, lastBrace + 1)
       const parsed = JSON.parse(cleanJsonLoose(truncated)) as QuoteDoc
       if (parsed && typeof parsed === 'object') return parsed
     }
