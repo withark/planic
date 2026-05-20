@@ -1,6 +1,6 @@
 'use client'
 
-import { Suspense, useCallback, useEffect, useRef, useState } from 'react'
+import { Suspense, useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { useRouter, useSearchParams } from 'next/navigation'
 import { GNB } from '@/components/GNB'
 import { QuoteResult } from '@/components/quote/QuoteResult'
@@ -40,6 +40,8 @@ function uid() {
 function todayStr() {
   return new Date().toISOString().slice(0, 10)
 }
+
+type DocTabId = 'estimate' | 'program' | 'timetable' | 'planning' | 'scenario' | 'cuesheet' | 'emceeScript'
 
 const STAGE_LABELS: Record<string, string> = {
   enrich: '브리프 분석 중...',
@@ -291,6 +293,21 @@ function EstimateGeneratorContent() {
 
   const abortRef = useRef<AbortController | null>(null)
   const bottomRef = useRef<HTMLDivElement>(null)
+
+  // 요청한 문서 타입에 따라 보여줄 탭 결정.
+  // 기획안·큐시트·시나리오 등 단독 요청 시 해당 탭만 표시.
+  // estimate는 견적서+프로그램 관련 탭 묶음으로 표시.
+  const visibleTabs = useMemo((): DocTabId[] => {
+    const target = currentParams.documentTarget
+    if (!target || target === 'estimate') return ['estimate', 'program', 'timetable']
+    if (target === 'planning') return ['planning', 'estimate']
+    if (target === 'cuesheet') return ['cuesheet', 'timetable']
+    if (target === 'scenario') return ['scenario', 'cuesheet']
+    if (target === 'emceeScript') return ['emceeScript', 'scenario']
+    if (target === 'program') return ['program', 'timetable', 'estimate']
+    if (target === 'timetable') return ['timetable', 'program']
+    return ['estimate', 'program', 'timetable']
+  }, [currentParams.documentTarget])
 
   useEffect(() => {
     apiFetch<MeLite>('/api/me').then(r => { if (r) setMe(r) }).catch((err: unknown) => {
@@ -591,7 +608,7 @@ function EstimateGeneratorContent() {
                 saving={saving}
                 showTabButtons
                 disableAutoGenerate
-                visibleTabs={['estimate', 'program', 'timetable', 'planning', 'scenario', 'cuesheet', 'emceeScript']}
+                visibleTabs={visibleTabs}
                 onGenerateTab={handleGenerateTab}
                 generatingTabs={generatingTabs}
                 onExcel={(view) => exportToExcel(currentDoc, companySettings ?? undefined, view)}

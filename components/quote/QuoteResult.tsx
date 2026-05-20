@@ -25,7 +25,7 @@ function excelKindSectionClass(kind: QuoteItemKind): string {
   return 'bg-amber-50/95 text-slate-900'
 }
 
-type DocTab = 'estimate' | 'program' | 'timetable' | 'planning' | 'scenario' | 'emceeScript'
+type DocTab = 'estimate' | 'program' | 'timetable' | 'planning' | 'scenario' | 'cuesheet' | 'emceeScript'
 
 function emptyRow(): ProgramTableRow {
   return { kind: '', content: '', tone: '', image: '(이미지 슬롯)', time: '', audience: '', notes: '' }
