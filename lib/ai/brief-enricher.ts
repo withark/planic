@@ -18,6 +18,7 @@ import { callLLM } from './client'
 import { readEnvBool } from '../env'
 import type { GenerateInput } from './types'
 import { logInfo, logError } from '../utils/logger'
+import { sanitizeJsonLiteralControlChars } from './json-response'
 
 export interface EnrichedBrief {
   /** 행사의 한 줄 요약(슬로건 톤 포함). */
@@ -80,6 +81,12 @@ function safeJsonParse(raw: string): Record<string, unknown> | null {
   const first = trimmed.indexOf('{')
   const last = trimmed.lastIndexOf('}')
   if (first >= 0 && last > first) candidates.push(trimmed.slice(first, last + 1))
+  // 각 후보에 literal 제어문자 sanitize 버전도 추가
+  const rawCandidates = [...candidates]
+  for (const c of rawCandidates) {
+    const s = sanitizeJsonLiteralControlChars(c)
+    if (s !== c) candidates.push(s)
+  }
   for (const c of candidates) {
     try {
       const parsed = JSON.parse(c)
