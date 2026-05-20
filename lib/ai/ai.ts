@@ -120,7 +120,7 @@ function buildRetrySuffix(target: GenerateInput['documentTarget']): string {
   if (t === 'planning') {
     return `
 
-[재시도 지시] markdown·설명 없이 완전한 단일 JSON 객체만 출력하세요. planning.overview·checklist는 필수. 또한 제안서 품질 필수: subtitle, backgroundStats 2개, programOverviewRows 5개, actionProgramBlocks 6개 이상(각각 order·dayLabel·title·description·timeRange·participants·accent), actionPlanTable 6행 이상, expectedEffectsShortTerm·expectedEffectsLongTerm 각 3개 이상.`
+[재시도 지시] markdown·설명 없이 완전한 단일 JSON 객체만 출력하세요. planning.overview·checklist 필수. 추가 필수: subtitle, audienceAnalysis 5개+, keyDirections 5개+, facilitatorNotes 4개+, contingencyPlan 150자+, backgroundStats 2개, programOverviewRows 5개, actionProgramBlocks 6개+(description은 "■ 어떤 프로그램인가요?" 구조 200자+), actionPlanTable 6행+, expectedEffectsShortTerm·expectedEffectsLongTerm 각 3개+.`
   }
   if (t === 'cuesheet') {
     return `
@@ -1912,6 +1912,12 @@ function listQualityIssues(doc: QuoteDoc, input: GenerateInput): string[] {
     const longFx = planning?.expectedEffectsLongTerm || []
     if (shortFx.length < 3) issues.push('planning.expectedEffectsShortTerm이 3개 미만입니다.')
     if (longFx.length < 3) issues.push('planning.expectedEffectsLongTerm이 3개 미만입니다.')
+    if ((planning?.audienceAnalysis || []).length < 5) issues.push('planning.audienceAnalysis가 5개 미만입니다(대상 특성 분석).')
+    if ((planning?.keyDirections || []).length < 5) issues.push('planning.keyDirections가 5개 미만입니다(핵심 운영 방향).')
+    if ((planning?.facilitatorNotes || []).length < 4) issues.push('planning.facilitatorNotes가 4개 미만입니다(진행자 멘트 예시).')
+    if (!hasText(planning?.contingencyPlan, 100)) issues.push('planning.contingencyPlan(우천 대체 운영안)이 너무 짧거나 비어 있습니다.')
+    const weakDescriptions = blocks.filter(b => !b.description || b.description.length < 100)
+    if (weakDescriptions.length > 0) issues.push(`actionProgramBlocks ${weakDescriptions.length}개의 description이 너무 짧습니다(최소 100자).`)
     const planningFallbackCount = [
       planning?.overview,
       planning?.approach,

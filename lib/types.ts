@@ -158,6 +158,14 @@ export interface PlanningDoc {
   expectedEffectsShortTerm?: string[]
   /** 5. 기대 효과 — 장기 */
   expectedEffectsLongTerm?: string[]
+  /** 6. 대상 특성 분석 — 참가자 성향·니즈·상황 분석 bullet */
+  audienceAnalysis?: string[]
+  /** 7. 핵심 운영 방향 — ①②③④⑤ 번호 방향 */
+  keyDirections?: string[]
+  /** 8. 진행자(MC) 운영 멘트 예시 — 시점별 */
+  facilitatorNotes?: { moment: string; script: string }[]
+  /** 9. 우천/돌발 상황 대체 운영안 — 서술형 */
+  contingencyPlan?: string
 }
 
 // ─── Brief enrichment 영구 요약 (generated_docs.payload에 함께 저장) ─────────

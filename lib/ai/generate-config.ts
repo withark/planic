@@ -36,7 +36,7 @@ const DRAFT_MAX_BY_TARGET: Record<DocumentTargetForTokens, number> = {
   estimate: 8_192,
   program: 6_144,
   timetable: 7_168,
-  planning: 7_168,
+  planning: 12_000, // 기획안: 대상분석·핵심방향·진행자멘트·우천대안 추가로 용량 증가
   scenario: 8_192,
   cuesheet: 8_192,
   emceeScript: 8_192,

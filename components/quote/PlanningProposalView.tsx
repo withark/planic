@@ -3,6 +3,12 @@
 import type { PlanningDoc, PlanningActionBlock } from '@/lib/types'
 import clsx from 'clsx'
 
+function nl2br(text: string) {
+  return text.split('\n').map((line, i, arr) => (
+    <span key={i}>{line}{i < arr.length - 1 ? <br /> : null}</span>
+  ))
+}
+
 const ACCENT_BAR: Record<NonNullable<PlanningActionBlock['accent']>, string> = {
   blue: 'border-l-[8px] border-l-blue-700 bg-gradient-to-r from-blue-50/80 to-white',
   orange: 'border-l-[8px] border-l-amber-500 bg-gradient-to-r from-amber-50/80 to-white',
@@ -43,6 +49,44 @@ export default function PlanningProposalView({ eventName, planning: p, onPatch }
       </div>
 
       <div className="space-y-8 px-4 py-6 sm:px-6">
+
+        {/* 기획 의도 */}
+        {p.overview ? (
+          <section>
+            <h3 className="mb-3 border-b border-blue-200 pb-1 text-sm font-bold text-blue-800">기획 의도</h3>
+            <p className="whitespace-pre-wrap text-sm leading-relaxed text-slate-700">{p.overview}</p>
+          </section>
+        ) : null}
+
+        {/* 대상 특성 분석 */}
+        {p.audienceAnalysis && p.audienceAnalysis.length > 0 ? (
+          <section>
+            <h3 className="mb-3 border-b border-blue-200 pb-1 text-sm font-bold text-blue-800">대상 특성 분석</h3>
+            <ul className="space-y-2">
+              {p.audienceAnalysis.map((item, i) => (
+                <li key={i} className="flex gap-2 text-sm text-slate-700">
+                  <span className="mt-0.5 h-5 w-5 shrink-0 rounded-full bg-blue-100 text-center text-xs font-bold leading-5 text-blue-700">{i + 1}</span>
+                  <span>{item}</span>
+                </li>
+              ))}
+            </ul>
+          </section>
+        ) : null}
+
+        {/* 핵심 운영 방향 */}
+        {p.keyDirections && p.keyDirections.length > 0 ? (
+          <section>
+            <h3 className="mb-3 border-b border-blue-200 pb-1 text-sm font-bold text-blue-800">핵심 운영 방향</h3>
+            <ul className="space-y-2">
+              {p.keyDirections.map((dir, i) => (
+                <li key={i} className="rounded-lg border border-amber-100 bg-amber-50/60 px-4 py-2.5 text-sm text-slate-800">
+                  {dir}
+                </li>
+              ))}
+            </ul>
+          </section>
+        ) : null}
+
         {p.backgroundStats && p.backgroundStats.length > 0 ? (
           <section>
             <h3 className="mb-3 border-b border-blue-200 pb-1 text-sm font-bold text-blue-800">1. 배경 및 필요성</h3>
@@ -174,6 +218,41 @@ export default function PlanningProposalView({ eventName, planning: p, onPatch }
                   ))}
                 </ul>
               </div>
+            </div>
+          </section>
+        ) : null}
+
+        {/* 진행자 멘트 예시 */}
+        {p.facilitatorNotes && p.facilitatorNotes.length > 0 ? (
+          <section>
+            <h3 className="mb-3 border-b border-blue-200 pb-1 text-sm font-bold text-blue-800">진행자 운영 멘트 예시</h3>
+            <div className="overflow-hidden rounded-xl border border-slate-200">
+              <table className="w-full text-left text-xs sm:text-sm">
+                <thead>
+                  <tr className="bg-blue-900 text-white">
+                    <th className="px-3 py-2 font-semibold w-[28%]">시점</th>
+                    <th className="px-3 py-2 font-semibold">멘트</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {p.facilitatorNotes.map((note, i) => (
+                    <tr key={i} className={i % 2 === 0 ? 'bg-slate-50' : 'bg-white'}>
+                      <td className="border-b border-slate-200 px-3 py-2.5 font-semibold text-blue-800">{note.moment}</td>
+                      <td className="border-b border-slate-200 px-3 py-2.5 text-slate-700 italic">"{note.script}"</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          </section>
+        ) : null}
+
+        {/* 우천 / 돌발 상황 대체 운영안 */}
+        {p.contingencyPlan ? (
+          <section>
+            <h3 className="mb-3 border-b border-blue-200 pb-1 text-sm font-bold text-blue-800">우천 · 돌발 상황 대체 운영안</h3>
+            <div className="rounded-xl border border-slate-200 bg-slate-50/60 px-4 py-3">
+              <p className="whitespace-pre-wrap text-sm leading-relaxed text-slate-700">{p.contingencyPlan}</p>
             </div>
           </section>
         ) : null}

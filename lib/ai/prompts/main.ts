@@ -346,19 +346,26 @@ export function getOutputSchema(target: GenerateInput['documentTarget'], categor
 
   if (target === 'planning') {
     return `
-[출력 규칙 — 기획안(제안서 품질)]
+[출력 규칙 — 기획안(고객 제출용 워드 제안서 품질)]
 - JSON만 출력.
-- 고객 제출용 워드 제안서 수준: 표·카드·액션플랜·기대효과 2열까지 데이터로 채운다. 추상 총론만 쓰지 말 것.
-- 기존 텍스트 필드(overview~risksAndCautions)는 유지하되, 아래 구조화 필드를 반드시 함께 채운다(비우면 안 됨).
+- 목표: 참고 문서처럼 각 섹션마다 "어떤 프로그램인가요?", "왜 하나요?", "진행 흐름"이 명시되는 고밀도 제안서.
+- description 필드(actionProgramBlocks)는 반드시 아래 형식으로 작성(\\n으로 줄바꿈, 최소 200자):
+    "■ 어떤 프로그램인가요?\\n[1~2문장 설명]\\n\\n■ 왜 하나요?\\n[1~2문장 이유·목적]\\n\\n■ 진행 흐름\\n[시간대·단계별 흐름 3~5줄]\\n\\n■ 운영 방식\\n[조 편성·소재·방법 등]\\n\\n■ 준비물\\n[전지·마카·미션지 등]"
 - subtitle: 메인 타이틀 아래 한 줄 슬로건(영문+한글 혼용 가능).
 - backgroundStats: 2개. value는 수치·비율(예 "73%"), label은 한 줄 요약, detail은 근거·출처 힌트.
 - programOverviewRows: 5행. label은 목표/기간/대상/장소/예산 중 고정. value·detail에 구체 수치·일정·인원·장소명·금액대.
-- actionProgramBlocks: 최소 6개. DAY1·DAY2 등 dayLabel로 구분. title·description은 실행 가능한 액션(준비물·진행법·산출물 포함).
+- actionProgramBlocks: 최소 6개. dayLabel로 구분. title·description은 실행 가능한 액션(준비물·진행법·산출물 포함).
   order는 01부터 연번. timeRange는 "14:00-15:30 (90분)" 형태. participants는 "전체 참가자" 등.
   accent는 "blue"|"orange"|"green"|"yellow"|"slate"를 카드마다 번갈아 사용.
 - actionPlanTable: 최소 6행. step은 "1단계" 형태, timing은 D-60·D-45·D-Day·D+7 등, content는 구체 업무, owner는 담당(팀명).
 - expectedEffectsShortTerm·expectedEffectsLongTerm: 각 3개 이상 bullet 문장(단기·장기).
-- overview: 배경·필요성 서술(위 카드와 중복되되 문장으로 풀어씀). scope/approach/operationPlan 등 기존 규칙 유지.
+- overview: 기획 의도 서술 — 단순 배경 나열이 아니라 "왜 이렇게 설계했는가"를 3~5문장으로 풀어씀.
+- approach: 핵심 운영 철학 2~4문장.
+- operationPlan: 시간축 운영 요약(본문) — 오전/오후/저녁 흐름 포함.
+- audienceAnalysis: 5개 이상 bullet. 참가자 성향·니즈·현재 상황·어떤 경험에 반응하는지 구체적으로 분석.
+- keyDirections: 5개 이상 ①②③④⑤ 핵심 운영 방향. "① 무엇을 하지 않는가" + "어떻게 대신 할 것인가" 쌍으로.
+- facilitatorNotes: 4개 이상. moment는 "오프닝·미션 시작 전·점심 전·오후 시작" 등, script는 실제 진행자가 읽을 수 있는 구어체 멘트(1~2문장).
+- contingencyPlan: 우천·돌발 상황 시 대체 운영안. 실내 대체 프로그램 전체 흐름을 오전/오후로 나눠 구체적으로 서술(최소 150자).
 - checklist: 8개 이상 실행 체크 항목.
 ${category === 'sports' ? '- 체육대회: 종목·안전·날씨·심판 반영.' : ''}
 
@@ -368,20 +375,24 @@ ${category === 'sports' ? '- 체육대회: 종목·안전·날씨·심판 반영
   "program":{"concept":"","programRows":[],"timeline":[],"staffing":[],"tips":[],"cueRows":[],"cueSummary":""},
   "planning":{
     "subtitle":"슬로건 한 줄",
-    "overview":"배경·필요성·기대효과 서술",
+    "overview":"기획 의도 — 왜 이렇게 설계했는가 3~5문장",
     "scope":"사전·현장·사후 범위",
-    "approach":"운영 철학·방법",
-    "operationPlan":"시간축 운영 요약(본문)",
+    "approach":"운영 철학·방법 2~4문장",
+    "operationPlan":"시간축 운영 요약(오전/오후 흐름)",
     "deliverablesPlan":"산출물·제출 시점",
     "staffingConditions":"역할·인원",
     "risksAndCautions":"리스크+대응",
-    "checklist":["8개 이상"],
+    "checklist":["8개 이상 실행 체크 항목"],
+    "audienceAnalysis":["참가자 성향 분석 1","성향 분석 2","니즈·기대 분석","현재 상황","어떤 경험에 반응하는지"],
+    "keyDirections":["① 단순 관광이 아닌 — [대안 설명]","② [운영 방향]","③ [연결 구조]","④ [자율성 확보 방법]","⑤ [몰입도 확보 방법]"],
+    "facilitatorNotes":[{"moment":"오프닝","script":"구어체 멘트"},{"moment":"미션 시작 전","script":"구어체 멘트"},{"moment":"오후 교육 시작","script":"구어체 멘트"},{"moment":"마무리","script":"구어체 멘트"}],
+    "contingencyPlan":"우천 시 실내 대체 프로그램 전체 흐름 — 오전/오후 나눠 구체 서술",
     "backgroundStats":[{"value":"73%","label":"요약","detail":"근거 힌트"}],
     "programOverviewRows":[{"label":"목표","value":"","detail":""},{"label":"기간","value":"","detail":""},{"label":"대상","value":"","detail":""},{"label":"장소","value":"","detail":""},{"label":"예산","value":"","detail":""}],
-    "actionProgramBlocks":[{"order":1,"dayLabel":"DAY 1 — 부제","title":"액션 제목","description":"2~4문장 실행 설명","timeRange":"HH:mm-HH:mm (N분)","participants":"대상","accent":"blue"}],
+    "actionProgramBlocks":[{"order":1,"dayLabel":"구간명 — 부제","title":"프로그램 제목","description":"■ 어떤 프로그램인가요?\\n[설명]\\n\\n■ 왜 하나요?\\n[이유]\\n\\n■ 진행 흐름\\n[단계별]\\n\\n■ 운영 방식\\n[방법]\\n\\n■ 준비물\\n[목록]","timeRange":"HH:mm-HH:mm (N분)","participants":"대상","accent":"blue"}],
     "actionPlanTable":[{"step":"1단계","timing":"D-60","content":"구체 업무","owner":"담당팀"}],
-    "expectedEffectsShortTerm":["단기 효과1"],
-    "expectedEffectsLongTerm":["장기 효과1"]
+    "expectedEffectsShortTerm":["단기 효과1","단기 효과2","단기 효과3"],
+    "expectedEffectsLongTerm":["장기 효과1","장기 효과2","장기 효과3"]
   }
 }`
   }
@@ -745,11 +756,15 @@ export function buildDocumentExcellenceGuide(target: GenerateInput['documentTarg
 - "원활하게", "효과적으로" 같은 추상 부사만 쓰지 말고 무엇을 어떻게 운영하는지 적습니다.`
     case 'planning':
       return `
-[문서 완성도 기준 — 기획안]
-- overview/scope/approach는 서로 다른 내용을 써야 합니다. 같은 말을 반복하지 마세요.
-- 운영 계획은 시간축, 역할, 산출물, 리스크 대응이 모두 보이게 작성합니다.
-- 내부 검토 문서이면서 동시에 클라이언트 공유용 문서처럼 읽히게 씁니다.
-- 추상적인 총론보다 의사결정 포인트, 승인 포인트, 실행 기준을 직접 적습니다.`
+[문서 완성도 기준 — 기획안(고객 제출용 워드 제안서 품질)]
+- overview는 "왜 이렇게 설계했는가"를 3~5문장으로 — 단순 배경 나열 금지.
+- audienceAnalysis: 참가자가 어떤 사람들인지, 무엇에 반응하는지, 어떤 경험을 원하는지 5개 이상 구체 분석.
+- keyDirections: ①~⑤ 형식으로 "하지 않는 것 + 대신 하는 것" 쌍으로 핵심 운영 방향 5개 이상.
+- actionProgramBlocks.description: 반드시 "■ 어떤 프로그램인가요?" + "■ 왜 하나요?" + "■ 진행 흐름" + "■ 운영 방식" + "■ 준비물" 구조로 200자 이상. \\n으로 줄바꿈.
+- facilitatorNotes: 오프닝·미션 시작·점심·오후 교육 시작 등 시점별 실제 구어체 멘트 4개 이상.
+- contingencyPlan: 우천·돌발 시 오전/오후 대체 프로그램 전체 흐름 150자 이상 구체 서술.
+- 모든 필드에서 "원활하게", "효과적으로", "적절히" 같은 추상 부사만 쓰는 문장 금지.
+- 고객이 바로 클라이언트에게 전달할 수 있는 문서 품질.`
     case 'scenario':
       return `
 [문서 완성도 기준 — 시나리오]
@@ -787,7 +802,9 @@ export function buildSelfCheckGuide(target: GenerateInput['documentTarget']): st
   } else if (target === 'cuesheet') {
     common.push('- cueRows 각 행에 time/content/staff/prep/script/special이 모두 채워졌는지 확인합니다.')
   } else if (target === 'planning') {
-    common.push('- planning 각 섹션이 서로 다른 정보와 결정 포인트를 담는지 확인합니다.')
+    common.push('- planning.actionProgramBlocks의 description이 "■ 어떤 프로그램인가요?" 구조로 200자 이상인지 확인합니다.')
+    common.push('- audienceAnalysis 5개, keyDirections 5개, facilitatorNotes 4개, contingencyPlan이 채워졌는지 확인합니다.')
+    common.push('- planning 각 섹션이 서로 다른 정보와 결정 포인트를 담는지, 추상어만 나열하지 않았는지 확인합니다.')
   }
   return common.join('\n')
 }
