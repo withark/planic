@@ -2324,6 +2324,7 @@ export async function generateQuoteWithMeta(input: GenerateInput): Promise<{ doc
   const stageBrief = buildStageBrief(input)
   const stageStructurePlan = buildStageStructurePlan(input, stageBrief)
   const generationProfile = input.generationProfile ?? 'realtime'
+  const isPlanningTarget = (input.documentTarget ?? 'estimate') === 'planning'
   const stagedInput: GenerateInput = {
     ...input,
     stageBrief,
@@ -2376,7 +2377,9 @@ export async function generateQuoteWithMeta(input: GenerateInput): Promise<{ doc
 
   async function runOnce(extra = '', kind: 'primary' | 'retry'): Promise<string> {
     try {
-      const draftTimeoutMs = generationProfile === 'realtime' ? 60_000 : 90_000
+      const draftTimeoutMs = isPlanningTarget
+        ? 180_000
+        : generationProfile === 'realtime' ? 60_000 : 90_000
       const { text, usage, latencyMs } = await callLLMWithUsage(prompt + extra, {
         maxTokens: resolveDraftMaxOut(),
         timeoutMs: draftTimeoutMs,
@@ -2566,7 +2569,9 @@ export async function generateQuoteWithMeta(input: GenerateInput): Promise<{ doc
           focus,
         })
         try {
-          const repairTimeoutMs = generationProfile === 'realtime' ? 45_000 : 90_000
+          const repairTimeoutMs = isPlanningTarget
+            ? 150_000
+            : generationProfile === 'realtime' ? 45_000 : 90_000
           const { text: refinedText, usage: repairU, latencyMs: repairMs } = await callLLMWithUsage(repairPrompt, {
             maxTokens: repairMax,
             timeoutMs: repairTimeoutMs,
