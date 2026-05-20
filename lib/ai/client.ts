@@ -29,6 +29,8 @@ export interface CallLLMOptions {
   engine?: EffectiveEngineConfig
   /** draft_primary | draft_retry | document_refine | quality_repair 등 — 로그·메타용 */
   pipelineStage?: string
+  /** true이면 OpenAI response_format: json_object 강제 — 프롬프트에 JSON 언급이 있어야 함 */
+  jsonMode?: boolean
 }
 
 const DEFAULT_SYSTEM_PROMPT = [
@@ -196,6 +198,11 @@ export async function callLLMWithUsage(
   try {
     if (provider === 'openai') {
       const client = getOpenAIClient()
+      // draft/repair 파이프라인 단계는 JSON 출력이 보장되어야 하므로 response_format 강제.
+      // 프롬프트에 "JSON" 언급이 없으면 OpenAI가 에러를 냄 — DEFAULT_SYSTEM_PROMPT에 이미 포함.
+      const jsonStagePrefixes = ['draft_', 'quality_repair', 'document_refine']
+      const isJsonStage = opts.jsonMode ||
+        (opts.pipelineStage != null && jsonStagePrefixes.some(p => opts.pipelineStage!.startsWith(p)))
       const res = await client.chat.completions.create(
         {
           model: model as string,
@@ -204,6 +211,7 @@ export async function callLLMWithUsage(
             { role: 'system', content: systemPrompt },
             { role: 'user', content: prompt },
           ],
+          ...(isJsonStage ? { response_format: { type: 'json_object' as const } } : {}),
         },
         llmReqOpts,
       )

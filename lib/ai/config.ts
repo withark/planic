@@ -6,7 +6,7 @@ import { getEnv, readEnvBool, type AppEnv } from '@/lib/env'
 import type { PlanType } from '@/lib/plans'
 
 /** Stage 1 기본 draft 모델 */
-export const DEFAULT_OPENAI_STRUCT_MODEL = 'gpt-4.1-mini'
+export const DEFAULT_OPENAI_STRUCT_MODEL = 'gpt-4o-mini'
 /** 기본 생성 모델: Claude Sonnet 4.6 */
 export const DEFAULT_ANTHROPIC_FINAL_MODEL = 'claude-sonnet-4-6'
 /** 프리미엄 생성 모델: Claude Opus 4.7 */
