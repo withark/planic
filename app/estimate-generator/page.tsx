@@ -299,14 +299,14 @@ function EstimateGeneratorContent() {
   // estimate는 견적서+프로그램 관련 탭 묶음으로 표시.
   const visibleTabs = useMemo((): DocTabId[] => {
     const target = currentParams.documentTarget
-    if (!target || target === 'estimate') return ['estimate', 'program', 'timetable']
-    if (target === 'planning') return ['planning', 'estimate']
+    if (target === 'estimate') return ['estimate', 'program', 'timetable']
     if (target === 'cuesheet') return ['cuesheet', 'timetable']
     if (target === 'scenario') return ['scenario', 'cuesheet']
     if (target === 'emceeScript') return ['emceeScript', 'scenario']
     if (target === 'program') return ['program', 'timetable', 'estimate']
     if (target === 'timetable') return ['timetable', 'program']
-    return ['estimate', 'program', 'timetable']
+    // planning이 기본 — 제안서·기획안·미설정 모두 여기로
+    return ['planning', 'estimate']
   }, [currentParams.documentTarget])
 
   useEffect(() => {
