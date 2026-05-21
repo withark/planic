@@ -109,6 +109,25 @@ function GeneratingDots({ stage }: { stage?: string }) {
 
 // ─── Message Bubble ───────────────────────────────────────────────────────────
 
+// 마크다운 [text](href) 링크를 <a>로 변환해 렌더링
+function MessageContent({ text }: { text: string }) {
+  const parts: React.ReactNode[] = []
+  const linkRe = /\[([^\]]+)\]\(([^)]+)\)/g
+  let last = 0
+  let m: RegExpExecArray | null
+  while ((m = linkRe.exec(text)) !== null) {
+    if (m.index > last) parts.push(<span key={last}>{text.slice(last, m.index)}</span>)
+    parts.push(
+      <a key={m.index} href={m[2]}
+        className="underline font-semibold text-violet-600 hover:text-violet-800"
+      >{m[1]}</a>
+    )
+    last = m.index + m[0].length
+  }
+  if (last < text.length) parts.push(<span key={last}>{text.slice(last)}</span>)
+  return <span style={{ whiteSpace: 'pre-wrap' }}>{parts}</span>
+}
+
 function MessageBubble({ msg }: { msg: ChatMessage }) {
   const isUser = msg.role === 'user'
   return (
@@ -133,7 +152,7 @@ function MessageBubble({ msg }: { msg: ChatMessage }) {
       >
         {msg.isGenerating
           ? <GeneratingDots stage={msg.stage} />
-          : <span style={{ whiteSpace: 'pre-wrap' }}>{msg.content}</span>
+          : <MessageContent text={msg.content} />
         }
       </div>
       {isUser && (
@@ -513,12 +532,23 @@ function EstimateGeneratorContent() {
 
       const isModify = intent.action === 'modify'
       const intentParams = intent.params ?? {}
-      const params = isModify
+      const merged = isModify
         ? { ...currentParams, ...intentParams }
         : { requirements: text, ...intentParams }
 
+      // 기획 제안서 요청 → 전용 페이지로 안내
+      if ((merged.documentTarget ?? currentParams.documentTarget) === 'planning') {
+        updateMessage(assistantId, {
+          isGenerating: false,
+          content: '기획 제안서는 전용 페이지에서 더 잘 만들어 드릴 수 있어요.\n\n👉 [기획 제안서 페이지로 이동](/planning-generator)',
+          stage: undefined,
+        })
+        setIsGenerating(false)
+        return
+      }
+
       updateMessage(assistantId, { content: '문서 작성 중...', stage: 'draft' })
-      await runGenerate(params, assistantId, isModify)
+      await runGenerate(merged, assistantId, isModify)
     } catch (err) {
       updateMessage(assistantId, {
         isGenerating: false, isError: true,

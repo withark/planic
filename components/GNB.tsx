@@ -38,6 +38,17 @@ const NAVS: NavItem[] = [
     ),
   },
   {
+    href: '/estimate-generator',
+    text: '견적·큐시트',
+    matchPrefixes: ['/estimate-generator'],
+    icon: ({ className }) => (
+      <svg viewBox="0 0 24 24" fill="none" className={className} aria-hidden>
+        <path d="M9 7H7a2 2 0 0 0-2 2v10a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2v-2" stroke="currentColor" strokeWidth="1.8" strokeLinejoin="round" />
+        <path d="M9 15h3l8.5-8.5a1.5 1.5 0 0 0-3-3L9 12v3Z" stroke="currentColor" strokeWidth="1.8" strokeLinejoin="round" />
+      </svg>
+    ),
+  },
+  {
     href: '/history',
     text: '작업 이력',
     icon: ({ className }) => (
